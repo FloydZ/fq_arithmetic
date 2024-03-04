@@ -1,0 +1,31 @@
+name: test
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+          # TODO currently not working. The CI does not find omp? Probably need 
+          # to install the correct omp version for the correct compiler
+          # compiler: [ g++-10, clang++-11, clang++-12, clang++-13, clang++-14, clang++-15]
+        build_type: [Release, Debug]
+
+    name: Build & test on ${{ matrix.os }} with ${{ matrix.compiler }} in ${{ matrix.build_type }} mode.
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{matrix.build_type}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C Debug -V

@@ -1,0 +1,11 @@
+SUBDIRLIST(SUBDIRS ${CMAKE_CURRENT_SOURCE_DIR})
+
+FOREACH(subdir ${SUBDIRS})
+	message(${subdir})
+	set(filename "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/arith.c")
+	message(${filename})
+    add_executable(arith_${subdir} ${filename})
+    target_compile_options(arith_${subdir} PUBLIC ${COMPILE_FLAGS})
+    target_link_libraries(arith_${subdir} ${LINK_FLAGS})
+	add_test(AllTests arith_${subdir})
+ENDFOREACH()
