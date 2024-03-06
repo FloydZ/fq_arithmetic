@@ -50,6 +50,7 @@ const uint8_t mult_table[256] = {
 ///
 ///
 #ifdef USE_AVX2
+#include <immintrin.h>
 __m256i gf16_mult_avx_compressed_2(const __m256i a, const __m256i b) {
     const __m256i mask_lvl2 = _mm256_load_si256((__m256i const *) (__gf16_mulbase +   32));
     const __m256i mask_lvl3 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*2));

@@ -3,7 +3,6 @@ project(fq_arithmetic LANGUAGES C CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# 
 set(default_build_type "Release")
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -33,7 +32,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/FloydZ/cmake_optimize_for_architecture
   GIT_TAG     	 704bd3e39fabf5533ac00f4cab41281fd15fedbc
 )
-FetchContent_MakeAvailable(cmake_optimize_for_architecture)
+#FetchContent_MakeAvailable(cmake_optimize_for_architecture)
 set(AVX2_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -march=native")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 ${AVX2_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX2_FLAGS}")
