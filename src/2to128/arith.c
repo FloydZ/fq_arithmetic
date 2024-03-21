@@ -6,6 +6,7 @@
 /// up to 64 bits or coordinates mod 2.
 
 typedef __uint128_t eff_t;
+
 // using irreducible polynomial x^128+x^7+x^2+x+1
 // We need only the last word
 const uint64_t irredPentanomial = (1u<<7) | (1u<<2) | (1u<<1) | 1u;

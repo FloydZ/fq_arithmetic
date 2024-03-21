@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include <assert.h>
+#include <immintrin.h>
 
 /// transforms 4 input registers into their bitsliced version written into out
 /// Pictures are for a `uint16_t`
@@ -14,36 +17,36 @@
 /// clobbert: out0-3 and tmp. in0-3 remain untouched
 /// NOTE: inputs can be `uint8_t`...`uint64_t`
 #define gf16v_bitslice(out0, out1, out2, out3, in0, in1, in2, in3, tmp) \
-	out0 = in0 & 0x11111111; \
-	out3 = in1 & 0x11111111; \
-	out0 = out0 | (out3<<1u);\
-	out3 = in2 & 0x11111111; \
-	out0 = out0 | (out3<<2u);\
-	out3 = in3 & 0x11111111; \
-	out0 = out0 | (out3<<3u);\
-							 \
-	out1 = in1 & 0x22222222; \
-	out3 = in0 & 0x22222222; \
-	out1 = out1 | (out3>>1u);\
-	out3 = in2 & 0x22222222; \
-	out1 = out1 | (out3<<1u);\
-	out3 = in3 & 0x22222222; \
-	out1 = out1 | (out3<<2u);\
-							 \
-	out2 = in2 & 0x44444444; \
-	out3 = in0 & 0x44444444; \
-	out2 = out2 | (out3>>2u);\
-	out3 = in1 & 0x44444444; \
-	out2 = out2 | (out3>>1u);\
-	out3 = in3 & 0x44444444; \
-	out2 = out2 | (out3<<1u);\
-							 \
-	out3 = in3 & 0x88888888; \
-	tmp  = in0 & 0x88888888; \
-	out3 = out3 | (tmp>>3u); \
-	tmp  = in1 & 0x88888888; \
-	out3 = out3 | (tmp>>2u); \
-	tmp  = in2 & 0x88888888; \
+	out0 = in0 & 0x1111111111111111; \
+	out3 = in1 & 0x1111111111111111; \
+	out0 = out0 | (out3<<1u);		 \
+	out3 = in2 & 0x1111111111111111; \
+	out0 = out0 | (out3<<2u);		 \
+	out3 = in3 & 0x1111111111111111; \
+	out0 = out0 | (out3<<3u);		 \
+							 		 \
+	out1 = in1 & 0x2222222222222222; \
+	out3 = in0 & 0x2222222222222222; \
+	out1 = out1 | (out3>>1u);	 	 \
+	out3 = in2 & 0x2222222222222222; \
+	out1 = out1 | (out3<<1u);		 \
+	out3 = in3 & 0x2222222222222222; \
+	out1 = out1 | (out3<<2u);		 \
+							 		 \
+	out2 = in2 & 0x4444444444444444; \
+	out3 = in0 & 0x4444444444444444; \
+	out2 = out2 | (out3>>2u);		 \
+	out3 = in1 & 0x4444444444444444; \
+	out2 = out2 | (out3>>1u);		 \
+	out3 = in3 & 0x4444444444444444; \
+	out2 = out2 | (out3<<1u);		 \
+							 		 \
+	out3 = in3 & 0x8888888888888888; \
+	tmp  = in0 & 0x8888888888888888; \
+	out3 = out3 | (tmp>>3u); 		 \
+	tmp  = in1 & 0x8888888888888888; \
+	out3 = out3 | (tmp>>2u); 		 \
+	tmp  = in2 & 0x8888888888888888; \
 	out3 = out3 | (tmp>>1u);
 
 
@@ -242,7 +245,6 @@ void unbitslice_row(uint8_t *A,
         set_entry(A, nr_rows, row, i, e);
     }
 }
-
 
 /// bitslices a full matrix row wise
 /// \param out      output must be at least 16*4*2 bytes
