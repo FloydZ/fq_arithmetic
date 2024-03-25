@@ -1,4 +1,5 @@
 a.out
 *.dnf
+*.cnf
 *.dnf.min
 *.pla

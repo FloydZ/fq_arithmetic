@@ -83,17 +83,53 @@ int main() {
 	// 	}
 	// }
 
-	// print  espresso PLA
-	printf(".i 8\n.o 4\n");
+	// print cnf
+	//printf("c 8\n");
+	printf("p cnf 8 0\n");
 	for (eff_t a = 0; a < (1u<<4u); a++) {
 		for (eff_t b = 0; b < (1u<<4u); b++) {
-			const eff_t c  =mul(a, b);
-			printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(a));
-			printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(b));
-			printf(" ");
-			printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(c));
+			//if ((mul(a, b)&1u) == 0){ 
+			//	printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(a));
+			//	printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(b));
+			//	printf("\n");
+			//}
 
-			printf("\n");
+			if ((mul(a, b)&1u) == 0){ 
+				for (uint32_t i = 0; i < 4; i++) {
+					const uint32_t d = (a >> i) & 1u;
+					if (d) {
+						printf("%d ", i+1);
+					} else {
+						printf("-%d ", i+1);
+					}
+				}
+
+				for (uint32_t i = 0; i < 4; i++) {
+					const uint32_t d = (b >> i) & 1u;
+					if (d) {
+						printf("%d ", i+5);
+					} else {
+						printf("-%d ", i+5);
+					}
+				}
+
+				printf("0 \n");
+			}
 		}
 	}
+
+	// print  espresso PLA
+	// printf(".i 8\n.o 1\n");
+	// for (eff_t a = 0; a < (1u<<4u); a++) {
+	// 	for (eff_t b = 0; b < (1u<<4u); b++) {
+	// 		const eff_t c  = mul(a, b) & 1u;
+	// 		printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(a));
+	// 		printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(b));
+	// 		printf(" ");
+	// 		// printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(c));
+	// 		printf("%c", c ? '1' : '0');
+
+	// 		printf("\n");
+	// 	}
+	// }
 }
