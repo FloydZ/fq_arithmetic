@@ -1,7 +1,10 @@
 #include <stdint.h>
+#include <assert.h>
+#include <stdio.h>
+#include "../helper.h"
+
 /// Representation: two F16 elements are stored in a single `uint8_t`
 // 	gf16 := gf2[x]/ (x^4+x+1)
-
 typedef uint8_t ff_t;
 
 /// M[i, j] = 16**i * j mod 16 for i = row, j = column
@@ -61,13 +64,33 @@ uint8_t inv(const uint8_t a) {
 uint8_t add(const uint8_t a, const uint8_t b) { 
 	return a ^ b;
 }
+
+/// the same as add: char = 2 = best char
 uint8_t sub(const uint8_t a, const uint8_t b) {
 	return a ^ b;
 }
+
+uint64_t sqr(uint64_t a) {
+    uint64_t a01 = (      a&0x1111111111111111ULL) + ((a<<1)&0x4444444444444444ULL);
+    uint64_t a23 = (((a>>2)&0x1111111111111111ULL) + ((a>>1)&0x4444444444444444ULL))*3;
+    return a01^a23;
+}
+
+
+/// simple non vectorized sqr
+uint8_t sqr2(const uint8_t a) {
+    uint8_t r4 = a&1;    // constant term
+    r4 ^= (a<<1)&4;      // x -> x^2
+    r4 ^= ((a>>2)&1)*3;  // x^2 -> x^4 -> x+1
+    r4 ^= ((a>>3)&1)*12; // x^3 -> x^6 -> x^3+x^2
+    return r4;
+}
+
 uint8_t mul(const uint8_t a, const uint8_t b) { 
 	return mult_table[(a&0xffff)*16 + (b&0xffff)] ^
 		   (mult_table[(a >> 4)*16   + (b >> 4u)] << 4);
 }
+
 uint8_t addmul(const uint8_t a, const uint8_t b, const uint8_t c) { 
 	return a^mul(b, c);
 }
@@ -82,9 +105,121 @@ uint8_t mul2(const uint8_t a, const uint8_t b) {
 	return tmp1 ^ tmp2 ^ tmp3 ^ tmp4;
 }
 
+uint8_t mul_lookup(const uint8_t a, const uint8_t b) {
+    return mult_table[a * 16 + b];
+}
+
 #ifdef USE_AVX2
 #include <immintrin.h>
+typedef struct __xmm_x2 { __m128i v0; __m128i v1; } xmmx2_t;
 
+/// horizontal xor, but not withing a single limb, but over the 8 -32bit limbs
+/// \param in
+/// \return
+__m256i gf16_hadd_avx2_32(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return ret;
+}
+
+/// vectorized squaring of 64 values at once.
+__m256i sqr_simd(const __m256i a) {
+    const __m256i mask1 = _mm256_set1_epi8(0x11);
+    const __m256i mask4 = _mm256_set1_epi8(0x44);
+    const __m256i three = _mm256_set1_epi64x(0x3);
+
+    const __m256i a01 = (a&mask1) + (_mm256_slli_epi64(a, 1) &mask4);
+    const __m256i a23 = (_mm256_srli_epi64(a, 2)&mask1) + (_mm256_srli_epi64(a, 1) &mask4);
+    const __m256i a02 = _mm256_mullo_epi16(a23, three);
+    const __m256i ret = a01 ^ a02;
+    return ret;
+}
+
+/// special multiplication by `x`
+__m256i mulx_simd(const __m256i a) {
+    const __m256i mask = _mm256_set1_epi8(0x0f);
+    const __m256i zero = _mm256_set1_epi8(0x00);
+    const __m256i xp1  = _mm256_set1_epi8(0x03);  // x + 1 
+	__m256i h1 = _mm256_srli_epi16(a, 4);
+	__m256i l1 = a & mask;
+
+	// times x 
+	h1 = _mm256_slli_epi16(h1, 1);
+	l1 = _mm256_slli_epi16(l1, 1);
+
+	const __m256i selector_h = _mm256_slli_epi16(h1, 2);
+	const __m256i selector_l = _mm256_slli_epi16(l1, 2);
+
+	const __m256i add_h = _mm256_blendv_epi8(zero, xp1, selector_h);
+	const __m256i add_l = _mm256_blendv_epi8(zero, xp1, selector_l);
+
+	h1 = h1^add_h;
+	l1 = l1^add_l;
+
+	return l1 ^ (_mm256_slli_epi16(h1, 4));
+}
+
+/// computes a^31, a^30, ..., a^1
+inline __m256i powers(const ff_t a) {
+	ff_t tmp[32];
+	tmp[0] = a;
+	for (uint32_t i = 1; i < 32; i++) {
+		tmp[i] = mul_lookup(a, tmp[i - 1]);
+	}
+
+	const __m256i ret = _mm256_load_si256((__m256i *)tmp);
+	return ret;
+}
+
+/// Full multiplication
+/// NOTE: assumes that in every byte the two nibbles are the same in b
+/// \return a*b \in \F_16 for all 64 nibbles in the
+inline __m128i mul_simd128(const __m128i a, const __m128i b) {
+    const __m128i mask_lvl2 = _mm_load_si128((__m128i const *) (__gf16_mulbase +   32));
+    const __m128i mask_lvl3 = _mm_load_si128((__m128i const *) (__gf16_mulbase + 32*2));
+    const __m128i mask_lvl4 = _mm_load_si128((__m128i const *) (__gf16_mulbase + 32*3));
+    const __m128i zero = _mm_setzero_si128();
+
+    __m128i low_lookup = b;
+    __m128i high_lookup = _mm_slli_epi16(low_lookup, 4);
+    __m128i tmp1l = _mm_slli_epi16(a, 7);
+    __m128i tmp2h = _mm_slli_epi16(a, 3);
+    __m128i tmp_mul_0_1 = _mm_blendv_epi8(zero, low_lookup , tmp1l);
+    __m128i tmp_mul_0_2 = _mm_blendv_epi8(zero, high_lookup, tmp2h);
+    __m128i tmp = _mm_xor_si128(tmp_mul_0_1, tmp_mul_0_2);
+    __m128i tmp1;
+
+    /// 1
+    low_lookup = _mm_shuffle_epi8(mask_lvl2, b);
+    high_lookup = _mm_slli_epi16(low_lookup, 4);
+    tmp1l = _mm_slli_epi16(a, 6);
+    tmp2h = _mm_slli_epi16(a, 2);
+    tmp_mul_0_1 = _mm_blendv_epi8(zero, low_lookup , tmp1l);
+    tmp_mul_0_2 = _mm_blendv_epi8(zero, high_lookup, tmp2h);
+    tmp1 = _mm_xor_si128(tmp_mul_0_1, tmp_mul_0_2);
+    tmp  = _mm_xor_si128(tmp, tmp1);
+
+    /// 2
+    low_lookup = _mm_shuffle_epi8(mask_lvl3, b);
+    high_lookup = _mm_slli_epi16(low_lookup, 4);
+    tmp1l = _mm_slli_epi16(a, 5);
+    tmp2h = _mm_slli_epi16(a, 1);
+    tmp_mul_0_1 = _mm_blendv_epi8(zero, low_lookup , tmp1l);
+    tmp_mul_0_2 = _mm_blendv_epi8(zero, high_lookup, tmp2h);
+    tmp1 = _mm_xor_si128(tmp_mul_0_1, tmp_mul_0_2);
+    tmp  = _mm_xor_si128(tmp, tmp1);
+
+    /// 3
+    low_lookup = _mm_shuffle_epi8(mask_lvl4, b);
+    high_lookup = _mm_slli_epi16(low_lookup, 4);
+    tmp1l = _mm_slli_epi16(a, 4);
+    tmp_mul_0_1 = _mm_blendv_epi8(zero, low_lookup , tmp1l);
+    tmp_mul_0_2 = _mm_blendv_epi8(zero, high_lookup, a );
+    tmp1 = _mm_xor_si128(tmp_mul_0_1, tmp_mul_0_2);
+    tmp  = _mm_xor_si128(tmp, tmp1);
+    return tmp;
+}
 
 /// Full multiplication
 /// NOTE: assumes that in every byte the two nibbles are the same in b
@@ -134,11 +269,14 @@ __m256i mul_simd(const __m256i a, const __m256i b) {
     tmp  = _mm256_xor_si256(tmp, tmp1);
     return tmp;
 }
-//// Caution: multabs are different from ssse3 version
-//// ssse3:  [multab_low] [ multab_high ]
-////         <-   16  ->  <-    16     ->
-//// avx2:   [         multab_low       ]
-////         <---        32          --->
+
+/// SRC: https://github.com/pqov/pqov-paper/blob/main/src/avx2/gf16_avx2.h
+/// Caution: multabs are different from ssse3 version
+/// ssse3:  [multab_low] [ multab_high ]
+///         <-   16  ->  <-    16     ->
+/// avx2:   [         multab_low       ]
+///         <---        32          --->
+/// NOTE: if you have the choice use `mult_simd` its faster.
 void gf16v_generate_multab_16_avx2(__m256i *multabs,
 									__m128i a,
 									unsigned len ) {
@@ -169,7 +307,7 @@ void gf16v_generate_multab_16_avx2(__m256i *multabs,
     }
 }
 
-// 
+///  TODO use `mult_simd`
 void mat_simd_16x16(uint8_t *c, 
 					const uint8_t *matA,
 					const __m256i * multab_b){
@@ -217,17 +355,45 @@ void mat_simd_16x16(uint8_t *c,
 
     uint8_t temp[16] __attribute__((aligned(16)));
     _mm_store_si128( (__m128i*)temp , rr2 );
-    for(int i=0;i<8;i++) c[i] = temp[i];
+    for(uint32_t i = 0; i < 8; i++) {
+        c[i] = temp[i];
+    }
+}
+// input a:          0x12 0x34 0x56 0x78 ......
+// output x_align:   0x02 0x01 0x04 0x03 0x06 0x05 .........
+static inline
+void gf16v_split_16to32_sse(__m128i *x_align, __m128i a) {
+    __m128i mask_f = _mm_set1_epi8(0xf);
+    __m128i al = a&mask_f;
+    __m128i ah = _mm_srli_epi16( a,4 )&mask_f;
+
+    __m128i a0 = _mm_unpacklo_epi8( al , ah );
+    __m128i a1 = _mm_unpackhi_epi8( al , ah );
+
+    _mm_store_si128( x_align , a0 );
+    _mm_store_si128( x_align + 1 , a1 );
 }
 
-static void gf16mat_prod_16x16_avx2( uint8_t * c , const uint8_t * matA , const uint8_t * b )
-{
+static inline
+xmmx2_t gf16v_split_16to32_sse2( __m128i a) {
+    __m128i mask_f = _mm_set1_epi8(0xf);
+    __m128i al = a & mask_f;
+    __m128i ah = _mm_srli_epi16(a, 4) & mask_f;
+    xmmx2_t r;
+    r.v0 = _mm_unpacklo_epi8(al, ah);
+    r.v1 = _mm_unpackhi_epi8(al, ah);
+    return r;
+}
+
+/// src:
+/// c = a * b;
+static void gf16mat_prod_16x16_avx2( uint8_t * c , const uint8_t * matA , const uint8_t * b ) {
     __m256i multabs[16];
     uint8_t temp[16] __attribute__((aligned(16)));
-    for(int i=0;i<8;i++) temp[i]=b[i];
+    for(uint32_t i=0;i<8;i++) { temp[i]=b[i]; }
     __m128i x0 = _mm_load_si128((const __m128i*)temp);
     xmmx2_t xx = gf16v_split_16to32_sse2( x0 );
-    gf16v_generate_multab_16_avx2( multabs    , xx.v0 , 16 );
+    gf16v_generate_multab_16_avx2(multabs , xx.v0 , 16 );
     mat_simd_16x16(c, matA, multabs);
 }
 
@@ -280,12 +446,12 @@ void gf16mat_prod_16x16_avx2_wrapper_v2(uint8_t *__restrict c,
         const __m256i B2 = _mm256_blend_epi32(B21, B22, 0xaa);
 
 
-        acc = gf16_mult_avx_compressed_2(Al1, B1);
-        tmp = gf16_mult_avx_compressed_2(Al2, B2);
+        acc = mul_simd(Al1, B1);
+        tmp = mul_simd(Al2, B2);
         __m256i tmp1 = _mm256_xor_si256(acc, tmp);
 
-        acc = gf16_mult_avx_compressed_2(Ah1, B1);
-        tmp = gf16_mult_avx_compressed_2(Ah2, B2);
+        acc = mul_simd(Ah1, B1);
+        tmp = mul_simd(Ah2, B2);
         __m256i tmp2 = _mm256_xor_si256(acc, tmp);
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
@@ -351,9 +517,9 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16_mult_avx_compressed_2(Al1, B1);
+        tmp1 = mul_simd(Al1, B1);
         if (column_A_bytes > 4)
-            tmp2 = gf16_mult_avx_compressed_2(Ah1, B1);
+            tmp2 = mul_simd(Ah1, B1);
         else
             tmp2 = zero;
 
@@ -478,9 +644,9 @@ void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16_mult_avx_compressed_2(A1, B1);
-        tmp2 = gf16_mult_avx_compressed_2(A2, B1);
-        tmp3 = gf16_mult_avx_compressed_2(A3, B1);
+        tmp1 = mul_simd(A1, B1);
+        tmp2 = mul_simd(A2, B1);
+        tmp3 = mul_simd(A3, B1);
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
         __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
@@ -490,7 +656,7 @@ void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
         uint64_t rdata = _mm256_extract_epi64(ret, 0);
         *((uint64_t *) (c + i * column_A_bytes)) = rdata;
 
-        rdata2 = _mm256_extract_epi32(gf16_hadd_avx2_32_v2(tmp3), 0);
+        rdata2 = _mm256_extract_epi32(gf16_hadd_avx2_32(tmp3), 0);
         if (i < nr_cols_B - 1) {
             *((uint32_t *) (c + i * column_A_bytes + 8)) = rdata2;
         }
@@ -603,14 +769,14 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
             B12 = _mm256_shuffle_epi8(B12, perm);
             const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-            tmp1 = gf16_mult_avx_compressed_2(Al1, B1);
-            tmp2 = gf16_mult_avx_compressed_2(Al2, B2);
+            tmp1 = mul_simd(Al1, B1);
+            tmp2 = mul_simd(Al2, B2);
             tmp1 = _mm256_xor_si256(tmp1, tmp2);
         } else {
-            tmp1 = gf16_mult_avx_compressed_2(Al1, B1);
+            tmp1 = mul_simd(Al1, B1);
         }
 
-        rdata = _mm256_extract_epi32(gf16_hadd_avx2_32_v2(tmp1), 0);
+        rdata = _mm256_extract_epi32(gf16_hadd_avx2_32(tmp1), 0);
         if (i < nr_cols_B - 1) {
             *((uint32_t *) (c + i * column_A_bytes)) = rdata;
         }
@@ -696,8 +862,8 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16_mult_avx_compressed_2(A1, B1);
-        tmp2 = gf16_mult_avx_compressed_2(A2, B1);
+        tmp1 = mul_simd(A1, B1);
+        tmp2 = mul_simd(A2, B1);
 
         if (nr_cols_A > 8) {
             b_data = *((uint32_t *)(b+(nr_bytes_B_col * i + 4)));
@@ -711,8 +877,8 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
             const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
 
-            tmp1 ^= gf16_mult_avx_compressed_2(A3, B2);
-            tmp2 ^= gf16_mult_avx_compressed_2(A4, B2);
+            tmp1 ^= mul_simd(A3, B2);
+            tmp2 ^= mul_simd(A4, B2);
         }
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
@@ -733,10 +899,13 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
 }
 
 #elif defined(USE_NEON)
-uint8x16_t gf16v_mul_neon2( uint8x16_t a , uint8x16_t b ) {
+const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
+        0x00,0x13,0x26,0x35,0x4c,0x5f,0x6a,0x79, 0x8b,0x98,0xad,0xbe,0xc7,0xd4,0xe1,0xf2
+};
+
+uint8x16_t gf16v_mul_neon2(uint8x16_t a, uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
-    uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t bp = vdupq_n_u8(b);
 
     uint8x16_t al0 = a&mask_f;
@@ -770,5 +939,13 @@ void matrix_mul(uint8_t *C, uint8_t *A, uint8_t *B,
 }
 
 int main() {
+    uint64_t a = 2;
+
+#ifdef USE_AVX2
+    v256 v1 = {0}, v3;
+    v1.v32[0] = a<<4 ;
+    v3.v256 = sqr_simd(v1.v256);
+    printf("%u:%lu\n", v3.v32[0]>>4, sqr(a));
+#endif
 	return 1;
 }
