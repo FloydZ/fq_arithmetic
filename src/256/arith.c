@@ -3,6 +3,13 @@
 #include "bitslice.h"
 
 int main() {
+// test squaring
+#ifdef USE_AVX2
+    v256 sv1 = {0}, sv3;
+    sv1.v32[1] = (210<<16) | (22 << 8);
+    sv3.v256 = gf256v_squ_u256(sv1.v256);
+    printf("%u %lu\n", sv3.v32[1]>>16, gf256v_squ_u64(210));
+#endif
 	const uint64_t t1 = gf256v_mul_u64(121, 12);
 	const uint64_t t2 = gf256v_mul_u64_v2(121, 12);
 	printf("%lu %lu\n", t1, t2);
@@ -31,7 +38,5 @@ int main() {
     //real_ortho(bs_out);
 
     printf("%ul\n", bs_out[0]);
-
-
 	return 1;
 }

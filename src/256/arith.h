@@ -282,6 +282,7 @@ const unsigned char __gf256_mul[8192] __attribute__((aligned(32))) = {
         0x00,0xff,0xe5,0x1a,0xd1,0x2e,0x34,0xcb, 0xb9,0x46,0x5c,0xa3,0x68,0x97,0x8d,0x72, 0x00,0x69,0xd2,0xbb,0xbf,0xd6,0x6d,0x04, 0x65,0x0c,0xb7,0xde,0xda,0xb3,0x08,0x61
 };
 
+// this is based on the aes poly
 const uint8_t __gf256_mulbase[] = {
 		// row_nr**1, row_nr**2, ..., row_nr**8
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -565,7 +566,7 @@ uint64_t gf256_sub(uint64_t a, uint64_t b) {
 // a*b via the lookup into the multiplicative of 16**i
 // multiplication is for a single element
 uint8_t gf256_mul(uint8_t a, uint8_t b) {
-    const uint8_t *p = &__gf256_mulbase[b];
+    const uint8_t *p = &__gf256_mulbase[b * 8u];
     uint8_t tmp = 0;
     tmp ^= (a &   1) ? p[0] : 0;
     tmp ^= (a &   2) ? p[1] : 0;
@@ -577,6 +578,21 @@ uint8_t gf256_mul(uint8_t a, uint8_t b) {
     tmp ^= (a & 128) ? p[7] : 0;
     return tmp;
 }
+
+uint8_t gf256_squ(uint8_t a) {
+    uint8_t r8 = a&1;
+    r8 ^= (a<<1)&4;        // x^1 -> x^2
+    r8 ^= (a<<2)&(1<<4);   // x^2 -> x^4
+    r8 ^= (a<<3)&(1<<6);   // x^3 -> x^6
+
+    r8 ^= ((a>>4)&1)*0x1b;      // x^4 -> x^8   --> 0x1b
+    r8 ^= ((a>>5)&1)*(0x1b<<2); // x^5 -> x^10  --> (0x1b<<2)
+    r8 ^= ((a>>6)&1)*(0xab);    // x^6 -> x^12  --> (0xab)
+    r8 ^= ((a>>7)&1)*(0x9a);    // x^7 -> x^14  --> (0x9a)
+
+    return r8;
+}
+
 
 /// vector*constant multiplication using table lookup
 /// \param a vector: 8 GF(256) elements
@@ -643,8 +659,9 @@ uint64_t gf256v_mul_u64(uint64_t a, uint8_t b) {
     return r64;
 }
 
+/// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
 /// vector square using no table lookup
-uint64_t gf256v_squ_u64(uint64_t a){
+uint64_t gf256v_squ_u64(uint64_t a) {
     uint32_t r64 = a&0x0101010101010101ULL;
     r64 ^= (a<<1)   &0x0404040404040404ULL; // x^1 -> x^2
     r64 ^= (a<<2)   &0x1010101010101010ULL; // x^2 -> x^4
@@ -671,11 +688,37 @@ uint8_t gf256_reduce_u64(uint64_t a) {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
+/// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
+__m256i gf256v_squ_u256(const __m256i a) {
+#ifdef __AVX512VL__
+    return _mm256_gf2p8mul_epi8(a,a);
+#else
+	const __m256i m1  = _mm256_set1_epi8(0x01);
+	const __m256i m4  = _mm256_set1_epi8(0x04);
+    const __m256i m10 = _mm256_set1_epi8(0x10);
+    const __m256i m40 = _mm256_set1_epi8(0x40);
+	__m256i r = a&m1;
+	r ^= _mm256_slli_epi64(a, 1) & m4;
+	r ^= _mm256_slli_epi64(a, 2) & m10;
+	r ^= _mm256_slli_epi64(a, 3) & m40;
+	
+	r ^= _mm256_mullo_epi16(_mm256_srli_epi64(a, 4) & m1, _mm256_set1_epi16(0x1b));
+	r ^= _mm256_mullo_epi16(_mm256_srli_epi64(a, 5) & m1, _mm256_set1_epi16((0x1b<<2u)));
+	r ^= _mm256_mullo_epi16(_mm256_srli_epi64(a, 6) & m1, _mm256_set1_epi16(0xab));
+	r ^= _mm256_mullo_epi16(_mm256_srli_epi64(a, 7) & m1, _mm256_set1_epi16(0x9a));
+
+	return r;
+#endif
+}
+
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
 /// (8 limbs in 32bit in a) * 8 limbs multiplication
 /// this is the avx version of `gf256v_mul_u64_v2`.
 /// memory is loaded depending on b. So unsafe if its secret
 __m256i gf256v_mul_u256_v2(__m256i a, __m256i b) {
+#ifdef __AVX512VL__
+    return _mm256_gf2p8mul_epi8(a,a);
+#else
 	// bitselection masks
     const __m256i mask1 = _mm256_set1_epi8(0x01);
 
@@ -706,6 +749,7 @@ __m256i gf256v_mul_u256_v2(__m256i a, __m256i b) {
     tmp = _mm256_xor_si256(tmp, _mm256_mullo_epi32(_mm256_and_si256(_mm256_srli_epi64(a, 7), mask1), p));
 
     return tmp;
+#endif
 }
 
 // 6 instructions
