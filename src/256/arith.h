@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include "../helper.h"
 
+// gf256 := 0x11b , AES field
+#define MODULUS 0x1B
+#define MASK_LSB_PER_BIT ((uint64_t)0x0101010101010101)
+#define MASK_MSB_PER_BIT (MASK_LSB_PER_BIT*0x80)
+#define MASK_XLSB_PER_BIT (MASK_LSB_PER_BIT*0xFE)
+
 // sources:
 // https://github.com/moepinet/libmoepgf
 // https://github.com/PQCMayo/MAYO-C
@@ -283,7 +289,7 @@ const unsigned char __gf256_mul[8192] __attribute__((aligned(32))) = {
 };
 
 // this is based on the aes poly
-const uint8_t __gf256_mulbase[] = {
+const uint8_t __gf256_mulbase[8*256] = {
 		// row_nr**1, row_nr**2, ..., row_nr**8
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
         0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,
@@ -544,15 +550,14 @@ const uint8_t __gf256_mulbase[] = {
 };
 
 // Warning, getting the inverse of a secret value using this table,
-//   would lead to non-constant-time implementation. Only accessing
-//   to public positions is allowed.
+// would lead to non-constant-time implementation. Only accessing
+// to public positions is allowed.
 const uint8_t gf256_inverse_tab[256] = {0, 1, 141, 246, 203, 82, 123, 209, 232, 79, 41, 192, 176, 225, 229, 199, 116, 180, 170, 75, 153, 43, 96, 95, 88, 63, 253, 204, 255, 64, 238, 178, 58, 110, 90, 241, 85, 77, 168, 201, 193, 10, 152, 21, 48, 68, 162, 194, 44, 69, 146, 108, 243, 57, 102, 66, 242, 53, 32, 111, 119, 187, 89, 25, 29, 254, 55, 103, 45, 49, 245, 105, 167, 100, 171, 19, 84, 37, 233, 9, 237, 92, 5, 202, 76, 36, 135, 191, 24, 62, 34, 240, 81, 236, 97, 23, 22, 94, 175, 211, 73, 166, 54, 67, 244, 71, 145, 223, 51, 147, 33, 59, 121, 183, 151, 133, 16, 181, 186, 60, 182, 112, 208, 6, 161, 250, 129, 130, 131, 126, 127, 128, 150, 115, 190, 86, 155, 158, 149, 217, 247, 2, 185, 164, 222, 106, 50, 109, 216, 138, 132, 114, 42, 20, 159, 136, 249, 220, 137, 154, 251, 124, 46, 195, 143, 184, 101, 72, 38, 200, 18, 74, 206, 231, 210, 98, 12, 224, 31, 239, 17, 117, 120, 113, 165, 142, 118, 61, 189, 188, 134, 87, 11, 40, 47, 163, 218, 212, 228, 15, 169, 39, 83, 4, 27, 252, 172, 230, 122, 7, 174, 99, 197, 219, 226, 234, 148, 139, 196, 213, 157, 248, 144, 107, 177, 13, 214, 235, 198, 14, 207, 173, 8, 78, 215, 227, 93, 80, 30, 179, 91, 35, 56, 52, 104, 70, 3, 140, 221, 156, 125, 160, 205, 26, 65, 28};
 
 
 uint8_t gf256_inv(const uint8_t a) {
-    return gf256_inv(a);
+    return gf256_inverse_tab[a];
 }
-// gf256 := 0x11b , AES field
 
 // addition and subtraction are always easy
 uint64_t gf256_add(uint64_t a, uint64_t b) {
@@ -577,6 +582,18 @@ uint8_t gf256_mul(uint8_t a, uint8_t b) {
     tmp ^= (a &  64) ? p[6] : 0;
     tmp ^= (a & 128) ? p[7] : 0;
     return tmp;
+}
+
+uint8_t gf256_mul_v2(uint8_t a, uint8_t b) {
+    uint8_t r;
+    r = (-(b>>7    ) & a);
+    r = (-(b>>6 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    r = (-(b>>5 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    r = (-(b>>4 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    r = (-(b>>3 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    r = (-(b>>2 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    r = (-(b>>1 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+    return (-(b    & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
 }
 
 uint8_t gf256_squ(uint8_t a) {
@@ -611,6 +628,22 @@ uint64_t gf256v_mul_u64_v2(uint64_t a, uint8_t b) {
     tmp ^= ((a & 0x8080808080808080) >> 7) * p[7];
     return tmp;
 }
+
+#define MODULUS_U64 0x1B1B1B1B1B1B1B1B
+#define MASK_U64    0x0101010101010101
+uint64_t gf256v_mul_u64_v3(uint64_t a, uint64_t b) {
+    // TODO not working, carry: by the (r+r)
+    uint64_t r;
+    r = ((0xff*(b>>7           )) & a);
+    r = ((0xff*(b>>6 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    r = ((0xff*(b>>5 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    r = ((0xff*(b>>4 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    r = ((0xff*(b>>3 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    r = ((0xff*(b>>2 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    r = ((0xff*(b>>1 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+    return ((0xff*(b & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+}
+
 
 /// vector*constant multiplication without table look
 /// 8 GF(256) elements with a single element
@@ -710,6 +743,27 @@ __m256i gf256v_squ_u256(const __m256i a) {
 	return r;
 #endif
 }
+
+/// implementation of the function `gf256v_mul_u64_v3`
+/// \param a
+/// \param b
+/// \return
+__m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
+    const __m256i zero = _mm256_set1_epi32(0),
+            mask = _mm256_set1_epi8(0x1B);
+    __m256i r;
+
+    r = _mm256_blendv_epi8(zero, a, b);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 5)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 7)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    return r;
+}
+
 
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
 /// (8 limbs in 32bit in a) * 8 limbs multiplication

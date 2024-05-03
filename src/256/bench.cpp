@@ -24,6 +24,14 @@ static void BM_gf256_mul_u64_v2(benchmark::State& state) {
 }
 
 #ifdef USE_AVX2
+static void BM_gf256_mul_u256_v3(benchmark::State& state) {
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
+    for (auto _ : state) {
+        a.v256 = gf256v_mul_u256_v3(a.v256, b.v256);
+        a.v256 = _mm256_add_epi32(a.v256, one.v256);
+        benchmark::DoNotOptimize(a.v256);
+    }
+}
 static void BM_gf256_mul_u256_v2(benchmark::State& state) {
     v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
     for (auto _ : state) {
@@ -55,6 +63,7 @@ static void BM_gf256v_mul_scalar_avx2(benchmark::State& state) {
     }
 }
 
+BENCHMARK(BM_gf256_mul_u256_v3);
 BENCHMARK(BM_gf256_mul_u256_v2);
 BENCHMARK(BM_tbl32_gf256_mul_const);
 BENCHMARK(BM_gf256v_mul_scalar_avx2);

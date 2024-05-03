@@ -8,6 +8,8 @@ following fields are supported:
 - 16**2
 - 16**3
 - 2**128
+- 256
+- 256**2
 
 All field implementations do export the typename `ff_t` which is the minimal
 datatype, which is capable to hold a single field element.

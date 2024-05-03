@@ -10,17 +10,20 @@ int main() {
     sv3.v256 = gf256v_squ_u256(sv1.v256);
     printf("%u %lu\n", sv3.v32[1]>>16, gf256v_squ_u64(210));
 #endif
-	const uint64_t t1 = gf256v_mul_u64(121, 12);
-	const uint64_t t2 = gf256v_mul_u64_v2(121, 12);
-	printf("%lu %lu\n", t1, t2);
+	const uint64_t t1 = gf256v_mul_u64   (121, 8);
+	const uint64_t t2 = gf256v_mul_u64_v2(121, 8);
+    const uint64_t t3 = gf256v_mul_u64_v3(121, 8);
+    const uint64_t t7 = gf256_mul_v2(121, 8);
+	printf("%lu %lu %lu\n", t1, t2, t3);
 
 #ifdef USE_AVX2
-    v256 v1 = {0}, v2 = {0}, v3;
+    v256 v1 = {0}, v2 = {0}, v3, v4;
     v1.v32[0] = 121;
     v2.v32[0] = 12;
 
     v3.v256 = gf256v_mul_u256_v2(v1.v256, v2.v256);
-    printf("%u\n", v3.v32[0]);
+    v4.v256 = gf256v_mul_u256_v3(v1.v256, v2.v256);
+    printf("%u %u\n", v3.v32[0], v4.v32[0]);
 #endif
 
     uint64_t bs_tmp1[64] = {0};
