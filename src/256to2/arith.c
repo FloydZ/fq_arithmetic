@@ -2,17 +2,49 @@
 #include <assert.h>
 #include <stdio.h>
 #include "../helper.h"
-#include "../256/arith.h"
 #include "arith.h"
 
-int main() {
-    uint64_t a = 2;
 
 #ifdef USE_AVX2
-    v256 v1 = {0}, v3;
-    v1.v32[0] = a<<4 ;
-    v3.v256 = sqr_simd(v1.v256);
-    printf("%u:%lu\n", v3.v32[0]>>4, sqr(a));
+int check_gf256to2v_mul_u256() {
+    v256 v1 = {0}, v2 = {0}, v3;
+    for (uint32_t i = 0; i < 8; ++i) {
+        v1.v32[i] = rand();
+        v2.v32[i] = rand();
+    }
+
+    for (uint32_t k = 0; k < 16; ++k) {
+        for (uint32_t i = 0; i < 256*256; ++i) {
+            for (uint32_t j = 0; j < 256*256; ++j) {
+                if ((i*j) % (256*256) == 0){ continue;}
+                v1.v16[k] = i;
+                v2.v16[k] = j;
+
+                v3.v256 = gf256to2v_mul_u256(v1.v256, v2.v256);
+                uint32_t c = gf256to2_mul(i, j);
+                if (v3.v16[k] != c) {
+                    return 1;
+                }
+                assert(v3.v16[k] == c);
+            }
+        }
+    }
+    return 0;
+}
 #endif
-	return 1;
+int main() {
+    const uint16_t a = 0x800;
+    const uint16_t b = 0x100;
+    const uint16_t c = gf256to2_mul(a, b);
+
+#ifdef USE_AVX2
+    v256 v1 = {0}, v2 = {0}, v3;
+    v1.v16[0] = a;
+    v2.v16[0] = b;
+    v3.v256 = gf256to2v_mul_u256(v1.v256, v2.v256);
+    printf("%u:%lu\n", c, v3.v16[0]);
+
+    if (check_gf256to2v_mul_u256()) return 1;
+#endif
+	return 0;
 }
