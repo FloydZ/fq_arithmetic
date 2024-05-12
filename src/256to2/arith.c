@@ -16,7 +16,7 @@ int check_gf256to2v_mul_u256() {
     for (uint32_t k = 0; k < 16; ++k) {
         for (uint32_t i = 0; i < 256*256; ++i) {
             for (uint32_t j = 0; j < 256*256; ++j) {
-                if ((i*j) % (256*256) == 0){ continue;}
+                // if ((i*j) % (256*256) == 0){ continue;}
                 v1.v16[k] = i;
                 v2.v16[k] = j;
 
