@@ -14,4 +14,6 @@ typedef union v256_t {
     __m256i v256;
 #endif
 } v256;
+
+
 #endif //FQ_ARITHMETIC_HELPER_H

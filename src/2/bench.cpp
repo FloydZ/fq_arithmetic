@@ -20,8 +20,7 @@ static void BM_gf2_mul_u256(benchmark::State& state) {
             b = {87326457823,234652734687,8723468726347,78234687236478};
     for (auto _ : state) {
         a = gf2_mul_u256(a, b);
-        a += 1;
-        b += 1;
+        a ^= acc;
         benchmark::DoNotOptimize(a);
     }
 }

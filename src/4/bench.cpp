@@ -13,18 +13,18 @@ static void BM_gf4_mul_u64(benchmark::State& state) {
 }
 
 #ifdef USE_AVX2
-static void BM_gf2_mul_u256(benchmark::State& state) {
+static void BM_gf4_mul_u256(benchmark::State& state) {
     const __m256i acc = {783246, 872346, 876502, 236478234023948};
     __m256i a = {23874687,905389,235645274,873465876},
             b = {87326457823,234652734687,8723468726347,78234687236478};
     for (auto _ : state) {
         a = gf4_mul_u256(a, b);
-        a += 1;
-        b += 1;
+        a ^= acc;
         benchmark::DoNotOptimize(a);
     }
 }
 BENCHMARK(BM_gf4_mul_u256);
 #endif
+
 BENCHMARK(BM_gf4_mul_u64);
 BENCHMARK_MAIN();
