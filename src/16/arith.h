@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include "../helper.h"
 
+
+#define MODULUS 3
+
 /// Representation: two F16 elements are stored in a single `uint8_t`
 // 	gf16 := gf2[x]/ (x^4+x+1)
 typedef uint8_t ff_t;
@@ -97,6 +100,13 @@ static inline ff_t gf16_mul_v2(const ff_t a,
     return tmp1 ^ tmp2 ^ tmp3 ^ tmp4;
 }
 
+uint8_t gf16_mul_v3(uint8_t a, uint8_t b) {
+    uint8_t r;
+    r = (-(b>>3    ) & a);
+    r = (-(b>>2 & 1) & a) ^ (-(r>>3) & MODULUS) ^ ((r+r) & 0x0F);
+    r = (-(b>>1 & 1) & a) ^ (-(r>>3) & MODULUS) ^ ((r+r) & 0x0F);
+ return (-(b    & 1) & a) ^ (-(r>>3) & MODULUS) ^ ((r+r) & 0x0F);
+}
 /// NOTE: two multiplications at once
 /// a*b
 static inline ff_t gf16v_mul(const ff_t a,
@@ -962,3 +972,4 @@ void matrix_mul(uint8_t *C, uint8_t *A, uint8_t *B,
 		}
 	}
 }
+#undef MODULUS
