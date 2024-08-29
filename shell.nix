@@ -10,6 +10,7 @@ stdenv.mkDerivation {
   	git 
 	clang
 	gbenchmark
+	jasmin-compiler
   ] ++ (lib.optionals pkgs.stdenv.isLinux ([
   ]));
 }

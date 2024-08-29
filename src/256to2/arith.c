@@ -32,18 +32,9 @@ int check_gf256to2v_mul_u256() {
     return 0;
 }
 #endif
+
 int main() {
-    const uint16_t a = 0x800;
-    const uint16_t b = 0x100;
-    const uint16_t c = gf256to2_mul(a, b);
-
 #ifdef USE_AVX2
-    v256 v1 = {0}, v2 = {0}, v3;
-    v1.v16[0] = a;
-    v2.v16[0] = b;
-    v3.v256 = gf256to2v_mul_u256(v1.v256, v2.v256);
-    printf("%u:%lu\n", c, v3.v16[0]);
-
     if (check_gf256to2v_mul_u256()) return 1;
 #endif
 	return 0;

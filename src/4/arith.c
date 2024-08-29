@@ -32,7 +32,7 @@ bool test_mul_u64(){
                 uint64_t a = ((uint64_t)j1) << (i * 2u);
                 uint64_t b = ((uint64_t)j2) << (i * 2u);
 
-                const ff_t t1 = gf4_mul_u64(a, b) >> (i*2);
+                const ff_t t1 = gf4v_mul_u64(a, b) >> (i*2);
                 const ff_t t2 = gf4_mul(j1, j2);
                 const ff_t t3 = gf4_mul_v2(j1, j2);
                 if (t1 != t2) {
@@ -62,7 +62,7 @@ bool test_mul_u256() {
                 __m256i t1 = {a,0,0,0};
                 __m256i t2 = {b,0,0,0};
 
-                const __m256i c = gf4_mul_u256(t1, t2);
+                const __m256i c = gf4v_mul_u256(t1, t2);
                 _mm256_store_si256((__m256i *)tmp, c);
 
                 const ff_t g = gf4_mul(j1, j2);

@@ -1,8 +1,12 @@
-#ifndef FQ_ARITHMETIC_ARITH_H
-#define FQ_ARITHMETIC_ARITH_H
+#ifndef FQ_ARITHMETIC_GF256_ARITH_H
+#define FQ_ARITHMETIC_GF256_ARITH_H
 
 #include <stdint.h>
 #include "../helper.h"
+
+/// sources:
+/// https://github.com/moepinet/libmoepgf
+/// https://github.com/PQCMayo/MAYO-C
 
 // gf256 := 0x11b , AES field
 #define MODULUS 0x1B
@@ -10,26 +14,15 @@
 #define MASK_MSB_PER_BIT (MASK_LSB_PER_BIT*0x80)
 #define MASK_XLSB_PER_BIT (MASK_LSB_PER_BIT*0xFE)
 
-// sources:
-// https://github.com/moepinet/libmoepgf
-// https://github.com/PQCMayo/MAYO-C
+typedef uint8_t gf256;
 
-const uint8_t __gf256_mulbase_avx[256] __attribute__((aligned(32))) = {
-	// repeated over each 128bit lane
-    // 16**0 * i
-    0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0,
-    // 16**1 * i
-    0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0, 0x00,0x1b,0x36,0x2d,0x6c,0x77,0x5a,0x41, 0xd8,0xc3,0xee,0xf5,0xb4,0xaf,0x82,0x99,
-    0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x10,0x12,0x14,0x16,0x18,0x1a,0x1c,0x1e, 0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb,
-    0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb, 0x00,0x36,0x6c,0x5a,0xd8,0xee,0xb4,0x82, 0xab,0x9d,0xc7,0xf1,0x73,0x45,0x1f,0x29,
-    0x00,0x04,0x08,0x0c,0x10,0x14,0x18,0x1c, 0x20,0x24,0x28,0x2c,0x30,0x34,0x38,0x3c, 0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed,
-    0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed, 0x00,0x6c,0xd8,0xb4,0xab,0xc7,0x73,0x1f, 0x4d,0x21,0x95,0xf9,0xe6,0x8a,0x3e,0x52,
-    0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38, 0x40,0x48,0x50,0x58,0x60,0x68,0x70,0x78, 0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1,
-    0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1, 0x00,0xd8,0xab,0x73,0x4d,0x95,0xe6,0x3e, 0x9a,0x42,0x31,0xe9,0xd7,0x0f,0x7c,0xa4
+/// translates a gf16 element to an gf256 element
+const uint8_t gf256_expand_tab[16] = {
+    0, 1, 92, 93, 224, 225, 188, 189, 80, 81, 12, 13, 176, 177, 236, 237
 };
 
 // full multiplication table: [i*256 + j] = i*j mod 256
-const unsigned char __gf256_mul[8192] __attribute__((aligned(32))) = {
+const gf256 __gf256_mul[8192] __attribute__((aligned(32))) = {
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
         0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0,
         0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x10,0x12,0x14,0x16,0x18,0x1a,0x1c,0x1e, 0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb,
@@ -289,7 +282,7 @@ const unsigned char __gf256_mul[8192] __attribute__((aligned(32))) = {
 };
 
 // this is based on the aes poly
-const uint8_t __gf256_mulbase[8*256] = {
+const gf256 __gf256_mulbase[8*256] = {
 		// row_nr**1, row_nr**2, ..., row_nr**8
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
         0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,
@@ -552,27 +545,46 @@ const uint8_t __gf256_mulbase[8*256] = {
 // Warning, getting the inverse of a secret value using this table,
 // would lead to non-constant-time implementation. Only accessing
 // to public positions is allowed.
-const uint8_t gf256_inverse_tab[256] = {0, 1, 141, 246, 203, 82, 123, 209, 232, 79, 41, 192, 176, 225, 229, 199, 116, 180, 170, 75, 153, 43, 96, 95, 88, 63, 253, 204, 255, 64, 238, 178, 58, 110, 90, 241, 85, 77, 168, 201, 193, 10, 152, 21, 48, 68, 162, 194, 44, 69, 146, 108, 243, 57, 102, 66, 242, 53, 32, 111, 119, 187, 89, 25, 29, 254, 55, 103, 45, 49, 245, 105, 167, 100, 171, 19, 84, 37, 233, 9, 237, 92, 5, 202, 76, 36, 135, 191, 24, 62, 34, 240, 81, 236, 97, 23, 22, 94, 175, 211, 73, 166, 54, 67, 244, 71, 145, 223, 51, 147, 33, 59, 121, 183, 151, 133, 16, 181, 186, 60, 182, 112, 208, 6, 161, 250, 129, 130, 131, 126, 127, 128, 150, 115, 190, 86, 155, 158, 149, 217, 247, 2, 185, 164, 222, 106, 50, 109, 216, 138, 132, 114, 42, 20, 159, 136, 249, 220, 137, 154, 251, 124, 46, 195, 143, 184, 101, 72, 38, 200, 18, 74, 206, 231, 210, 98, 12, 224, 31, 239, 17, 117, 120, 113, 165, 142, 118, 61, 189, 188, 134, 87, 11, 40, 47, 163, 218, 212, 228, 15, 169, 39, 83, 4, 27, 252, 172, 230, 122, 7, 174, 99, 197, 219, 226, 234, 148, 139, 196, 213, 157, 248, 144, 107, 177, 13, 214, 235, 198, 14, 207, 173, 8, 78, 215, 227, 93, 80, 30, 179, 91, 35, 56, 52, 104, 70, 3, 140, 221, 156, 125, 160, 205, 26, 65, 28};
+const uint8_t gf256_inverse_tab[256] = {
+    0, 1, 141, 246, 203, 82, 123, 209, 232, 79, 41, 192, 176, 225, 229, 199,
+    116, 180, 170, 75, 153, 43, 96, 95, 88, 63, 253, 204, 255, 64, 238, 178,
+    58, 110, 90, 241, 85, 77, 168, 201, 193, 10, 152, 21, 48, 68, 162, 194,
+    44, 69, 146, 108, 243, 57, 102, 66, 242, 53, 32, 111, 119, 187, 89, 25,
+    29, 254, 55, 103, 45, 49, 245, 105, 167, 100, 171, 19, 84, 37, 233, 9,
+    237, 92, 5, 202, 76, 36, 135, 191, 24, 62, 34, 240, 81, 236, 97, 23, 22,
+    94, 175, 211, 73, 166, 54, 67, 244, 71, 145, 223, 51, 147, 33, 59, 121,
+    183, 151, 133, 16, 181, 186, 60, 182, 112, 208, 6, 161, 250, 129, 130, 131,
+    126, 127, 128, 150, 115, 190, 86, 155, 158, 149, 217, 247, 2, 185, 164, 222,
+    106, 50, 109, 216, 138, 132, 114, 42, 20, 159, 136, 249, 220, 137, 154, 251,
+    124, 46, 195, 143, 184, 101, 72, 38, 200, 18, 74, 206, 231, 210, 98, 12,
+    224, 31, 239, 17, 117, 120, 113, 165, 142, 118, 61, 189, 188, 134, 87, 11,
+    40, 47, 163, 218, 212, 228, 15, 169, 39, 83, 4, 27, 252, 172, 230, 122, 7,
+    174, 99, 197, 219, 226, 234, 148, 139, 196, 213, 157, 248, 144, 107, 177, 13,
+    214, 235, 198, 14, 207, 173, 8, 78, 215, 227, 93, 80, 30, 179, 91, 35, 56,
+    52, 104, 70, 3, 140, 221, 156, 125, 160, 205, 26, 65, 28
+};
 
-
-uint8_t gf256_inv(const uint8_t a) {
+/// \return a^{-1}
+gf256 gf256_inverse(const gf256 a) {
     return gf256_inverse_tab[a];
 }
 
-// addition and subtraction are always easy
-uint64_t gf256_add(uint64_t a, uint64_t b) {
+gf256 gf256_add(const gf256 a,
+               const gf256 b) {
     return a ^ b;
 }
 
-uint64_t gf256_sub(uint64_t a, uint64_t b) {
+gf256 gf256_sub(const gf256 a,
+               const gf256 b) {
     return a ^ b;
 }
 
-// a*b via the lookup into the multiplicative of 16**i
-// multiplication is for a single element
-uint8_t gf256_mul(uint8_t a, uint8_t b) {
-    const uint8_t *p = &__gf256_mulbase[b * 8u];
-    uint8_t tmp = 0;
+/// a*b via the lookup into the muliplication table of 16**i
+/// multiplication is for a single element
+gf256 gf256_mul(const gf256 a,
+               const gf256 b) {
+    const gf256 *p = &__gf256_mulbase[b * 8u];
+    gf256 tmp = 0;
     tmp ^= (a &   1) ? p[0] : 0;
     tmp ^= (a &   2) ? p[1] : 0;
     tmp ^= (a &   4) ? p[2] : 0;
@@ -584,70 +596,57 @@ uint8_t gf256_mul(uint8_t a, uint8_t b) {
     return tmp;
 }
 
-uint8_t gf256_mul_v2(uint8_t a, uint8_t b) {
-    uint8_t r;
-    r = (-(b>>7    ) & a);
-    r = (-(b>>6 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    r = (-(b>>5 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    r = (-(b>>4 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    r = (-(b>>3 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    r = (-(b>>2 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    r = (-(b>>1 & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
-    return (-(b    & 1) & a) ^ (-(r>>7) & MODULUS) ^ (r+r);
+/// a*b without a lookup table
+gf256 gf256_mul_v2(const gf256 a,
+                  const gf256 b) {
+    gf256 r;
+    r = (-(b>>7u     ) & a);
+    r = (-(b>>6u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    r = (-(b>>5u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    r = (-(b>>4u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    r = (-(b>>3u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    r = (-(b>>2u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    r = (-(b>>1u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
+    return (-(b  & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
 }
 
-uint8_t gf256_squ(uint8_t a) {
-    uint8_t r8 = a&1;
-    r8 ^= (a<<1)&4;        // x^1 -> x^2
-    r8 ^= (a<<2)&(1<<4);   // x^2 -> x^4
-    r8 ^= (a<<3)&(1<<6);   // x^3 -> x^6
-
-    r8 ^= ((a>>4)&1)*0x1b;      // x^4 -> x^8   --> 0x1b
-    r8 ^= ((a>>5)&1)*(0x1b<<2); // x^5 -> x^10  --> (0x1b<<2)
-    r8 ^= ((a>>6)&1)*(0xab);    // x^6 -> x^12  --> (0xab)
-    r8 ^= ((a>>7)&1)*(0x9a);    // x^7 -> x^14  --> (0x9a)
-
+/// \return a**2
+gf256 gf256_squ(const gf256 a) {
+    gf256 r8 = a&1u;
+    r8 ^=  (a<<1u)&4u;            // x^1 -> x^2
+    r8 ^=  (a<<2u)&(1u<<4u);      // x^2 -> x^4
+    r8 ^=  (a<<3u)&(1u<<6u);      // x^3 -> x^6
+    r8 ^= ((a>>4u)&1u)*0x1b;      // x^4 -> x^8   --> 0x1b
+    r8 ^= ((a>>5u)&1u)*(0x1b<<2); // x^5 -> x^10  --> (0x1b<<2)
+    r8 ^= ((a>>6u)&1u)*(0xab);    // x^6 -> x^12  --> (0xab)
+    r8 ^= ((a>>7u)&1u)*(0x9a);    // x^7 -> x^14  --> (0x9a)
     return r8;
 }
 
 
-/// vector*constant multiplication using table lookup
-/// \param a vector: 8 GF(256) elements
-/// \param b constant: single GF(256) element
-/// \return a*b
-uint64_t gf256v_mul_u64_v2(uint64_t a, uint8_t b) {
-    const uint8_t *p = &__gf256_mulbase[b*8];
-    uint64_t tmp = 0;
-    tmp ^= ((a & 0x0101010101010101) >> 0) * p[0];
-    tmp ^= ((a & 0x0202020202020202) >> 1) * p[1];
-    tmp ^= ((a & 0x0404040404040404) >> 2) * p[2];
-    tmp ^= ((a & 0x0808080808080808) >> 3) * p[3];
-    tmp ^= ((a & 0x1010101010101010) >> 4) * p[4];
-    tmp ^= ((a & 0x2020202020202020) >> 5) * p[5];
-    tmp ^= ((a & 0x4040404040404040) >> 6) * p[6];
-    tmp ^= ((a & 0x8080808080808080) >> 7) * p[7];
-    return tmp;
+// addition and subtraction are always easy
+uint64_t gf256v_add_u64(const uint64_t a,
+                        const uint64_t b) {
+    return a ^ b;
 }
 
-#define MODULUS_U64 0x1B1B1B1B1B1B1B1B
-#define MASK_U64    0x0101010101010101
-uint64_t gf256v_mul_u64_v3(uint64_t a, uint64_t b) {
-    // TODO not working, carry: by the (r+r)
-    uint64_t r;
-    r = ((0xff*(b>>7           )) & a);
-    r = ((0xff*(b>>6 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    r = ((0xff*(b>>5 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    r = ((0xff*(b>>4 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    r = ((0xff*(b>>3 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    r = ((0xff*(b>>2 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    r = ((0xff*(b>>1 & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
-    return ((0xff*(b & MASK_U64)) & a) ^ ((0xFF*((r>>7)&MASK_U64)) & MODULUS_U64) ^ (r+r);
+uint64_t gf256v_sub_64(const uint64_t a,
+                       const uint64_t b) {
+    return a ^ b;
 }
 
+uint64_t gf256v_mul_u64(uint64_t a, uint64_t b) {
+    uint64_t ret = 0;
+    for (uint32_t i = 0; i < 8u; ++i) {
+        uint64_t t = gf256_mul(a >> (i*8u), b >> (i*8u));
+        ret ^= t << (i*8u);
+    }
+    return ret;
+}
 
 /// vector*constant multiplication without table look
 /// 8 GF(256) elements with a single element
-uint64_t gf256v_mul_u64(uint64_t a, uint8_t b) {
+uint64_t gf256v_scalar_u64(uint64_t a, uint8_t b) {
     const uint64_t mask_msb = 0x8080808080808080ULL;
     uint64_t a_msb;
     uint64_t a64 = a;
@@ -691,10 +690,28 @@ uint64_t gf256v_mul_u64(uint64_t a, uint8_t b) {
 
     return r64;
 }
+/// vector*constant multiplication using table lookup
+/// \param a vector: 8 GF(256) elements
+/// \param b constant: single GF(256) element
+/// \return a*b
+uint64_t gf256v_scalar_u64_v2(const uint64_t a,
+                              const uint8_t b) {
+    const uint8_t *p = &__gf256_mulbase[b*8];
+    uint64_t tmp = 0;
+    tmp ^= ((a & 0x0101010101010101) >> 0) * p[0];
+    tmp ^= ((a & 0x0202020202020202) >> 1) * p[1];
+    tmp ^= ((a & 0x0404040404040404) >> 2) * p[2];
+    tmp ^= ((a & 0x0808080808080808) >> 3) * p[3];
+    tmp ^= ((a & 0x1010101010101010) >> 4) * p[4];
+    tmp ^= ((a & 0x2020202020202020) >> 5) * p[5];
+    tmp ^= ((a & 0x4040404040404040) >> 6) * p[6];
+    tmp ^= ((a & 0x8080808080808080) >> 7) * p[7];
+    return tmp;
+}
 
 /// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
 /// vector square using no table lookup
-uint64_t gf256v_squ_u64(uint64_t a) {
+uint64_t gf256v_squ_u64(const uint64_t a) {
     uint32_t r64 = a&0x0101010101010101ULL;
     r64 ^= (a<<1)   &0x0404040404040404ULL; // x^1 -> x^2
     r64 ^= (a<<2)   &0x1010101010101010ULL; // x^2 -> x^4
@@ -709,7 +726,7 @@ uint64_t gf256v_squ_u64(uint64_t a) {
 }
 
 /// non vector reduction
-uint8_t gf256_reduce_u64(uint64_t a) {
+uint8_t gf256_reduce_u64(const uint64_t a) {
     uint32_t * aa = (uint32_t *)(&a);
     uint32_t r = aa[0]^aa[1];
     uint16_t *aaa = (uint16_t *)(&r);
@@ -720,6 +737,21 @@ uint8_t gf256_reduce_u64(uint64_t a) {
 
 #ifdef USE_AVX2
 #include <immintrin.h>
+
+
+const uint8_t __gf256_mulbase_avx2[256] __attribute__((aligned(32))) = {
+        // repeated over each 128bit lane
+        // 16**0 * i
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0,
+        // 16**1 * i
+        0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0, 0x00,0x1b,0x36,0x2d,0x6c,0x77,0x5a,0x41, 0xd8,0xc3,0xee,0xf5,0xb4,0xaf,0x82,0x99,
+        0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x10,0x12,0x14,0x16,0x18,0x1a,0x1c,0x1e, 0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb,
+        0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb, 0x00,0x36,0x6c,0x5a,0xd8,0xee,0xb4,0x82, 0xab,0x9d,0xc7,0xf1,0x73,0x45,0x1f,0x29,
+        0x00,0x04,0x08,0x0c,0x10,0x14,0x18,0x1c, 0x20,0x24,0x28,0x2c,0x30,0x34,0x38,0x3c, 0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed,
+        0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed, 0x00,0x6c,0xd8,0xb4,0xab,0xc7,0x73,0x1f, 0x4d,0x21,0x95,0xf9,0xe6,0x8a,0x3e,0x52,
+        0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38, 0x40,0x48,0x50,0x58,0x60,0x68,0x70,0x78, 0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1,
+        0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1, 0x00,0xd8,0xab,0x73,0x4d,0x95,0xe6,0x3e, 0x9a,0x42,0x31,0xe9,0xd7,0x0f,0x7c,0xa4
+};
 
 /// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
 __m256i gf256v_squ_u256(const __m256i a) {
@@ -744,11 +776,120 @@ __m256i gf256v_squ_u256(const __m256i a) {
 #endif
 }
 
-/// implementation of the function `gf256v_mul_u64_v3`
+/// full multiplication:
+static inline __m256i gf256v_mul_u256_v2(const __m256i c,
+                                      const __m256i b) {
+//#ifdef __AVX512VL__
+//    return _mm256_gf2p8mul_epi8(c, b);
+//#endif
+    const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
+    const __m256i zero      = _mm256_set1_epi8(0x00);
+    const __m256i mask      = _mm256_set1_epi8(0x1b);
+    const __m256i bit       = _mm256_set1_epi8(0x01);
+    __m256i a = c;
+    __m256i tmp = a&bit, a_msb;
+    // 0
+    __m256i r = _mm256_sign_epi8(tmp, tmp) & b;
+
+    // 1
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6));
+
+    // 2
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    tmp = _mm256_slli_epi16(b, 5);
+    r = r ^ _mm256_blendv_epi8(zero, a, tmp);
+
+    // 3
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4));
+
+    // 4
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3));
+
+    // 5
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2));
+
+    // 6
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1));
+
+    // 7
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, b);
+
+    return r;
+}
+
+
+/// same as above, but only sse
+/// NOTE: uses scatter instruction based on b.
+static inline __m128i gf256v_mul_u128(const __m128i a,
+                                     const __m128i b) {
+    // bitselection masks
+    const __m128i mask1 = _mm_set1_epi8(0x01);
+
+    // mask to get only the lowest 8bits of each gather instruction
+    const __m128i mask = _mm_set1_epi32(0xff);
+
+    __m128i tmp;
+    __m128i data = _mm_i32gather_epi32((int const *)__gf256_mulbase, b, 8);
+    __m128i p = _mm_and_si128(data, mask);
+
+    tmp = _mm_mullo_epi32(_mm_and_si128(a, mask1), p);
+    p = _mm_and_si128(_mm_srli_epi32(data, 8), mask);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 1), mask1), p));
+    p = _mm_and_si128(_mm_srli_epi32(data, 16), mask);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 2), mask1), p));
+    p = _mm_srli_epi32(data, 24);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 3), mask1), p));
+
+    data = _mm_i32gather_epi32((int const *)((uint8_t *)__gf256_mulbase + 4), b, 8);
+    p = _mm_and_si128(data, mask);
+
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 4), mask1), p));
+    p = _mm_and_si128(_mm_srli_epi32(data, 8), mask);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 5), mask1), p));
+    p = _mm_and_si128(_mm_srli_epi32(data, 16), mask);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 6), mask1), p));
+    p = _mm_srli_epi32(data, 24);
+    tmp = _mm_xor_si128(tmp, _mm_mullo_epi32(_mm_and_si128(_mm_srli_epi64(a, 7), mask1), p));
+
+    return tmp;
+}
+
+
 /// \param a
 /// \param b
 /// \return
-__m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
+__m256i gf256v_mul_u256(const __m256i a,
+                        const __m256i b) {
+//#ifdef __AVX512VL__
+//    return _mm256_gf2p8mul_epi8(a, b);
+//#endif
     const __m256i zero = _mm256_set1_epi32(0),
             mask = _mm256_set1_epi8(0x1B);
     __m256i r;
@@ -767,11 +908,11 @@ __m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
 
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
 /// (8 limbs in 32bit in a) * 8 limbs multiplication
-/// this is the avx version of `gf256v_mul_u64_v2`.
+/// this is the avx version of `gf256v_scalar_u64_v2`.
 /// memory is loaded depending on b. So unsafe if its secret
-__m256i gf256v_mul_u256_v2(__m256i a, __m256i b) {
+__m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
 #ifdef __AVX512VL__
-    return _mm256_gf2p8mul_epi8(a,a);
+    return _mm256_gf2p8mul_epi8(a, b);
 #else
 	// bitselection masks
     const __m256i mask1 = _mm256_set1_epi8(0x01);
@@ -880,7 +1021,168 @@ __m256i gf256v_mul_scalar_avx2(__m256i a, uint8_t _b) {
 }
 
 
+/// out = in1 ^ in2
+static inline void gf256_vector_add_u256(gf256 *out,
+                                         const gf256 *in1,
+                                         const gf256 *in2,
+                                         const size_t bytes) {
+    size_t i = bytes;
+    // avx2 code
+    while (i >= 32u) {
+        _mm256_storeu_si256((__m256i *)out,
+                            _mm256_loadu_si256((__m256i *)in1) ^
+                            _mm256_loadu_si256((__m256i *)in2));
+        i -= 32u;
+        in1 += 32u;
+        in2 += 32u;
+        out += 32u;
+    }
+
+    // sse code
+    while(i >= 16u) {
+        _mm_storeu_si128((__m128i *)out,
+                         _mm_loadu_si128((__m128i *)in1) ^
+                         _mm_loadu_si128((__m128i *)in2));
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+        i -= 16;
+    }
+
+    for(uint32_t j = 0; j<i; j++) {
+        out[j] = in1[j] ^ in2[j];
+    }
+}
+
+/// out[i] = in1[i] + scalar*in2[i] for all i = 0...bytes-1
+static inline void gf256_vector_add_scalar_u256(gf256 *out,
+                                                const gf256 *in1,
+                                                const gf256 scalar,
+                                                const gf256 *in2,
+                                                const size_t bytes) {
+    size_t i = bytes;
+    __m256i s256 = _mm256_set1_epi32(scalar), tmp;
+    __m128i s128 = _mm_set1_epi32(scalar), tmp128;
+
+    // avx2 code
+    while (i >= 32u) {
+        tmp = gf256v_mul_u256(_mm256_loadu_si256((__m256i *)in2), s256);
+        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)in1) ^ tmp);
+        i -= 32u;
+        in1 += 32u;
+        in2 += 32u;
+        out += 32u;
+    }
+
+    // sse code
+    while(i >= 16u) {
+        tmp128 = gf256v_mul_u128(_mm_loadu_si128((__m128i *)in2), s128);
+        _mm_storeu_si128((__m128i *)out, _mm_loadu_si128((__m128i *)in1) ^ tmp128);
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+        i -= 16;
+    }
+
+    for(uint32_t j = 0; j<i; j++) {
+        out[j] = in1[j] ^ gf256_mul(scalar, in2[j]);
+    }
+}
+
+
 #elif defined(USE_NEON)
-#else
+// TODO
 #endif // end avx/neon
+
+
+#ifdef __AVX512VL__
+
+/// \return a * b
+static inline __m512i gf256v_mul_u512(const __m512i a,
+                                      const __m512i b) {
+    return _mm512_gf2p8mul_epi8(a, b);
+}
+
+/// out = in1 ^ in2
+static inline void gf256v_vector_add_u512(gf256 *out,
+                                          const gf256 *in1,
+                                          const gf256 *in2,
+                                          const size_t bytes) {
+    size_t i = bytes;
+    // avx512 code
+    while (i >= 64u) {
+        _mm512_storeu_si512((__m512i *)out,
+                            _mm512_loadu_si512((__m512i *)in1) ^
+                            _mm512_loadu_si512((__m512i *)in2));
+        i   -= 64u;
+        in1 += 64u;
+        in2 += 64u;
+        out += 64u;
+    }
+
+    // avx2 code
+    while (i >= 32u) {
+        _mm256_storeu_si256((__m256i *)out,
+                            _mm256_loadu_si256((__m256i *)in1) ^
+                            _mm256_loadu_si256((__m256i *)in2));
+        i -= 32u;
+        in1 += 32u;
+        in2 += 32u;
+        out += 32u;
+    }
+
+    // sse code
+    while(i >= 16u) {
+        _mm_storeu_si128((__m128i *)out,
+                         _mm_loadu_si128((__m128i *)in1) ^
+                         _mm_loadu_si128((__m128i *)in2));
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+        i -= 16;
+    }
+
+    for(uint32_t j = 0; j<i; j++) {
+        out[j] = in1[j] ^ in2[j];
+    }
+}
+
+/// out = in1 ^ scalar* in2
+static inline void gf256_vector_add_scalar_u512(gf256 *out,
+                                                const gf256 *in1,
+                                                const gf256 scalar,
+                                                const gf256 *in2,
+                                                const size_t bytes) {
+    size_t i = bytes;
+    const __m512i s = _mm512_set1_epi8(scalar);
+
+    // avx512 code
+    while (i >= 64u) {
+        const __m512i tmp = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)in2), s);
+        _mm512_storeu_si512((__m512i *)out, _mm512_loadu_si512((__m512i *)in1) ^ tmp);
+        i   -= 64u;
+        in1 += 64u;
+        in2 += 64u;
+        out += 64u;
+    }
+
+    uint8_t tmp[64];
+    for (uint32_t j = 0; j < i; ++j) {
+        tmp[j] = in2[j];
+    }
+
+    const __m512i t = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)tmp), s);
+    _mm512_storeu_si512((__m512i *)out, t);
+
+    for (uint32_t j = 0; j < i; ++j) {
+        out[j] = in1[j] ^ tmp[j];
+    }
+}
+
+#endif
+
+
+
+
+#undef MODULUS
 #endif // end namespace

@@ -25,13 +25,13 @@ static ff_t gf4_mul_v2(const ff_t a, const ff_t b) {
     return  tmpl2 ^ tmph3;
 }
 
-static uint64_t gf4_add_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
-static uint64_t gf4_sub_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
-static uint64_t gf4_scalar_u64(const uint64_t a, const ff_t b) {
+static uint64_t gf4v_add_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
+static uint64_t gf4v_sub_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
+static uint64_t gf4v_scalar_u64(const uint64_t a, const ff_t b) {
 	return (( a&0x5555555555555555    )*gf4_mult_table[b*2 + 0]) ^ 
 		   (((a&0xaaaaaaaaaaaaaaaa)>>1)*gf4_mult_table[b*2 + 1]);
 }
-static uint64_t gf4_mul_u64(const uint64_t a, const uint64_t b) {
+static uint64_t gf4v_mul_u64(const uint64_t a, const uint64_t b) {
     const uint64_t mask = 0b11;
     uint64_t ret = 0;
     for (uint32_t i = 0; i < 32u; ++i) {
@@ -47,7 +47,8 @@ static uint64_t gf4_mul_u64(const uint64_t a, const uint64_t b) {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-static __m256i gf4_mul_u256(const __m256i a, const __m256i b){
+static __m256i gf4v_mul_u256(const __m256i a,
+                             const __m256i b){
     const __m256i mask1 = _mm256_set1_epi8(0b01010101);
     const __m256i mask2 = _mm256_set1_epi8(0b10101010);
 
@@ -61,8 +62,8 @@ static __m256i gf4_mul_u256(const __m256i a, const __m256i b){
     return ret;
 }
 
-static __m256i gf4_scalar_u256(const __m256i a,
-		const uint8_t b){
+static __m256i gf4v_scalar_u256(const __m256i a,
+		                        const uint8_t b){
 	const __m256i m0 = _mm256_set1_epi8(0x55);
 	const __m256i m1 = _mm256_set1_epi8(0xaa);
 	const __m256i s0 = _mm256_set1_epi16(gf4_mult_table[b*2 + 0]);
