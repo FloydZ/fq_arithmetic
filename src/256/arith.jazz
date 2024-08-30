@@ -1,0 +1,395 @@
+
+inline 
+fn gf256_add(reg u8 a, reg u8 b) -> reg u8 {
+	reg u8 c;
+	c = a ^ b;
+	return c;
+}
+
+inline
+fn gf256_sub(reg u8 a, reg u8 b) -> reg u8 {
+	reg u8 c;
+	c = a ^ b;
+	return c;
+}
+
+
+inline
+fn gf256_mul(reg u8 a, reg u8 b) -> reg u8 {
+	reg u8 r b1, r1, r2;
+
+    // Step 1
+	b1 = b;
+	b1 >>= 7;
+	b1 = - b1;
+    r = b1 & a;
+
+
+	// step 2
+	b1 = b;
+	b1 >>= 6;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 3
+	b1 = b;
+	b1 >>= 5;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 4
+	b1 = b;
+	b1 >>= 4;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 5
+	b1 = b;
+	b1 >>= 3;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 6
+	b1 = b;
+	b1 >>= 2;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 7
+	b1 = b;
+	b1 >>= 1;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+	// step 8
+	b1 = b;
+	b1 = b1 & 1;
+	b1 = - b1;
+	b1 = b1 & a;
+
+	r1 = r;
+	r1 >>= 7;
+	r1 = -r1;
+	r1 = r1 & 0x1b;
+
+    r2 = r;
+	r2 = r2 + r2;
+
+    r = r ^ r2;
+	r = r ^ r1;
+
+
+	return r;
+}
+
+export
+fn _gf256_mul(reg u8 a, reg u8 b) -> reg u8 {
+	reg u8 c;
+	c = gf256_mul(a, b);
+	return c;
+}
+
+u16 gf256_mul_mask_ = 0x1B1B;
+inline
+fn gf256_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+	reg u256 zero, mask, r, b1, t1, t2;
+	reg u256 la;
+
+	la = a;
+	zero = #set0_256();
+	mask = #VPBROADCAST_16u16(gf256_mul_mask_);
+
+	// Step 1
+	r = #VPBLENDVB_256(zero, a, b);
+
+	// Step 2
+	b1 = #VPSLL_16u16(b, 1);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 3
+	b1 = #VPSLL_16u16(b, 2);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 4
+	b1 = #VPSLL_16u16(b, 3);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 5
+	b1 = #VPSLL_16u16(b, 4);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 6
+	b1 = #VPSLL_16u16(b, 5);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 7
+	b1 = #VPSLL_16u16(b, 6);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 8
+	b1 = #VPSLL_16u16(b, 7);
+	t1 = #VPBLENDVB_256(zero, la, b1);
+	t2 = #VPBLENDVB_256(zero, mask, r);
+	r  = #VPADD_32u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	return r;
+}
+
+inline
+fn gf256_mul_u128(reg u128 a, reg u128 b) -> reg u128 {
+	reg u128 zero, mask, r, b1, t1, t2;
+	reg u128 la;
+
+	la = a;
+	zero = #set0_128();
+	mask = #VPBROADCAST_8u16(gf256_mul_mask_);
+
+	// Step 1
+	r = #VPBLENDVB_128(zero, a, b);
+
+	// Step 2
+	b1 = #VPSLL_8u16(b, 1);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 3
+	b1 = #VPSLL_8u16(b, 2);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 4
+	b1 = #VPSLL_8u16(b, 3);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 5
+	b1 = #VPSLL_8u16(b, 4);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 6
+	b1 = #VPSLL_8u16(b, 5);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 7
+	b1 = #VPSLL_8u16(b, 6);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	// Step 8
+	b1 = #VPSLL_8u16(b, 7);
+	t1 = #VPBLENDVB_128(zero, la, b1);
+	t2 = #VPBLENDVB_128(zero, mask, r);
+	r  = #VPADD_16u8(r, r);
+	r  = r ^ t1;
+	r  = r ^ t2;
+
+	return r;
+}
+
+export
+fn _gf256_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+	reg u256 c;
+	c = gf256_mul_u256(a, b);
+	return c;
+}
+
+param int N = 576;
+
+inline
+fn gf256_vector_add(stack u8[N] out,
+					stack u8[N] in1,
+					stack u8[N] in2) {
+	reg u256 s1, s2, tmp;
+	reg u64 i1, i2;
+
+	i1 = 0;
+	i2 = N;
+
+	while (i2 >= 32) {
+		s1 = in1.[u256 (int) i1];
+		s2 = in2.[u256 (int) i1];
+		tmp = s2 ^ s1;
+		out.[u256 (int) i1] = tmp;
+		i2 = i2 - 32;
+		i1 = i1 + 32;
+	}
+
+	// reg u128 s1_128, s2_128, tmp128;
+	// s128 = #VPBROADCAST_16u8(scalar);
+	// while (i2 >= 16) {
+	// 	s1 = in1.[u128 (int) i1];
+	// 	s2 = in2.[u128 (int) i1];
+	// 	tmp = s2 ^ s1;
+	// 	out.[u128 (int) i1] = tmp;
+	// 	i2 = i2 - 32;
+	// 	i1 = i1 + 32;
+	// }
+
+
+	reg u8 cc;
+	while (i2 > 0) {
+		cc = gf256_mul(scalar, in2[i1]);
+		i2 = i2 - 1;
+		i1 = i1 + 1;
+	}
+}
+inline
+fn gf256_vector_add_scalar(stack u8[N] out,
+						   stack u8[N] in1,
+						   reg u8 scalar,
+						   stack u8[N] in2) {
+	reg u256 s256, s1, s2, tmp;
+	reg u64 i1, i2;
+
+	i1 = 0;
+	i2 = N;
+	s256 = #VPBROADCAST_32u8(scalar);
+
+	while (i2 >= 32) {
+		s1 = in1.[u256 (int) i1];
+		s2 = in2.[u256 (int) i1];
+		tmp = gf256_mul_u256(s2, s256);
+		tmp = tmp ^ s1;
+		out.[u256 (int) i1] = tmp;
+		i2 = i2 - 32;
+		i1 = i1 + 32;
+	}
+
+	// reg u128 s1_128, s2_128, tmp128;
+	// s128 = #VPBROADCAST_16u8(scalar);
+	// while (i2 >= 16) {
+	// 	s1 = in1.[u128 (int) i1];
+	// 	s2 = in2.[u128 (int) i1];
+	// 	tmp = gf256_mul_u128(s2, s256);
+	// 	tmp = tmp ^ s1;
+	// 	out.[u128 (int) i1] = tmp;
+	// 	i2 = i2 - 32;
+	// 	i1 = i1 + 32;
+	// }
+
+
+	reg u8 cc;
+	while (i2 > 0) {
+		cc = gf256_mul(scalar, in2[i1]);
+		i2 = i2 - 1;
+		i1 = i1 + 1;
+	}
+}
