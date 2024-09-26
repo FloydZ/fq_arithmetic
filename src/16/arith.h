@@ -41,7 +41,7 @@ static inline ff_t gf16_inv(const ff_t a) {
 }
 
 static inline ff_t gf16_add(const ff_t a,
-              const ff_t b) {
+                            const ff_t b) {
 	return a ^ b;
 }
 
@@ -61,18 +61,19 @@ static inline ff_t gf16_sqr(const ff_t a) {
 }
 
 /// a*b
-static inline ff_t gf16_mul(const ff_t a, const ff_t b) {
+static inline ff_t gf16_mul(const ff_t a,
+                            const ff_t b) {
     return gf16_mult_table[a * 16 + b];
 }
 
 /// NOTE: b must be a single number
 /// NOTE: multiplication with a much smaller lookup table
 static inline ff_t gf16_mul_v2(const ff_t a,
-                 const ff_t b) {
+                               const ff_t b) {
     /// row0 : 0*1, ..., 0*4
     /// row1 : 1*1, ..., 1*4
     ///     ...
-    /// row1 : 1*1, ..., 1*4
+    /// rowf : f*1, ..., f*4
     const static uint8_t __gf16_mulbase2[64] __attribute__((aligned(64))) = {
             0x00,0x00,0x00,0x00,
             0x01,0x02,0x04,0x08,
@@ -122,7 +123,7 @@ static inline ff_t gf16_addmul(const ff_t a,
     return gf16_add(a, gf16_mul(b, c));
 }
 
-/// vectorized sqrt(a)
+/// vectorized sqr(a) = a**2
 static inline uint64_t gf16_sqrv_u64(uint64_t a) {
     uint64_t a01 = (      a&0x1111111111111111ULL) + ((a<<1)&0x4444444444444444ULL);
     uint64_t a23 = (((a>>2)&0x1111111111111111ULL) + ((a>>1)&0x4444444444444444ULL))*3;

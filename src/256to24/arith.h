@@ -48,10 +48,11 @@ static inline void gf256to24_set_(gf256to24 *res,
 #endif
 }
 
-/// multiplication using karatsube
+/// multiplication using karatsuba
 /// \param res
 /// \param a
 /// \param b
+/// \reutrn
 static inline void gf256to24_mul(gf256to24 res,
                                  const gf256to24 a,
                                  const gf256to24 b) {
@@ -216,7 +217,7 @@ static inline void gf256to24_vector_add_u256_(gf256to24 *out,
     }
 }
 
-/// out += in1 * value
+/// out += in1 * scalar
 static inline void gf256to24_vector_add_multiple_u256(gf256to24 *out,
                                                  const gf256to24 scalar,
                                                  const gf256to24 *in1,
