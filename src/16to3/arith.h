@@ -101,8 +101,8 @@ static inline gf16to3 gf16to3v_mul(const uint64_t a,
 /// \param a
 /// \param b
 /// \return a*b;
-static inline __m256i gf16to3v_mul_gf16(const __m256i a,
-                                        const uint8_t b) {
+static inline __m256i gf16to3v_mul_gf16_u256(const __m256i a,
+                                             const uint8_t b) {
    const __m256i bb = _mm256_set1_epi8(b);
    return gf16v_mul_u256(a, bb);
 }
