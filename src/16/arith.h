@@ -826,7 +826,8 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
 
 
 
-/// this is an adapted version of `gf16mat_prod_16x16_avx2_wrapper_v2` which allows for smaller input matrices
+/// this is an adapted version of `gf16mat_prod_16x16_avx2_wrapper_v2`
+/// which allows for smaller input matrices
 /// \param c out matrix
 /// \param a in matrix
 /// \param height_B number of columns in B
@@ -960,8 +961,12 @@ uint8x16_t gf16v_mul_neon2(uint8x16_t a, uint8x16_t b) {
 
 
 /// A, B, C are in row-majow form
-void matrix_mul(uint8_t *C, uint8_t *A, uint8_t *B,
-				const size_t nrows_A, const size_t ncols_A, const size_t ncols_B) {
+void matrix_mul(uint8_t *C,
+                uint8_t *A,
+                uint8_t *B,
+				const size_t nrows_A,
+				const size_t ncols_A,
+				const size_t ncols_B) {
 	for (uint32_t i = 0; i < nrows_A; i++) {
 		for (uint32_t j = 0; j < ncols_B; j++) {
 			ff_t t = 0;
