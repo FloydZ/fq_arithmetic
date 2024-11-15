@@ -1,62 +1,44 @@
 #include <stdint.h>
+#include <assert.h>
 #include <stdio.h>
 
-typedef uint16_t eff_t;
+#include "arith.h"
 
-eff_t add(const eff_t a, const eff_t b) {
-	return a ^ b;
-}
-
-// sage gave me this polynomial
-// x^12 + x^7 + x^6 + x^5 + x^3 + x + 1
-// #define MODULUS 0b1000011101011
-// sage gave me this polynomial
-// x^12 + x^3 + 1
-#define MODULUS 0b1000000001001
-
-eff_t mul(const eff_t a, const eff_t b) {
-	eff_t r;
-    r = (-(b>>11u     ) & a);
-    r = (-(b>>10u & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>9u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>8u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>7u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>6u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>5u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>4u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>3u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>2u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-    r = (-(b>>1u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
- return (-(b      & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
-}
-
-void compute_lookup_table() {
-	printf("[\n");
-	for (uint32_t a = 0; a < (1u << 12u); a++) {
-		for (uint32_t b = 0; b < (1u<<12u); b++) {
-			uint32_t c = mul(a, b);
-			printf("0x%x,", c);
-		}
-		printf("\n");
-	}
-	printf("]\n");
-}
 
 #ifdef USE_AVX2
-#include <immintrin.h>
-#include <wmmintrin.h>
+uint32_t test_vector_mul() {
+    uint16_t tmp[16];
+    for (int i = 0; i < 1u << 11; ++i) {
+        for (int j = 0; j < 1u << 11; ++j) {
+            const __m256i a256 = _mm256_set1_epi16(i);
+            const __m256i b256 = _mm256_set1_epi16(j);
+            const __m256i c256 = gf2to12v_mul_u256(a256, b256);
+            _mm256_storeu_si256(tmp, c256);
+            const ff_t c = gf2to12_mul(i, j);
+            for (int k = 0; k < 16; ++k) {
+                if (tmp[k] != c) {
+                    printf("mul error\n");
+                    return 1;
+                }
+            }
+        }
+    }
 
-#elif defined(USE_NEON)
-#else
+    return 0;
+}
 #endif
 
-
 int main() {
-	eff_t a=1u << 11u,
-          b=1u << 11u;
-	eff_t c1 = mul(a, b);
+	ff_t a=1u << 11u,
+         b=1u << 11u;
+	ff_t c1 = gf2to12_mul(a, b);
+    ff_t c2 = gf2to12_mul_v2(a, b);
+    assert (c1 == c2);
 	//printf("%u\n", c1);
 
-	compute_lookup_table();
-	return 1;
+#ifdef USE_AVX2
+    if (test_vector_mul()) { return 1; }
+#endif
+
+	return 0;
 }
