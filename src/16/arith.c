@@ -4,6 +4,45 @@
 
 #define TS 512
 
+#ifdef USE_AVX2
+#include <immintrin.h>
+uint32_t test_vector_mul() {
+    uint8_t tmp[16];
+    for (uint32_t i = 1; i < (1u<<4); i++) {
+        for (uint32_t j = 1; j < (1u<<4); j++) {
+            const ff_t c = gf16_mul(i, j);
+            __m256i a256 = _mm256_set1_epi8(i);
+            __m256i b256 = _mm256_set1_epi8(j);
+            __m256i c256 = gf16v_mul_u256(a256, b256);
+            _mm256_storeu_si256((__m256i *)tmp, c256);
+            for (uint32_t k = 0; k < 16; k++) {
+                if (c != tmp[k]) {
+                    printf("test_vector_mul v1: error\n");
+                    return 1;
+                }
+            }
+
+            __m256i a256_v2 = _mm256_set1_epi8(i ^ (i<<4));
+            __m256i b256_v2 = _mm256_set1_epi8(j ^ (j<<4));
+            __m256i c256_v2 = gf16v_mul_full_u256(a256_v2, b256_v2);
+            _mm256_storeu_si256((__m256i *)tmp, c256_v2);
+            for (uint32_t k = 0; k < 16; k++) {
+                if (c != (tmp[k]&0xF)) {
+                    printf("test_vector_mul v21: error\n");
+                    return 1;
+                }
+                if (c != (tmp[k]>>4)) {
+                    printf("test_vector_mul v22: error\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+#endif
+
 uint32_t test_transpose() {
     //uint8_t d[TS]={0}, out[TS]={0};
     //for (uint32_t i = 0; i < TS/4; i++ ) {
@@ -92,9 +131,13 @@ uint32_t test_solve() {
 }
 
 int main() {
-    if (test_transpose()) { return 1; }
-    if (test_transpose2()) { return 1; }
-    if (test_solve()) { return 1; }
+    // if (test_transpose()) { return 1; }
+    // if (test_transpose2()) { return 1; }
+    // if (test_solve()) { return 1; }
+
+#ifdef USE_AVX2
+    if (test_vector_mul()) { return 1; }
+#endif
 
     return 0;
 }

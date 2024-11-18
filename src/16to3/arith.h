@@ -107,14 +107,52 @@ static inline __m256i gf16to3v_mul_gf16_u256(const __m256i a,
    return gf16v_mul_u256(a, bb);
 }
 
-/// TODO there are multiple ways to implement this:
+/// NOTE there are multiple ways to implement this:
 ///     - assumes that each 1.5byte element is stored in 2 bytes,
 ///         thus there are 16 elements in a register
 ///     - or that that the elements are compressed together, meaning
 ///         we have 21 elements in a register
+/// NOTE: this implementation follows the first approach
 static inline __m256i gf16to3v_mul_u256(const __m256i a,
                                         const __m256i b) {
-    return a;
+    __m256i r;
+    const __m256i m0     = _mm256_set1_epi16(0x00F);
+    const __m256i m1     = _mm256_set1_epi16(0x0F0);
+    const __m256i m2     = _mm256_set1_epi16(0xF00);
+    const __m256i m      = _mm256_set1_epi16(0xFFF);
+    const __m256i pi     = gf16v_mul_full_u256(a, b);
+
+    // bit    0     4      8     12     16
+    // a01_12=[a0   , a0^a1, a1^a2,  a2]
+    // b01_12=[b0   , b0^b1, b1^b2,  b2]
+    const __m256i a01_12 = a ^ _mm256_slli_epi16(a, 4);
+    const __m256i b01_12 = b ^ _mm256_slli_epi16(b, 4);
+
+    // bit    0     4      8     12        16
+    // a012 = [a0   , a0^a1, a1^a2, a2^a1^a0]
+    // b012 = [b0   , b0^b1, b1^b2, b2^b1^b0]
+    const __m256i a012 = a01_12 ^ _mm256_slli_epi16(a01_12&m1 , 8);
+    const __m256i b012 = b01_12 ^ _mm256_slli_epi16(b01_12&m1 , 8);
+
+    // bit    0    4    8    12    16
+    // p012 = [p0 , p01, p12 , p012]
+    // p012 = [p01, p12, p012, 0000]
+    __m256i p012 = gf16v_mul_full_u256(a012, b012);
+    p012 = _mm256_srli_epi16(p012, 4);
+
+    // bit 0         4         8    16
+    // r = [p0^p1^p2, p0^p1^p2, 0, 0]
+    r = pi ^ (_mm256_srli_epi16(pi, 4));
+    r ^= _mm256_srli_epi16(pi, 8);
+    r ^= _mm256_slli_epi16(pi&m0, 4);     // ^= p0
+    r &= (m0 ^ m1);
+
+    r ^= _mm256_srli_epi16(p012, 4) & m0;   //^= p12
+    r ^= _mm256_slli_epi16(p012, 4);        // ^= p01, ^= p12
+    r ^= _mm256_slli_epi16(p012, 8);
+    r ^= p012&m2; // ^= p012
+
+    return r&m;
 }
 
 /// compressed representations
