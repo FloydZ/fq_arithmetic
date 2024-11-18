@@ -1,1 +1,0 @@
-/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang -g -g -O0 -DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native CMakeFiles/arith_256to32.dir/256to32/arith.c.o -o arith_256to32

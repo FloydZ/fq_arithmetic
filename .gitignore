@@ -4,3 +4,4 @@ build/
 *.json
 cmake-build-debug/
 cmake-build-release/
+out/
