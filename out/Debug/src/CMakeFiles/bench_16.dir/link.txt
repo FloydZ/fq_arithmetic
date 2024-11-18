@@ -1,0 +1,1 @@
+/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++ -g -g -O0 -DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native CMakeFiles/bench_16.dir/16/bench.cpp.o -o bench_16  /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib/libbenchmark.a -lrt

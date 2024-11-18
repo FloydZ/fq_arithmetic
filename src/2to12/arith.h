@@ -1,6 +1,9 @@
 #ifndef FQ_ARITHMETIC_ARITH_H
 #define FQ_ARITHMETIC_ARITH_H
 
+#include <stdint.h>
+#include <stdio.h>
+
 typedef uint16_t ff_t;
 
 ff_t gf2to12_add(const ff_t a,
@@ -8,9 +11,6 @@ ff_t gf2to12_add(const ff_t a,
     return a ^ b;
 }
 
-// sage gave me this polynomial
-// x^12 + x^7 + x^6 + x^5 + x^3 + x + 1
-// #define MODULUS 0b1000011101011
 // sage gave me this polynomial
 // x^12 + x^3 + 1
 #define MODULUS 0b1000000001001
@@ -41,6 +41,7 @@ static inline ff_t gf2to12_mul_v2(const ff_t a,
     for(uint32_t i=1 ; i<12 ; i++) {
         tmp = ((tmp << 1) ^ (-(tmp >> 11) & MODULUS));
         result = result ^ (-(a >> i & 1) & tmp);
+        result ^= 0;
     }
     return result;
 }
@@ -86,7 +87,172 @@ static inline __m128i gf2to12v_mul_u128(const __m128i a,
     return r;
 }
 
-// TODO also vectorize `gf2to12_mul_v2`
+#ifdef __AVX512VLINTRIN_H
+
+/// NOTE: needs BW + VL
+static inline __m256i gf2to12v_mul_u256_avx512(const __m256i a,
+                                               const __m256i b) {
+    const __m256i mod  = _mm256_set1_epi16((short)MODULUS);
+    const __m256i zero = _mm256_set1_epi8(0);
+    const __m256i m1   = _mm256_set1_epi16(1<<11u);
+    __m256i r, t;
+    __mmask16 m;
+
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 15));
+    r = _mm256_mask_blend_epi16(m, zero, b);
+    t = b;
+
+    // i=1
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 14));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=2
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 13));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=3
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 12));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=4
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 11));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=5
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 10));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=6
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 9));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=7
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 8));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=8
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 7));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=9
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 6));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=10
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 5));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    // i=11
+    m = _mm256_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm256_slli_epi16(t, 1) ^ _mm256_mask_blend_epi16(m, zero, mod);
+    m = _mm256_movepi16_mask(_mm256_slli_epi16(a, 4));
+    r ^= _mm256_mask_blend_epi16(m, zero, t);
+
+    return r;
+}
+/// NOTE: needs BW + VL
+static inline __m512i gf2to12v_mul_u512(const __m512i a,
+                                        const __m512i b) {
+    const __m512i mod  = _mm512_set1_epi16((short)MODULUS);
+    const __m512i zero = _mm512_set1_epi8(0);
+    const __m512i m1   = _mm512_set1_epi16(1<<11u);
+    __m512i r, t;
+    __mmask32 m;
+
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 15));
+    r = _mm512_mask_blend_epi16(m, zero, b);
+    t = b;
+
+    // i=1
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 14));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=2
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 13));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=3
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 12));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=4
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 11));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=5
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 10));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=6
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 9));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=7
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 8));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=8
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 7));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=9
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 6));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=10
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 5));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    // i=11
+    m = _mm512_cmp_epu16_mask(t&m1, m1, _MM_CMPINT_EQ);
+    t = _mm512_slli_epi16(t, 1) ^ _mm512_mask_blend_epi16(m, zero, mod);
+    m = _mm512_movepi16_mask(_mm512_slli_epi16(a, 4));
+    r ^= _mm512_mask_blend_epi16(m, zero, t);
+
+    return r;
+}
+#endif
+///
 static inline __m256i gf2to12v_mul_u256(const __m256i a,
                                         const __m256i b) {
     const __m256i mod  = _mm256_set1_epi16((short)MODULUS);
@@ -144,6 +310,89 @@ static inline __m256i gf2to12v_mul_u256(const __m256i a,
     mr = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(r, 4) & m1) ^ (_mm256_srli_epi16(r, 4)));
     ma = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(b, 15)) ^ (_mm256_slli_epi16(b, 7) & m2));
     r =  (ma & a) ^ (mr & mod) ^ _mm256_add_epi16(r, r);
+    return r;
+}
+
+
+static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
+                                           const __m256i b) {
+    const __m256i mod  = _mm256_set1_epi16((short)MODULUS);
+    const __m256i one  = _mm256_set1_epi8(-1);
+    const __m256i zero = _mm256_set1_epi8(0);
+    const __m256i m1 = _mm256_set1_epi16(0x8000);
+    const __m256i m2 = _mm256_set1_epi16(0x0080);
+    __m256i mt, mm, r, t;
+
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 15)) ^ (_mm256_slli_epi16(a, 7) & m2));
+    r = mm & b;
+    t = b;
+
+    // i = 1;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 14)) ^ (_mm256_slli_epi16(a, 6) & m2));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 2;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 13)) ^ (_mm256_slli_epi16(a, 5) & m2));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 3;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 12)) ^ (_mm256_slli_epi16(a, 4) & m2));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 4;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 11)) ^ (_mm256_slli_epi16(a, 3)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 5;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 10)) ^ (_mm256_slli_epi16(a, 2)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 6;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 9)) ^ (_mm256_slli_epi16(a, 1)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 7;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 8)) ^ (a & m2));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 8;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 7) & m1) ^ (_mm256_srli_epi16(a, 1)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 9;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 6) & m1) ^ (_mm256_srli_epi16(a, 2)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 10;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 5) & m1) ^ (_mm256_srli_epi16(a, 3)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
+    // i = 11;
+    mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 4) & m1) ^ (_mm256_srli_epi16(t, 4)));
+    mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 4) & m1) ^ (_mm256_srli_epi16(a, 4)));
+    t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
+    r ^= (mt & t);
+    
     return r;
 }
 

@@ -1,44 +1,38 @@
 #include <stdint.h>
+#include <stdio.h>
 
-typedef uint16_t eff_t;
+#include "arith.h"
 
-
-#define MODULUS 0x805
-
-eff_t add(const eff_t a, const eff_t b) {
-	return a ^ b;
-}
-
-eff_t mul(const eff_t a, const eff_t b) {
-    eff_t result = -(a & 1) & b;
-    eff_t tmp = b;
-    for(int i=1 ; i<11 ; i++) {
-        tmp = ((tmp << 1) ^ (-(tmp >> 10) & MODULUS));
-        result = result ^ (-(a >> i & 1) & tmp);
-    }
-    return result;
-}
-
-/// \return a^-1
-static inline eff_t mirath_ff_mu_inv(const eff_t a) {
-    eff_t result = a;
-    for(int i=0 ; i<9 ; i++) {
-        result = mul(result, result);
-        result = mul(result, a);
-    }
-    result = mul(result, result);
-    return result;
-}
 
 #ifdef USE_AVX2
 #include <immintrin.h>
-#include <wmmintrin.h>
 
-#elif defined(USE_NEON)
-#else
+uint32_t test_vector_mul() {
+    uint16_t tmp[16];
+    for (int i = 2; i < 1u << 11; ++i) {
+        for (int j = 1; j < 1u << 11; ++j) {
+            const __m256i a256 = _mm256_set1_epi16(i);
+            const __m256i b256 = _mm256_set1_epi16(j);
+            const __m256i c256 = gf2to11v_mul_u256(a256, b256);
+            const ff_t c = gf2to11_mul(i, j);
+            _mm256_storeu_si256((__m256i *)tmp, c256);
+            for (int k = 0; k < 16; ++k) {
+                if (tmp[k] != c) {
+                    printf("gf2to12 avx mul error\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
 #endif
 
-
 int main() {
-	return 1;
+#ifdef USE_AVX2
+    if (test_vector_mul()) { return 1; }
+#endif
+
+	return 0;
 }

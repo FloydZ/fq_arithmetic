@@ -1,0 +1,558 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineSystem.cmake:205 (message)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      The system is: Linux - 6.6.61 - x86_64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+      
+      The C compiler identification is Clang, found in:
+        /home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/3.29.2/CompilerIdC/a.out
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCXXCompiler.cmake:126 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler: /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++ 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+      
+      The CXX compiler identification is Clang, found in:
+        /home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/3.29.2/CompilerIdCXX/a.out
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:64 (try_compile)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3"
+      binary: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/nix/store/cfqlgxza4lhfvpcd263457kqk1a78cr8-clang-tools-17.0.6/bin/clang-scan-deps"
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3'
+        
+        Run Build Command(s): /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E env VERBOSE=1 /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make -f Makefile cmTC_dbdde/fast
+        /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make  -f CMakeFiles/cmTC_dbdde.dir/build.make CMakeFiles/cmTC_dbdde.dir/build
+        make[1]: Entering directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3'
+        Building C object CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang   -v -MD -MT CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCCompilerABI.c
+        clang version 17.0.6
+        Target: x86_64-unknown-linux-gnu
+        Thread model: posix
+        InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         (in-process)
+         "/nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin/clang-17" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -fhalf-no-semantic-interposition -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3 -nostdsysteminc -resource-dir /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root -dependency-file CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -sys-header-deps -idirafter /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -U _FORTIFY_SOURCE -U _FORTIFY_SOURCE -D _FORTIFY_SOURCE=2 -internal-isystem /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include -source-date-epoch 315532800 -O2 -Wformat -Wformat-security -Werror=format-security -fdebug-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3 -ferror-limit 19 -fwrapv -stack-protector 2 -stack-protector-buffer-size 4 -fgnuc-version=4.2.1 -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -x c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCCompilerABI.c
+        clang -cc1 version 17.0.6 based upon LLVM 17.0.6 default target x86_64-unknown-linux-gnu
+        ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"
+        ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"
+        ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"
+        ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"
+        ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"
+        ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include
+         /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include
+         /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include
+         /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include
+         /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include
+        End of search list.
+        Linking C executable cmTC_dbdde
+        /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_dbdde.dir/link.txt --verbose=1
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang  -v -Wl,-v CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -o cmTC_dbdde
+        clang version 17.0.6
+        Target: x86_64-unknown-linux-gnu
+        Thread model: posix
+        InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" -pie --hash-style=gnu --eh-frame-hdr -m elf_x86_64 -o cmTC_dbdde /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib -L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib -L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64 -L/lib/../lib64 -L/lib -dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2 -v CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -rpath /nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o
+        GNU ld (GNU Binutils) 2.41
+        make[1]: Leaving directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:134 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+          add: [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+          add: [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+          add: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+          add: [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        end of search list found
+        collapse include dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+        collapse include dir [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include] ==> [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+        collapse include dir [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include] ==> [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+        collapse include dir [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include] ==> [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+        collapse include dir [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include] ==> [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        implicit include dirs: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include;/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include;/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include;/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include;/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:170 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3']
+        ignore line: []
+        ignore line: [Run Build Command(s): /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E env VERBOSE=1 /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make -f Makefile cmTC_dbdde/fast]
+        ignore line: [/nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make  -f CMakeFiles/cmTC_dbdde.dir/build.make CMakeFiles/cmTC_dbdde.dir/build]
+        ignore line: [make[1]: Entering directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3']
+        ignore line: [Building C object CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o]
+        ignore line: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang   -v -MD -MT CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCCompilerABI.c]
+        ignore line: [clang version 17.0.6]
+        ignore line: [Target: x86_64-unknown-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        ignore line: [ (in-process)]
+        ignore line: [ "/nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin/clang-17" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model pic -pic-level 2 -fhalf-no-semantic-interposition -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3 -nostdsysteminc -resource-dir /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root -dependency-file CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -sys-header-deps -idirafter /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -U _FORTIFY_SOURCE -U _FORTIFY_SOURCE -D _FORTIFY_SOURCE=2 -internal-isystem /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include -source-date-epoch 315532800 -O2 -Wformat -Wformat-security -Werror=format-security -fdebug-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-TJFUr3 -ferror-limit 19 -fwrapv -stack-protector 2 -stack-protector-buffer-size 4 -fgnuc-version=4.2.1 -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -x c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCCompilerABI.c]
+        ignore line: [clang -cc1 version 17.0.6 based upon LLVM 17.0.6 default target x86_64-unknown-linux-gnu]
+        ignore line: [ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+        ignore line: [ /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+        ignore line: [ /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+        ignore line: [ /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+        ignore line: [ /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        ignore line: [End of search list.]
+        ignore line: [Linking C executable cmTC_dbdde]
+        ignore line: [/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_dbdde.dir/link.txt --verbose=1]
+        ignore line: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang  -v -Wl -v CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -o cmTC_dbdde]
+        ignore line: [clang version 17.0.6]
+        ignore line: [Target: x86_64-unknown-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        link line: [ "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" -pie --hash-style=gnu --eh-frame-hdr -m elf_x86_64 -o cmTC_dbdde /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib -L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib -L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64 -L/lib/../lib64 -L/lib -dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2 -v CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o -rpath /nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+          arg [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld] ==> ignore
+          arg [-pie] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_dbdde] ==> ignore
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o]
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o]
+          arg [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o] ==> obj [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib] ==> dir [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+          arg [-L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib] ==> dir [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib]
+          arg [-L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib] ==> dir [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib]
+          arg [-L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib] ==> dir [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64]
+          arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+          arg [-L/lib] ==> dir [/lib]
+          arg [-dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2] ==> ignore
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_dbdde.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-rpath] ==> ignore
+          arg [/nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib] ==> ignore
+          arg [-lgcc] ==> lib [gcc]
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--no-as-needed] ==> ignore
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--no-as-needed] ==> ignore
+          arg [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o] ==> obj [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o]
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+        linker tool for 'C': /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib] ==> [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        collapse library dir [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib] ==> [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib]
+        collapse library dir [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib] ==> [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib]
+        collapse library dir [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib] ==> [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64]
+        collapse library dir [/lib/../lib64] ==> [/lib64]
+        collapse library dir [/lib] ==> [/lib]
+        implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+        implicit objs: [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+        implicit dirs: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib;/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0;/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib;/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib;/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64;/lib64;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:207 (cmake_determine_linker_id)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Running the C compiler's linker: "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" "-v"
+      GNU ld (GNU Binutils) 2.41
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:64 (try_compile)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S"
+      binary: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/nix/store/cfqlgxza4lhfvpcd263457kqk1a78cr8-clang-tools-17.0.6/bin/clang-scan-deps"
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S'
+        
+        Run Build Command(s): /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E env VERBOSE=1 /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make -f Makefile cmTC_f2eed/fast
+        /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make  -f CMakeFiles/cmTC_f2eed.dir/build.make CMakeFiles/cmTC_f2eed.dir/build
+        make[1]: Entering directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S'
+        Building CXX object CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++   -v -MD -MT CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCXXCompilerABI.cpp
+        clang version 17.0.6
+        Target: x86_64-unknown-linux-gnu
+        Thread model: posix
+        InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         (in-process)
+         "/nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin/clang++" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -fhalf-no-semantic-interposition -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S -nostdsysteminc -resource-dir /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root -dependency-file CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -idirafter /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0 -isystem /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu -U _FORTIFY_SOURCE -U _FORTIFY_SOURCE -D _FORTIFY_SOURCE=2 -internal-isystem /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include -source-date-epoch 315532800 -O2 -Wformat -Wformat-security -Werror=format-security -fdeprecated-macro -fdebug-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S -ferror-limit 19 -fwrapv -stack-protector 2 -stack-protector-buffer-size 4 -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -x c++ /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCXXCompilerABI.cpp
+        clang -cc1 version 17.0.6 based upon LLVM 17.0.6 default target x86_64-unknown-linux-gnu
+        ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"
+        ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"
+        ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"
+        ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"
+        ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"
+        ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include
+         /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include
+         /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include
+         /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0
+         /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu
+         /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include
+         /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include
+        End of search list.
+        Linking CXX executable cmTC_f2eed
+        /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f2eed.dir/link.txt --verbose=1
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++  -v -Wl,-v CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_f2eed
+        clang version 17.0.6
+        Target: x86_64-unknown-linux-gnu
+        Thread model: posix
+        InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0
+        Candidate multilib: .;@m64
+        Selected multilib: .;@m64
+         "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" -pie --hash-style=gnu --eh-frame-hdr -m elf_x86_64 -o cmTC_f2eed /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib -L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib -L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64 -L/lib/../lib64 -L/lib -dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2 -v CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -rpath /nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o
+        GNU ld (GNU Binutils) 2.41
+        make[1]: Leaving directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:134 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed CXX implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+          add: [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+          add: [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+          add: [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0]
+          add: [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu]
+          add: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+          add: [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        end of search list found
+        collapse include dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+        collapse include dir [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include] ==> [/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+        collapse include dir [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include] ==> [/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+        collapse include dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0]
+        collapse include dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu]
+        collapse include dir [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include] ==> [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+        collapse include dir [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include] ==> [/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        implicit include dirs: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include;/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include;/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu;/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include;/nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:170 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S']
+        ignore line: []
+        ignore line: [Run Build Command(s): /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E env VERBOSE=1 /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make -f Makefile cmTC_f2eed/fast]
+        ignore line: [/nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make  -f CMakeFiles/cmTC_f2eed.dir/build.make CMakeFiles/cmTC_f2eed.dir/build]
+        ignore line: [make[1]: Entering directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S']
+        ignore line: [Building CXX object CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o]
+        ignore line: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++   -v -MD -MT CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -c /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [clang version 17.0.6]
+        ignore line: [Target: x86_64-unknown-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        ignore line: [ (in-process)]
+        ignore line: [ "/nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin/clang++" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 2 -fhalf-no-semantic-interposition -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S -nostdsysteminc -resource-dir /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root -dependency-file CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -idirafter /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include -isystem /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include -isystem /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include -isystem /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0 -isystem /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu -U _FORTIFY_SOURCE -U _FORTIFY_SOURCE -D _FORTIFY_SOURCE=2 -internal-isystem /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include -source-date-epoch 315532800 -O2 -Wformat -Wformat-security -Werror=format-security -fdeprecated-macro -fdebug-compilation-dir=/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-2zIU7S -ferror-limit 19 -fwrapv -stack-protector 2 -stack-protector-buffer-size 4 -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -x c++ /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [clang -cc1 version 17.0.6 based upon LLVM 17.0.6 default target x86_64-unknown-linux-gnu]
+        ignore line: [ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include"]
+        ignore line: [ignoring duplicate directory "/nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/include]
+        ignore line: [ /nix/store/nqnkjs9i7045nghpz6y1ay7r527kly79-gmp-with-cxx-6.3.0-dev/include]
+        ignore line: [ /nix/store/n88b4wwp0sh9057rs384i0sxfc5q9ys5-compiler-rt-libc-17.0.6-dev/include]
+        ignore line: [ /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0]
+        ignore line: [ /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/include/c++/13.2.0/x86_64-unknown-linux-gnu]
+        ignore line: [ /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/resource-root/include]
+        ignore line: [ /nix/store/0ywz89gl18p0y5m7m8kz8vh1bkry0syf-glibc-2.39-52-dev/include]
+        ignore line: [End of search list.]
+        ignore line: [Linking CXX executable cmTC_f2eed]
+        ignore line: [/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f2eed.dir/link.txt --verbose=1]
+        ignore line: [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang++  -v -Wl -v CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_f2eed]
+        ignore line: [clang version 17.0.6]
+        ignore line: [Target: x86_64-unknown-linux-gnu]
+        ignore line: [Thread model: posix]
+        ignore line: [InstalledDir: /nix/store/zx9mx5s27pcgmxd0b6864q22w5p7758z-clang-17.0.6/bin]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Found candidate GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Selected GCC installation: /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        ignore line: [Candidate multilib: .]
+        ignore line: [@m64]
+        ignore line: [Selected multilib: .]
+        ignore line: [@m64]
+        link line: [ "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" -pie --hash-style=gnu --eh-frame-hdr -m elf_x86_64 -o cmTC_f2eed /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib -L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib -L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib -L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib -L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0 -L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64 -L/lib/../lib64 -L/lib -dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2 -v CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o -rpath /nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o /nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+          arg [/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld] ==> ignore
+          arg [-pie] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_f2eed] ==> ignore
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o]
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o]
+          arg [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o] ==> obj [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+          arg [-L/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+          arg [-L/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib] ==> dir [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+          arg [-L/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib] ==> dir [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib]
+          arg [-L/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib] ==> dir [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib]
+          arg [-L/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib] ==> dir [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+          arg [-L/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64] ==> dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64]
+          arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+          arg [-L/lib] ==> dir [/lib]
+          arg [-dynamic-linker=/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/ld-linux-x86-64.so.2] ==> ignore
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_f2eed.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [-rpath] ==> ignore
+          arg [/nix/store/asrg51djv3kjlapdh3ifbxplaaahjjg2-fq_arithmetic/lib] ==> ignore
+          arg [-lstdc++] ==> lib [stdc++]
+          arg [-lm] ==> lib [m]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [-lc] ==> lib [c]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o] ==> obj [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o]
+          arg [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o] ==> obj [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+        linker tool for 'CXX': /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib] ==> [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib]
+        collapse library dir [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib] ==> [/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib]
+        collapse library dir [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib] ==> [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        collapse library dir [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib] ==> [/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0//lib] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib]
+        collapse library dir [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib] ==> [/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib]
+        collapse library dir [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib] ==> [/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0]
+        collapse library dir [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0/../../../../lib64] ==> [/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64]
+        collapse library dir [/lib/../lib64] ==> [/lib64]
+        collapse library dir [/lib] ==> [/lib]
+        implicit libs: [stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+        implicit objs: [/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/Scrt1.o;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crti.o;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtbeginS.o;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0/crtendS.o;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib/crtn.o]
+        implicit dirs: [/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib;/nix/store/mjf14acr1d8p894v4mzlkmm0f9f93k3v-gmp-with-cxx-6.3.0/lib;/nix/store/kpy2cyd05vdr6j1h200av81fnlxl1jw0-glibc-2.39-52/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib/gcc/x86_64-unknown-linux-gnu/13.2.0;/nix/store/gwxqkkagvqcbf5ac4jm246c6mg7nbp3h-gcc-13.2.0-lib/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib;/nix/store/b60a6findsk5fv5080xkp7fzld280z4i-gcc-13.2.0-libgcc/lib;/nix/store/gbajxylcp99bbwakgvyrna9r8qrwb769-clang-17.0.6-lib/lib;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64/gcc/x86_64-unknown-linux-gnu/13.2.0;/nix/store/1hn524ifk2hqksf0m9klmh9gkfkfvgqv-gcc-13.2.0/lib64;/lib64;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeDetermineCompilerABI.cmake:207 (cmake_determine_linker_id)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Running the CXX compiler's linker: "/nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/ld" "-v"
+      GNU ld (GNU Binutils) 2.41
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CheckCSourceCompiles.cmake:52 (cmake_check_source_compiles)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/FindThreads.cmake:97 (CHECK_C_SOURCE_COMPILES)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "/nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/share/cmake-3.29/Modules/CMakeFindDependencyMacro.cmake:76 (find_package)"
+      - "/nix/store/1z9cg2zfpqj4fjpl12ign18yqn0r8y6g-gbenchmark-1.8.3/lib/cmake/benchmark/benchmarkConfig.cmake:12 (find_dependency)"
+      - "CMakeLists.txt:28 (find_package)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN"
+      binary: "/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN"
+    cmakeVariables:
+      CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS: "/nix/store/cfqlgxza4lhfvpcd263457kqk1a78cr8-clang-tools-17.0.6/bin/clang-scan-deps"
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN'
+        
+        Run Build Command(s): /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E env VERBOSE=1 /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make -f Makefile cmTC_efc8c/fast
+        /nix/store/ya89fbdvamc9a3m3flny3drxp6msi0pb-gnumake-4.4.1/bin/make  -f CMakeFiles/cmTC_efc8c.dir/build.make CMakeFiles/cmTC_efc8c.dir/build
+        make[1]: Entering directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN'
+        Building C object CMakeFiles/cmTC_efc8c.dir/src.c.o
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang -DCMAKE_HAVE_LIBC_PTHREAD   -MD -MT CMakeFiles/cmTC_efc8c.dir/src.c.o -MF CMakeFiles/cmTC_efc8c.dir/src.c.o.d -o CMakeFiles/cmTC_efc8c.dir/src.c.o -c /home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN/src.c
+        Linking C executable cmTC_efc8c
+        /nix/store/z9w9jh0pq94vlfzsiyb3g6lrai8ba2px-cmake-3.29.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_efc8c.dir/link.txt --verbose=1
+        /nix/store/wk45q17zzwwpsgary6hfc368567kmwiy-clang-wrapper-17.0.6/bin/clang CMakeFiles/cmTC_efc8c.dir/src.c.o -o cmTC_efc8c
+        make[1]: Leaving directory '/home/duda/Downloads/crypto/lib/fq_arithmetic/out/Debug/CMakeFiles/CMakeScratch/TryCompile-v678BN'
+        
+      exitCode: 0
+...
