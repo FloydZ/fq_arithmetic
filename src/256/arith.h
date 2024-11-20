@@ -882,6 +882,70 @@ static inline __m128i gf256v_mul_u128(const __m128i a,
 }
 
 
+/// TODO bench
+/// full multiplication:
+static inline __m256i gf256_full_mul_simd(__m256i a, const __m256i b) {
+    const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
+    const __m256i zero      = _mm256_set1_epi8(0x00);
+    const __m256i mask      = _mm256_set1_epi8(0x1b);
+    const __m256i bit       = _mm256_set1_epi8(0x01);
+    __m256i tmp = a&bit, a_msb;
+    // 0
+    __m256i r = _mm256_sign_epi8(tmp, tmp) & b;
+
+    // 1
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6));
+
+    // 2
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    tmp = _mm256_slli_epi16(b, 5);
+    r = r ^ _mm256_blendv_epi8(zero, a, tmp);
+
+    // 3
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4));
+
+    // 4
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3));
+
+    // 5
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2));
+
+    // 6
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1));
+
+    // 7
+    a_msb = a & mask_msb;
+    a = a ^ a_msb;
+    a = _mm256_slli_epi16(a, 1);
+    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
+    r = r ^ _mm256_blendv_epi8(zero, a, b);
+
+    return r;
+}
+
 /// \param a
 /// \param b
 /// \return
@@ -964,8 +1028,6 @@ __m256i tbl32_gf256_mul_const(unsigned char a , __m256i b) {
     return linear_transform_8x8_256b(tab_l, tab_h, b, _mm256_set1_epi8(0xf));
 }
 
-
-//
 // generate multiplication table
 __m256i tbl32_gf256_multab(uint8_t b) {
 #if 1
@@ -1011,7 +1073,7 @@ __m256i tbl32_gf256_multab(uint8_t b) {
 #endif
 }
 
-__m256i gf256v_mul_scalar_avx2(__m256i a, uint8_t _b) {
+__m256i gf256v_mul_scalar_u256(__m256i a, uint8_t _b) {
     const __m256i m_tab = tbl32_gf256_multab(_b);
     const __m256i ml = _mm256_permute2x128_si256(m_tab, m_tab, 0);
     const __m256i mh = _mm256_permute2x128_si256(m_tab, m_tab, 0x11);
@@ -1180,9 +1242,5 @@ static inline void gf256_vector_add_scalar_u512(gf256 *out,
 }
 
 #endif
-
-
-
-
 #undef MODULUS
 #endif // end namespace

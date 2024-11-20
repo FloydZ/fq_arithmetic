@@ -49,10 +49,31 @@ int check_gf256v_mul_u256_v2() {
     printf("%u %u\n", v3.v32[0], v4.v32[0]);
 
     if (check_gf256v_mul_u256()) return 1;
+    return 0;
+}
+
+int check_gf256v_mul_scalar_u256() {
+    const __m256i a = _mm256_set1_epi8(1);
+
+    v256 c1 = {0}, c2 = {0};
+    for (uint32_t b = 0; b < (1u<<8u); b++) {
+        const __m256i b1 = _mm256_set1_epi8(1);
+        c1.v256 = gf256v_mul_u256(a, b1);
+        c2.v256 = gf256v_mul_scalar_u256(a, b);
+        for (uint32_t k = 0; k < 32; k++) {
+            if (c1.v8[k] != c2.v8[k]) {
+                printf("error\n");
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 #endif
 
 int main() {
+    return check_gf256v_mul_scalar_u256();
+
 	const uint64_t t1 = gf256v_scalar_u64(121, 8);
 	const uint64_t t2 = gf256v_scalar_u64_v2(121, 8);
     const uint64_t t3 = gf256v_mul_u64(121, 8);
