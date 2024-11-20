@@ -1,57 +1,78 @@
 #include <stdint.h>
+#include <stdio.h>
 
-#define PRIME 31
+#include "arith.h"
 
-// Work as soon as x <= 63487 = 2^15.95
-#define _gf31_reduce16(x) ((x) - 31 * (((uint32_t)(x) * 67651) >> 21))
+#ifdef USE_AVX2
+uint32_t test_vector_add() {
+    uint8_t tmp[32];
+    for (uint32_t i = 0; i < PRIME; i++) {
+        for (uint32_t j = 8; j < PRIME; j++) {
+            const ff_t c = gf31_add(i, j);
+            const __m256i a = _mm256_set1_epi8(i);
+            const __m256i b = _mm256_set1_epi8(j);
+            const __m256i d = gf31v_add_u256(a, b);
 
-// Work as soon as x <= 4160749567 = 2^31.95
-#define _gf31_reduce32(x) ((x) - 31 * (((uint64_t)(x) * 4433514629) >> 37))
+            _mm256_storeu_si256((__m256i *)tmp, d);
+            for (uint32_t k = 0; k < 32; k++){
+                if ((tmp[k]%31) != c) {
+                    printf("test_vector_add\n");
+                    return 1;
+                }
+            }
 
+            const __m256i e = gf31v_full_add_u256(a, b);
 
-typedef uint8_t ff_t;
+            _mm256_storeu_si256((__m256i *)tmp, e);
+            for (uint32_t k = 0; k < 32; k++){
+                if (tmp[k] != c) {
+                    printf("test_vector_add full\n");
+                    return 1;
+                }
+            }
+        }
+    
+    }
 
-ff_t gf31_add(ff_t a, ff_t b) {
-    return (a+b) % PRIME;
+    return 0;
 }
 
-ff_t gf31_sub(ff_t a, ff_t b) {
-    return (a+PRIME-b) % PRIME;
+uint32_t test_vector_mul() {
+    uint8_t tmp[32];
+    for (uint32_t i = 0; i < PRIME; i++) {
+        for (uint32_t j = 0; j < PRIME; j++) {
+            const ff_t c = gf31_mul(i, j);
+            const __m256i a = _mm256_set1_epi8(i);
+            const __m256i b = _mm256_set1_epi8(j);
+            const __m256i d = gf31v_mul_u256(a, b);
+
+            _mm256_storeu_si256((__m256i *)tmp, d);
+            for (uint32_t k = 0; k < 32; k++){
+                if ((tmp[k]%31) != c) {
+                    printf("test_vector_mul\n");
+                    return 1;
+                }
+            }
+
+
+            const __m256i e = gf31v_full_mul_u256(a, b);
+            _mm256_storeu_si256((__m256i *)tmp, e);
+            for (uint32_t k = 0; k < 32; k++){
+                if (tmp[k] != c) {
+                    printf("test_vector_mul\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
 }
-
-ff_t gf31_mul(ff_t a, ff_t b) {
-    return (a*b)%PRIME;
-}
-
-ff_t gf31_neg(ff_t a) {
-    return (PRIME - a) % PRIME;
-}
-
-
-#ifdef USE_AVX2 
-#include <immintrin.h>
-
-/// NOTE: assumes that each gf31 element is in a single uint8_t
-__m256i gf31v_red_u256(const __m256i a) {
-    const __m256i Q = _mm256_set1_epi8(31);
-    __m256i t = _mm256_slli_epi16(a, 5); 
-    t &= Q;
-    __m256i ret = _mm256_add_epi8(a, t);
-    ret &= Q;
-    return ret;
-}
-                                      
-/// NOTE: assumes that each gf31 element is in a single uint8_t
-__m256i gf31v_add_u256(const __m256i a,
-                                      const __m256i b) {
-    const __m256i c = _mm256_add_epi8(a, b);
-    return gf31v_red_u256(c);
-}
-
-
 #endif
 
-
 int main() {
+#ifdef USE_AVX2
+    if (test_vector_add()) { return 1; }
+    if (test_vector_mul()) { return 1; }
+#endif
     return 0;
 }
