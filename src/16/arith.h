@@ -1036,21 +1036,53 @@ const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
         0x00,0x13,0x26,0x35,0x4c,0x5f,0x6a,0x79, 0x8b,0x98,0xad,0xbe,0xc7,0xd4,0xe1,0xf2
 };
 
-uint8x16_t gf16v_mul_neon2(uint8x16_t a, uint8x16_t b) {
+// NOTE: not a full multiplication
+uint8x16_t gf16v_mul_u128(uint8x16_t a, uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
     uint8x16_t bp = vdupq_n_u8(b);
 
     uint8x16_t al0 = a&mask_f;
     uint8x16_t ah0 = vshrq_n_u8( a , 4 );
+
 	// mul
-    poly8x16_t abl = vmulq_p8( al0 , bp );
-    poly8x16_t abh = vmulq_p8( ah0 , bp );
+    poly8x16_t abl = vmulq_p8(al0, bp);
+    poly8x16_t abh = vmulq_p8(ah0, bp);
 
     poly8x16_t rl = abl ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abl,4) );
     poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
 
     return vsliq_n_u8( rl , rh , 4 );
+}
+
+// NOTE: not a full multiplication
+// only computes the multiplication on the lower 4 bits within
+// each 8 bit limb
+uint8x16_t gf16v_mul_u128_lower(uint8x16_t a,
+                                uint8x16_t b) {
+    uint8x16_t m    = vdupq_n_u8( 0xf );
+    uint8x16_t tr   = vld1q_u8(__gf16_reduce);
+    uint8x16_t bp   = vdupq_n_u8(b);
+    uint8x16_t al0  = a&mm;
+
+	// mul
+    poly8x16_t abl = vmulq_p8(al0 , bp);
+    poly8x16_t rl = abl ^ vqtbl1q_u8(tr, vshrq_n_u8(abl, 4));
+    return rl
+}
+
+// only computes the multiplication on the upper 4 bits within
+// each 8 bit limb
+uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
+                                uint8x16_t b) {
+    uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
+    uint8x16_t bp = vdupq_n_u8(b);
+    uint8x16_t ah0 = vshrq_n_u8( a , 4 );
+
+    // mul
+    poly8x16_t abh = vmulq_p8( ah0 , bp );
+    poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
+    return rh;
 }
 #else
 #endif

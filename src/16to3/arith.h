@@ -193,5 +193,29 @@ static inline void gf16to3_vector_add_u256(gf16to3 *out,
 }
 #endif
 
+#ifdef USE_NEON
+
+// TODO neon
+uint16x8_t gf16to3v_mul_u128(uint16x8_t a, uint16x8_t b) {
+    uint16x8_t m0 = vdupq_n_u8(0x00f);
+    uint16x8_t m1 = vdupq_n_u8(0x0f0);
+    uint16x8_t m2 = vdupq_n_u8(0xf00);
+    uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
+    uint8x16_t bp = vdupq_n_u8(b);
+
+    uint8x16_t a0 = a&m0;
+    uint8x16_t a1 = vshrq_n_u8( a , 4 );
+    uint8x16_t a1 = vshrq_n_u8( a , 4 );
+    uint8x16_t a1 = vshrq_n_u8( a , 4 );
+	// mul
+    poly8x16_t abl = vmulq_p8( al0 , bp );
+    poly8x16_t abh = vmulq_p8( ah0 , bp );
+
+    poly8x16_t rl = abl ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abl,4) );
+    poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
+
+    return vsliq_n_u8( rl , rh , 4 );
+}
+#endif
 
 #undef MODULUS
