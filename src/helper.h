@@ -15,5 +15,9 @@ typedef union v256_t {
 #endif
 } v256;
 
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
 
 #endif //FQ_ARITHMETIC_HELPER_H
