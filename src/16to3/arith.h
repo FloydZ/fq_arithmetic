@@ -113,8 +113,15 @@ static inline gf16to3 gf16to3v_mul(const uint64_t a,
 /// \return a*b;
 static inline __m256i gf16to3v_mul_gf16_u256(const __m256i a,
                                              const uint8_t b) {
-   const __m256i bb = _mm256_set1_epi8(b);
-   return gf16v_mul_u256(a, bb);
+    const __m256i bb = _mm256_set1_epi8(b);
+    return gf16v_mul_u256(a, bb);
+}
+
+
+static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
+                                             const uint8_t b) {
+    const __m128i bb = _mm_set1_epi8(b);
+    return gf16v_mul_u128(a, bb);
 }
 
 /// NOTE there are multiple ways to implement this:
@@ -165,42 +172,6 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
     return r&m;
 }
 
-/// compressed representations
-/// \param out
-/// \param in1
-/// \param d  number of elements NOT bytes
-static inline void gf16to3_vector_add_u256(gf16to3 *out,
-                                           const gf16to3 *in1,
-                                           const uint32_t d) {
-    size_t i = (size_t)((double)d * 1.5) + d&1u;
-
-    uint8_t *o8 = (uint8_t *)out;
-    uint8_t *i8 = (uint8_t *)in1;
-
-    // avx2 code
-    while (i >= 32u) {
-        _mm256_storeu_si256((__m256i *)o8,
-                            _mm256_loadu_si256((__m256i *)o8) ^
-                            _mm256_loadu_si256((__m256i *)i8));
-        i   -= 32u;
-        in1 += 32u;
-        out += 32u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        _mm_storeu_si128((__m128i *)o8,
-                         _mm_loadu_si128((__m128i *)o8) ^
-                         _mm_loadu_si128((__m128i *)i8));
-        i   -= 16u;
-        in1 += 16u;
-        out += 16u;
-    }
-
-    for (; i > 0; --i) {
-        *o8++ ^= *i8++;
-    }
-}
 #endif
 
 #ifdef USE_NEON
@@ -230,3 +201,4 @@ uint16x8_t gf16to3v_mul_u128(uint16x8_t a, uint16x8_t b) {
 #undef MODULUS
 
 #include "matrix.h"
+#include "vector.h"
