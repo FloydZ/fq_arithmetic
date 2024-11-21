@@ -193,8 +193,6 @@ uint32_t test_matrix_gf16_add() {
 
     gf16to3_matrix_zero(m3, nrows, ncols);
     gf16to3_matrix_zero(m4, nrows, ncols);
-    // gf16to3_matrix_id(m1, nrows, ncols);
-    // gf16_matrix_id(m2, nrows, ncols);
     gf16to3_matrix_rng(m1, nrows, ncols);
     gf16_matrix_rng(m2, nrows, ncols);
     gf16to3_matrix_add_gf16(m3, m1, m2, nrows, ncols);
@@ -214,7 +212,6 @@ uint32_t test_matrix_gf16_add() {
                 printf("test matrix gf16 add\n");
                 ret = 1;
                 goto finish;
-
             }
         }
     }
@@ -249,7 +246,6 @@ uint32_t test_matrix_gf16_map() {
                 printf("test matrix gf16 add\n");
                 ret = 1;
                 goto finish;
-
             }
         }
     }
@@ -258,6 +254,45 @@ uint32_t test_matrix_gf16_map() {
     free(m2); free(m3); free(m4);
     return ret;
 }
+
+
+uint32_t test_matrix_gf16_add_mul() {
+    const uint32_t nrows = 8;
+    const uint32_t ncols = 8;
+    const uint32_t ncols2 = 8;
+    gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
+    gf16 *m2 = gf16_matrix_alloc(ncols, ncols2);
+    gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols2);
+    gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols2);
+
+    gf16to3_matrix_zero(m3, nrows, ncols2);
+    gf16to3_matrix_zero(m4, nrows, ncols2);
+    gf16to3_matrix_rng(m1, nrows, ncols);
+    gf16_matrix_rng(m2, ncols, ncols2);
+    gf16to3_matrix_add_mul_gf16(m3, m1, m2, nrows, ncols, ncols2);
+    gf16to3_matrix_add_mul_gf16_XxX(m4, m1, m2, nrows, ncols);
+
+    gf16to3_matrix_print(m3, nrows, ncols);
+    gf16to3_matrix_print(m4, nrows, ncols);
+
+    uint32_t ret = 0;
+    for (int i = 0; i < nrows; ++i) {
+        for (int j = 0; j < ncols2; ++j) {
+            gf16to3 c = gf16to3_matrix_get(m3, nrows, i, j);
+            gf16to3 d = gf16to3_matrix_get(m4, nrows, i, j);
+            if (c != d) {
+                printf("test matrix gf16 add mul\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+    finish:
+    free(m1); free(m2); free(m3); free(m4);
+    return ret;
+}
+
 #endif
 
 
@@ -270,6 +305,7 @@ int main() {
     // if (test_matrix_mul()) { return 1; }
     // if (test_matrix_gf16_add()) { return 1; }
     // if (test_matrix_gf16_map()) { return 1; }
+    if (test_matrix_gf16_add_mul()) { return 1; }
 
     if (test_vector_add()) { return 1; }
     if (test_vector_scalar_add()) { return 1; }

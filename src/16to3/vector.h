@@ -148,7 +148,7 @@ static inline void gf16to3_vector_scalar_add_u256(gf16to3 *out,
     }
 }
 
-static inline void gf16to3_vector_scalar_add_gf16_tu256(gf16to3 *out,
+static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
                                                         const gf16 a,
                                                         const gf16to3 *in1,
                                                         const uint32_t d) {
