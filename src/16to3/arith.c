@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "arith.h"
+#include "../16/vector.h"
 
 bool test_add() {
     for (uint32_t i = 0; i < 1u << 12; ++i) {
@@ -141,6 +142,35 @@ uint32_t test_vector_scalar_add_gf16() {
     return ret;
 }
 
+uint32_t test_vector_add_gf16() {
+    const uint32_t N = 16;
+    gf16 *m1 = gf16_vector_alloc(N);
+    gf16to3 *m2 = gf16to3_vector_alloc(N);
+    gf16to3 *m3 = gf16to3_vector_alloc(N);
+
+    gf16_vector_rand(m1, N);
+    gf16to3_vector_rand(m2, N);
+    gf16to3_vector_copy(m3, m2, N);
+
+    gf16to3_vector_add_gf16(m2, m1, N);
+    gf16to3_vector_add_gf16_u256(m3, m1, N);
+
+    uint32_t ret = 0;
+    for (int j = 0; j < N; ++j) {
+        const gf16to3 c = m2[j];
+        const gf16to3 d = m3[j];
+        if (d != c) {
+            printf("test vector add gf16\n");
+            ret = 1;
+            goto finish;
+        }
+    }
+
+    finish:
+    free(m1); free(m2); free(m3);
+    return ret;
+}
+
 
 uint32_t test_matrix_mul() {
     const uint32_t nrows = 8;
@@ -257,9 +287,9 @@ uint32_t test_matrix_gf16_map() {
 
 
 uint32_t test_matrix_gf16_add_mul() {
-    const uint32_t nrows = 8;
-    const uint32_t ncols = 8;
-    const uint32_t ncols2 = 8;
+    const uint32_t nrows = 16;
+    const uint32_t ncols = 16;
+    const uint32_t ncols2= 16;
     gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
     gf16 *m2 = gf16_matrix_alloc(ncols, ncols2);
     gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols2);
@@ -269,8 +299,8 @@ uint32_t test_matrix_gf16_add_mul() {
     gf16to3_matrix_zero(m4, nrows, ncols2);
     gf16to3_matrix_rng(m1, nrows, ncols);
     gf16_matrix_rng(m2, ncols, ncols2);
-    gf16to3_matrix_add_mul_gf16(m3, m1, m2, nrows, ncols, ncols2);
-    gf16to3_matrix_add_mul_gf16_XxX(m4, m1, m2, nrows, ncols);
+    gf16to3_matrix_mul_gf16(m3, m1, m2, nrows, ncols, ncols2);
+    gf16to3_matrix_mul_gf16_XxX(m4, m1, m2, nrows, ncols);
 
     gf16to3_matrix_print(m3, nrows, ncols);
     gf16to3_matrix_print(m4, nrows, ncols);
@@ -288,11 +318,63 @@ uint32_t test_matrix_gf16_add_mul() {
         }
     }
 
+    gf16to3_matrix_zero(m3, nrows, ncols2);
+    gf16to3_matrix_zero(m4, nrows, ncols2);
+    gf16to3_matrix_gf16_mul(m3, m2, m1, nrows, ncols, ncols2);
+    gf16to3_matrix_gf16_mul_XxX(m4, m2, m1, nrows, ncols, ncols2);
+
+    gf16to3_matrix_print(m3, nrows, ncols);
+    gf16to3_matrix_print(m4, nrows, ncols);
+
+    for (int i = 0; i < nrows; ++i) {
+        for (int j = 0; j < ncols2; ++j) {
+            gf16to3 c = gf16to3_matrix_get(m3, nrows, i, j);
+            gf16to3 d = gf16to3_matrix_get(m4, nrows, i, j);
+            if (c != d) {
+                printf("test matrix gf16 add mul v2\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
     finish:
     free(m1); free(m2); free(m3); free(m4);
     return ret;
 }
 
+uint32_t test_matrix_add_multiple() {
+    const uint32_t nrows = 16;
+    const uint32_t ncols = 16;
+    gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
+    gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols);
+    gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols);
+
+    gf16to3_matrix_rng(m1, nrows, ncols);
+    gf16to3 scalar = 1;
+    gf16to3_matrix_add_multiple_2(m3, scalar,m1, nrows, ncols);
+    gf16to3_matrix_add_multiple_2_XxX(m4, scalar, m1, nrows, ncols);
+
+    gf16to3_matrix_print(m3, nrows, ncols);
+    gf16to3_matrix_print(m4, nrows, ncols);
+
+    uint32_t ret = 0;
+    for (int i = 0; i < nrows; ++i) {
+        for (int j = 0; j < ncols; ++j) {
+            const gf16to3 c = gf16to3_matrix_get(m3, ncols, i, j);
+            const gf16to3 d = gf16to3_matrix_get(m4, ncols, i, j);
+            if (c != d) {
+                printf("test matrix add multiple\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish:
+    free(m1); free(m3); free(m4);
+    return ret;
+}
 #endif
 
 
@@ -301,15 +383,17 @@ int main() {
     // if (test_add()) { return 1; }
     // if (test_mul()) { return 1; }
 #ifdef USE_AVX2
-    if (test_arith_vector_mul()) { return 1; }
+    // if (test_arith_vector_mul()) { return 1; }
+    if (test_vector_add_gf16()) { return 1; }
     // if (test_matrix_mul()) { return 1; }
     // if (test_matrix_gf16_add()) { return 1; }
     // if (test_matrix_gf16_map()) { return 1; }
-    if (test_matrix_gf16_add_mul()) { return 1; }
+    // if (test_matrix_gf16_add_mul()) { return 1; }
+    // if (test_matrix_add_multiple()) { return 1; }
 
-    if (test_vector_add()) { return 1; }
-    if (test_vector_scalar_add()) { return 1; }
-    if (test_vector_scalar_add_gf16()) { return 1; }
+    // if (test_vector_add()) { return 1; }
+    // if (test_vector_scalar_add()) { return 1; }
+    // if (test_vector_scalar_add_gf16()) { return 1; }
 #endif
     return 0;
 }

@@ -1113,3 +1113,5 @@ void gf16_vector_set(uint8_t *v,
     }
 }
 #undef MODULUS
+#include "vector.h"
+#include "matrix.h"

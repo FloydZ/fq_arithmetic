@@ -8,7 +8,18 @@ static inline gf16to3* gf16to3_vector_alloc(const uint32_t n) {
     return (gf16to3 *)malloc(n*sizeof(gf16to3));
 }
 
-/// 
+///
+/// @param v
+/// @param n
+static inline void gf16to3_vector_print(gf16to3 *v,
+                                       const uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        printf("%04d ", v[i]);
+    }
+    printf("\n");
+}
+
+///
 /// @param v 
 /// @param n 
 static inline void gf16to3_vector_zero(gf16to3 *v,
@@ -30,8 +41,8 @@ static inline void gf16to3_vector_rand(gf16to3 *v,
 /// @param v1 
 /// @param v2 
 /// @param n 
-static inline void gf16to3_vector_copy(gf16to3 *v1,
-                                       gf16to3 *v2,
+static inline void gf16to3_vector_copy(gf16to3 *__restrict__ v1,
+                                       const gf16to3 *__restrict__ v2,
                                        const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         v1[i] = v2[i];
@@ -47,6 +58,20 @@ static inline void gf16to3_vector_add(gf16to3 *out,
                                       const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         out[i] ^= in[i];
+    }
+}
+
+
+///
+/// @param out += in
+/// @param in
+/// @param n
+static inline void gf16to3_vector_add_gf16(gf16to3 *__restrict__ out,
+                                           const gf16 *__restrict__ in,
+                                           const uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        const ff_t t = gf16_matrix_get(in, 1, i, 0);
+        out[i] ^= t;
     }
 }
 
@@ -67,12 +92,61 @@ static inline void gf16to3_vector_scalar_add(gf16to3 *out,
 /// @param c
 /// @param in
 /// @param n
-static inline void gf16to3_vector_scalar_add_gf16(gf16to3 *out,
+static inline void gf16to3_vector_scalar_add_gf16(gf16to3 *__restrict__ out,
                                                   const gf16 c,
-                                                  const gf16to3 *in,
+                                                  const gf16to3 *__restrict__ in,
                                                   const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         out[i] ^= gf16to3_mul(in[i], c);
+    }
+}
+
+#ifdef USE_AVX2
+
+///
+/// @param out += in
+/// @param in
+/// @param n
+static inline void gf16to3_vector_add_gf16_u256(gf16to3 *__restrict__ out,
+                                                const gf16 *__restrict__ in,
+                                                const uint32_t n) {
+    uint32_t i = n;
+    // avx2 code
+    while (i >= 16u) {
+        const uint32_t t11 = *((uint32_t *)(in + 0));
+        const uint32_t t12 = *((uint32_t *)(in + 4));
+        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        const __m128i t1 = _mm_set_epi64x(t22, t21);
+        const __m256i m2 = _mm256_cvtepu8_epi16(t1);
+        const __m256i m1 = _mm256_loadu_si256((const __m256i *)out);
+
+        _mm256_storeu_si256((__m256i *)out, m1 ^ m2);
+        i   -= 16u;
+        in  += 8u;
+        out += 16u;
+    }
+
+    while (i >= 8u) {
+        const uint32_t t11 = *((uint32_t *)(in + 0));
+        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        const __m128i t1 = _mm_set_epi64x(0, t21);
+        const __m128i m2 = _mm_cvtepi8_epi16(t1);
+        const __m128i m1 = _mm_loadu_si128((__m128i *)out);
+
+        _mm_storeu_si128((__m128i *)out, m1 ^ m2);
+        i   -= 8u;
+        in  += 4u;
+        out += 8u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= (*in) & 0xF;
+        i -= 1;
+        if (i) {
+            *out++ ^= (*in) >> 4;
+            in++;
+        }
     }
 }
 
@@ -80,8 +154,8 @@ static inline void gf16to3_vector_scalar_add_gf16(gf16to3 *out,
 /// \param out
 /// \param in1
 /// \param d  number of elements NOT bytes
-static inline void gf16to3_vector_add_u256(gf16to3 *out,
-                                           const gf16to3 *in1,
+static inline void gf16to3_vector_add_u256(gf16to3 *__restrict__ out,
+                                           const gf16to3 *__restrict__ in1,
                                            const uint32_t d) {
     uint32_t i = d;
     // avx2 code
@@ -116,7 +190,7 @@ static inline void gf16to3_vector_scalar_add_u256(gf16to3 *out,
                                                   const uint32_t d) {
     uint32_t i = d;
     const __m256i a256 = _mm256_set1_epi16(a);
-    // const __m128i a128 = _mm_set1_epi16(a);
+
     // avx2 code
     while (i >= 16u) {
         const __m256i t1 = _mm256_loadu_si256((__m256i *)out);
@@ -130,24 +204,40 @@ static inline void gf16to3_vector_scalar_add_u256(gf16to3 *out,
         out += 16u;
     }
 
-    // sse code
-    // while(i >= 8u) {
-    //     const __m128i t1 = _mm_loadu_si128((__m128i *)out);
-    //     const __m128i t2 = _mm_loadu_si128((__m128i *)in1);
-    //     const __m128i t3 = gf16to3v_mul_u128(t2, a256);
-    //     const __m128i t = t1 ^ t3;
-
-    //     _mm_storeu_si128((__m128i *)out, t);
-    //     i   -= 8u;
-    //     in1 += 8u;
-    //     out += 8u;
-    // }
-
     for (; i > 0; --i) {
         *out++ ^= gf16to3_mul(a, *in1++);
     }
 }
 
+/// out = in1 + a*in2
+static inline void gf16to3_vector_scalar_add_u256_3(gf16to3 *out,
+                                                    const gf16to3 *in1,
+                                                    const gf16to3 a,
+                                                    const gf16to3 *in2,
+                                                    const uint32_t d) {
+    uint32_t i = d;
+    const __m256i a256 = _mm256_set1_epi16(a);
+
+    // avx2 code
+    while (i >= 16u) {
+        const __m256i t1 = _mm256_loadu_si256((__m256i *)in1);
+        const __m256i t2 = _mm256_loadu_si256((__m256i *)in2);
+        const __m256i t3 = gf16to3v_mul_u256(t2, a256);
+        const __m256i t = t1 ^ t3;
+
+        _mm256_storeu_si256((__m256i *)out, t);
+        i   -= 16u;
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= *in1++ ^ gf16to3_mul(a, *in2++);
+    }
+}
+
+/// out += a*in1
 static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
                                                         const gf16 a,
                                                         const gf16to3 *in1,
@@ -186,3 +276,4 @@ static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
         *out++ ^= gf16to3_mul_gf16(*in1++, a);
     }
 }
+#endif

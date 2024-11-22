@@ -113,14 +113,14 @@ static inline gf16to3 gf16to3v_mul(const uint64_t a,
 /// \return a*b;
 static inline __m256i gf16to3v_mul_gf16_u256(const __m256i a,
                                              const uint8_t b) {
-    const __m256i bb = _mm256_set1_epi8(b);
+    const __m256i bb = _mm256_set1_epi16(b);
     return gf16v_mul_u256(a, bb);
 }
 
 
 static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
                                              const uint8_t b) {
-    const __m128i bb = _mm_set1_epi8(b);
+    const __m128i bb = _mm_set1_epi16(b);
     return gf16v_mul_u128(a, bb);
 }
 
@@ -200,5 +200,5 @@ uint16x8_t gf16to3v_mul_u128(uint16x8_t a, uint16x8_t b) {
 #endif
 #undef MODULUS
 
-#include "matrix.h"
 #include "vector.h"
+#include "matrix.h"
