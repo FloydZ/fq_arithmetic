@@ -1,16 +1,18 @@
+#pragma once
+
 #include <stdint.h>
 #include <stddef.h>
 
 /// Representation:
 /// the generic base type is `uint8_t` called a `limb`. Each `limb` can store 
 /// up to 8 bits or coordinates mod 2.
-typedef uint8_t ff_t;
+typedef uint8_t gf2;
 
 // single bit operations
-static ff_t gf2_add(const ff_t a, const ff_t b) { return (a&1u) ^ (b&1u); }
-static ff_t gf2_sub(const ff_t a, const ff_t b) { return (a&1u) ^ (b&1u); }
-static ff_t gf2_mul(const ff_t a, const ff_t b) { return (a&1u) & (b&1u); }
-static ff_t gf2_inv(const ff_t a) { return a; }
+static gf2 gf2_add(const gf2 a, const gf2 b) { return (a&1u) ^ (b&1u); }
+static gf2 gf2_sub(const gf2 a, const gf2 b) { return (a&1u) ^ (b&1u); }
+static gf2 gf2_mul(const gf2 a, const gf2 b) { return (a&1u) & (b&1u); }
+static gf2 gf2_inv(const gf2 a) { return a; }
 
 /// add of 32 variables in parallel
 static uint32_t gf2_add_u32(const uint32_t a, const uint32_t b) { return a ^ b; }
@@ -33,7 +35,7 @@ static __m256i gf2_sub_u256(const __m256i a, const __m256i b) {
 static __m256i gf2_mul_u256(const __m256i a, const __m256i b) {
 	return _mm256_and_si256(a, b);
 }
-static __m256i gf2_scalar_u256(const __m256i a, const ff_t b) {
+static __m256i gf2_scalar_u256(const __m256i a, const gf2 b) {
     const __m256i _b = _mm256_set1_epi8(b);
     return gf2_mul_u256(a, _b);
 }
@@ -62,3 +64,6 @@ static void matrix_mul(uint8_t *C, const uint8_t *A, const uint8_t *B,
 		}
 	}
 }
+
+#include "vector.h"
+#include "matrix.h"

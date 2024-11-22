@@ -4,10 +4,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef uint16_t ff_t;
+typedef uint8_t gf2;
+typedef uint16_t gf2to12;
 
-ff_t gf2to12_add(const ff_t a,
-                 const ff_t b) {
+gf2to12 gf2to12_add(const gf2to12 a,
+                 const gf2to12 b) {
     return a ^ b;
 }
 
@@ -16,9 +17,9 @@ ff_t gf2to12_add(const ff_t a,
 #define MODULUS 0b1000000001001
 
 /// \return a*b
-ff_t gf2to12_mul(const ff_t a,
-                 const ff_t b) {
-    ff_t r;
+gf2to12 gf2to12_mul(const gf2to12 a,
+                    const gf2to12 b) {
+    gf2to12 r;
     r = (-(b>>11u     ) & a);
     r = (-(b>>10u & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
     r = (-(b>>9u  & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
@@ -34,10 +35,10 @@ ff_t gf2to12_mul(const ff_t a,
 }
 
 /// \return a*b
-static inline ff_t gf2to12_mul_v2(const ff_t a,
-                                  const ff_t b) {
-    ff_t result = -(a & 1) & b;
-    ff_t tmp = b;
+static inline gf2to12 gf2to12_mul_v2(const gf2to12 a,
+                                     const gf2to12 b) {
+    gf2to12 result = -(a & 1) & b;
+    gf2to12 tmp = b;
     for(uint32_t i=1 ; i<12 ; i++) {
         tmp = ((tmp << 1) ^ (-(tmp >> 11) & MODULUS));
         result = result ^ (-(a >> i & 1) & tmp);
@@ -46,9 +47,15 @@ static inline ff_t gf2to12_mul_v2(const ff_t a,
     return result;
 }
 
+gf2to12 gf2to12_mul_gf2(const gf2to12 a,
+                        const gf2 b) {
+    gf2to12 c = b;
+    return a & (-c);
+}
+
 /// \return a^-1
-static inline ff_t gf2to12_inv(const ff_t a) {
-    ff_t result = a;
+static inline gf2to12 gf2to12_inv(const gf2to12 a) {
+    gf2to12 result = a;
     for(int i=0 ; i<10 ; i++) {
         result = gf2to12_mul(result, result);
         result = gf2to12_mul(result, a);
@@ -396,8 +403,29 @@ static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
     return r;
 }
 
+///
+/// @param a
+/// @param b in gf2
+/// @return
+static inline __m256i gf2to12v_mul_gf2_u256_v2(const __m256i a,
+                                               const __m256i b) {
+    return a & b;
+}
+
+///
+/// @param a
+/// @param b in gf2
+/// @return
+static inline __m128i gf2to12v_mul_gf2_u128_v2(const __m128i a,
+                                               const __m128i b) {
+    return a & b;
+}
+
 #elif defined(USE_NEON)
 #else
 #endif
 
 #endif //FQ_ARITHMETIC_ARITH_H
+
+#include "vector.h"
+#include "matrix.h"

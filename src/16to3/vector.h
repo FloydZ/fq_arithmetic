@@ -140,6 +140,8 @@ static inline void gf16to3_vector_add_gf16_u256(gf16to3 *__restrict__ out,
         out += 8u;
     }
 
+    // TODO maybe just write everything into a buffer and
+    // apply the avx2 code
     for (; i > 0; --i) {
         *out++ ^= (*in) & 0xF;
         i -= 1;

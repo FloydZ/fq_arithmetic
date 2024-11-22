@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 
 typedef uint16_t ff_t;
@@ -116,3 +118,5 @@ static inline __m256i gf2to11v_mul_u256(const __m256i a,
 #else
 #endif
 
+#include "vector.h"
+#include "matrix.h"
