@@ -201,10 +201,11 @@ void gf16_matrix_tranpose(uint8_t *B,
 	}
 }
 
-// org source: https://github.com/PQCMayo/MAYO-C/blob/f2aab8ab3a0052272905bdfb57048c150938b8e5/src/mayo.c#L102
-// NOTE: A is a col-major input matrix
-// NOTE: B is a col-major output matrix
-// NOTE: stride in bytes
+/// TODO: add all of these functions to `cryptanalysislib`
+/// org source: https://github.com/PQCMayo/MAYO-C/blob/f2aab8ab3a0052272905bdfb57048c150938b8e5/src/mayo.c#L102
+/// NOTE: A is a col-major input matrix
+/// NOTE: B is a col-major output matrix
+/// NOTE: stride in bytes
 static void gf16_transpose_16x16(uint8_t *B,
                                  const uint8_t *A,
                                  const uint32_t stride){
