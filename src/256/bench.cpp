@@ -70,7 +70,7 @@ static void BM_gf256v_mul_scalar_avx2(benchmark::State& state) {
     v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, one = {1,13,2,5,3,12,18,9};
     uint32_t b = 2;
     for (auto _ : state) {
-        a.v256 = gf256v_mul_scalar_avx2(a.v256, b);
+        a.v256 = gf256v_mul_scalar_u256(a.v256, b);
         a.v256 = _mm256_add_epi32(a.v256, one.v256);
         b += 1;
 		benchmark::DoNotOptimize(a.v256); 

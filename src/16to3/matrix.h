@@ -205,6 +205,9 @@ static inline void gf16to3_matrix_add_multiple_3(gf16to3 *matrix1,
 
 
 #ifdef USE_AVX2
+#include <immintrin.h>
+
+
 /// this implementation iterates over the rows of B
 /// \param result
 /// \param A
@@ -719,9 +722,9 @@ static inline void gf16to3_matrix_gf16_mul_XxX(gf16to3 *result,
             const __m256i b = _mm256_set1_epi16(gf16to3_matrix_get(matrix2, n_cols, k, j));
             const __m256i c = gf16v_mul_u256(b, m1);
             /// TODO assumes ncols == 16
-            const __m256i r = _mm256_loadu_si256(result + j*n_rows);
+            const __m256i r = _mm256_loadu_si256((__m256i *)(result + j*n_rows));
             const __m256i t = r ^ m1;
-            _mm256_storeu_si256(result + j*n_rows, t);
+            _mm256_storeu_si256((__m256i *)(result + j*n_rows), t);
         }
     }
 }

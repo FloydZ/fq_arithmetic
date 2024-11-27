@@ -3,7 +3,7 @@
 
 
 bool test1() {
-	ff_t a = 1, b = 1;
+	gf2 a = 1, b = 1;
 	if (gf2_add(a, b)) { return false; }
 
 	return true;

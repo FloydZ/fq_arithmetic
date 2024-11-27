@@ -79,7 +79,7 @@ uint32_t test_transpose2() {
 
     for (size_t i = 0; i < s; i++) {
         for (size_t j = 0; j < s; j++) {
-            gf16_matrix_set_entry(data1, s, i, j, (i+j)%16);
+            gf16_matrix_set(data1, s, i, j, (i+j)%16);
         }
     }
 
@@ -119,7 +119,7 @@ uint32_t test_solve() {
 
     for (uint32_t i = 0; i < s; i++) {
         for (uint32_t j = 0; j < s; j++) {
-             if (gf16_matrix_get_entry(A, s, i, j) != (i == j)) {
+             if (gf16_matrix_get(A, s, i, j) != (i == j)) {
                  printf("kek\n");
                  return 1;
              }

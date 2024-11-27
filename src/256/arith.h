@@ -1012,7 +1012,8 @@ __m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
 }
 
 // 6 instructions
-__m256i linear_transform_8x8_256b (
+static inline
+__m256i gf256_linear_transform_8x8_256b (
 		__m256i tab_l, __m256i tab_h, __m256i v, __m256i mask_f){
     return _mm256_shuffle_epi8(tab_l, v & mask_f) ^ 
 		   _mm256_shuffle_epi8(tab_h, _mm256_srli_epi16(v, 4) & mask_f);
@@ -1020,15 +1021,17 @@ __m256i linear_transform_8x8_256b (
 
 
 // load memory with address depended on the value of a. unsafe if a is a secret.
+static inline
 __m256i tbl32_gf256_mul_const(unsigned char a , __m256i b) {
     const __m256i tab = _mm256_load_si256((__m256i const *)(__gf256_mul + ((unsigned)a)*32 ));
     const __m256i tab_l = _mm256_permute2x128_si256( tab , tab , 0 );
     const __m256i tab_h = _mm256_permute2x128_si256( tab , tab , 0x11 );
 
-    return linear_transform_8x8_256b(tab_l, tab_h, b, _mm256_set1_epi8(0xf));
+    return gf256_linear_transform_8x8_256b(tab_l, tab_h, b, _mm256_set1_epi8(0xf));
 }
 
 // generate multiplication table
+static inline
 __m256i tbl32_gf256_multab(uint8_t b) {
 #if 1
 // faster
@@ -1079,7 +1082,7 @@ __m256i gf256v_mul_scalar_u256(__m256i a, uint8_t _b) {
     const __m256i mh = _mm256_permute2x128_si256(m_tab, m_tab, 0x11);
     const __m256i mask = _mm256_set1_epi8(0xf);
 
-    return linear_transform_8x8_256b(ml, mh, a, mask);
+    return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
 
 

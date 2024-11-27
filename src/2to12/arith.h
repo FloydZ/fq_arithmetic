@@ -94,7 +94,7 @@ static inline __m128i gf2to12v_mul_u128(const __m128i a,
     return r;
 }
 
-#ifdef __AVX512VLINTRIN_H
+#ifdef USE_AVX512
 
 /// NOTE: needs BW + VL
 static inline __m256i gf2to12v_mul_u256_avx512(const __m256i a,

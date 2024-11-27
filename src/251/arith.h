@@ -25,7 +25,7 @@ ff_t gf251_neg(const ff_t a) {
 /// NOTE: assumes that each gf251 element is in a single uint8_t
 /// TODO not finished
 __m256i gf251v_red_u256(const __m256i a) {
-    const __m256i Q = _mm256_set1_epi8(251);
+    const __m256i Q = _mm256_set1_epi8((int8_t)251);
     const __m256i mask = _mm256_set1_epi8(7u);
     __m256i t = _mm256_srli_epi16(a, 5);
     t &= mask;

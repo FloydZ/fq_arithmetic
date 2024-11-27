@@ -41,7 +41,7 @@ uint32_t test_arith_vector_mul() {
                 }
             }
 
-#ifdef __AVX512VLINTRIN_H
+#ifdef USE_AVX512
             const __m256i e256 = gf2to12v_mul_u256_avx512(a256, b256);
             _mm256_storeu_si256((__m256i *)tmp, e256);
             for (int k = 0; k < 16; ++k) {
@@ -50,7 +50,6 @@ uint32_t test_arith_vector_mul() {
                     return 1;
                 }
             }
-
 
             const __m512i a512 = _mm512_set1_epi16(i);
             const __m512i b512 = _mm512_set1_epi16(j);

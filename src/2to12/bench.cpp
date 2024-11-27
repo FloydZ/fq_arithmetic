@@ -149,7 +149,7 @@ BENCHMARK(BM_gf2to12_vector_add_u256);
 BENCHMARK(BM_gf2to12_vector_add_gf2_u256);
 #endif
 
-#ifdef __AVX512VLINTRIN_H
+#ifdef USE_AVX512
 static void BM_gf2to12v_mul_u256_avx512(benchmark::State& state) {
     const __m256i acc = {78328972346, 878876872346, 87659787602, 236478234023948};
     __m256i b = {23874687,9053897621,235645274,873465876},
