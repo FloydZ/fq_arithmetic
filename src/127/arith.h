@@ -4,6 +4,7 @@
 
 
 #define PRIME 127
+
 // Select low 8-bit, skip the high 8-bit in 16 bit type
 const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
         0x0, 0x2, 0x4, 0x6, 0x8, 0xa, 0xc, 0xe,
@@ -12,21 +13,24 @@ const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
         0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 };
 
-typedef uint8_t ff_t;
+typedef uint8_t gf127;
 
-ff_t gf127_add(ff_t a, ff_t b) {
+gf127 gf127_add(const gf127 a,
+                const gf127 b) {
     return (a+b) % PRIME;
 }
 
-ff_t gf127_sub(ff_t a, ff_t b) {
+gf127 gf127_sub(const gf127 a,
+                const gf127 b) {
     return (a+PRIME-b) % PRIME;
 }
 
-ff_t gf127_mul(ff_t a, ff_t b) {
+gf127 gf127_mul(const gf127 a,
+                const gf127 b) {
     return (a*b)%PRIME;
 }
 
-ff_t gf127_neg(ff_t a) {
+gf127 gf127_neg(const gf127 a) {
     return (PRIME - a) % PRIME;
 }
 
@@ -101,8 +105,8 @@ __m256i gf127v_red_u256(const __m256i a) {
 }
                                       
 /// NOTE: assumes that each gf31 element is in a single uint8_t
-__m256i gf31v_add_u256(const __m256i a,
-                       const __m256i b) {
+__m256i gf127v_add_u256(const __m256i a,
+                        const __m256i b) {
    const __m256i c7f = _mm256_set1_epi8(127);
    const __m256i c01 = _mm256_set1_epi8(1);
     __m256i t;
@@ -112,8 +116,8 @@ __m256i gf31v_add_u256(const __m256i a,
 }
 
 /// NOTE: assumes that each gf31 element is in a single uint8_t
-__m256i gf31v_mul_u256(const __m256i a,
-                       const __m256i b) {
+__m256i gf127v_mul_u256(const __m256i a,
+                        const __m256i b) {
     __m256i a_lo, b_lo, a_hi, b_hi, t, r;
     __m128i tmp;
 
