@@ -78,11 +78,10 @@ static inline void gf2to12_matrix_add_multiple_gf2(gf2to12 *matrix1,
                                                    const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            gf2to12 entry2, entry3;
             
             const gf2to12 entry1 = gf2to12_matrix_get(matrix1, n_rows, i, j);
-            entry2 = gf2_matrix_get(matrix2, n_rows, i, j);
-            entry3 = entry1 ^ gf2to12_ff_mu_mult(scalar, entry2);
+            const gf2 entry2 = gf2_matrix_get(matrix2, n_rows, i, j);
+            const gf2to12 entry3 = entry1 ^ gf2to12_mul_gf2(scalar, entry2);
             gf2to12_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
@@ -134,7 +133,6 @@ static inline void gf2to12_matrix_add_scalar_v2(gf2to12 *matrix1,
 }
 
 /// \brief result = matrix1 * matrix2
-///
 /// \param[out] result Matrix over ff_mu
 /// \param[in] matrix1 Matrix over ff
 /// \param[in] matrix2 Matrix over ff_mu
@@ -142,123 +140,114 @@ static inline void gf2to12_matrix_add_scalar_v2(gf2to12 *matrix1,
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively 
 /// \param[in] n_cols2 number of columns in matrix2
 static inline void gf2to12_matrix_ff_mu_product_ff1mu(gf2to12 *result, 
-                                                      const ff_t *matrix1, 
+                                                      const gf2 *matrix1, 
                                                       const gf2to12 *matrix2,
                                                       const uint32_t n_rows1, 
                                                       const uint32_t n_cols1, 
                                                       const uint32_t n_cols2) {
-  gf2to12 entry_i_k, entry_k_j, entry_i_j;
-
-  for (uint32_t i = 0; i < n_rows1; i++) {
-    for (uint32_t j = 0; j < n_cols2; j++) {
-      entry_i_j = 0;
-
-      for (uint32_t k = 0; k < n_cols1; k++) {
-        entry_i_k = gf2to12_matrix_ff_get_entry(matrix1, n_rows1, i, k);
-        entry_k_j = gf2to12_matrix_ff_mu_get_entry(matrix2, n_cols1, k, j);
-        entry_i_j ^= gf2to12_ff_mu_mult(entry_i_k, entry_k_j);
-      }
-
-      gf2to12_matrix_ff_mu_set_entry(result, n_rows1, i, j, entry_i_j);
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            gf2to12 entry_i_j = 0;
+            
+            for (uint32_t k = 0; k < n_cols1; k++) {
+                gf2 entry_i_k = gf2to12_matrix_get(matrix1, n_rows1, i, k);
+                gf2to12 entry_k_j = gf2to12_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf2to12_mul_gf2(entry_k_j, entry_i_k);
+            }
+            
+            gf2to12_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
     }
-  }
 }
 
-/**
- * \fn static inline void gf2to12_matrix_ff_mu_product_mu1ff(gf2to12 *result,
- * const gf2to12 *matrix1, const ff_t *matrix2, const uint32_t n_rows1, const
- * uint32_t n_cols1, const uint32_t n_cols2) \brief result = matrix1 * matrix2
- *
- * \param[out] result Matrix over ff_mu
- * \param[in] matrix1 Matrix over ff_mu
- * \param[in] matrix2 Matrix over ff
- * \param[in] n_rows1 number of rows in matrix1
- * \param[in] n_cols1 number of columns and rows in matrix1 and matrix2
- * respectively \param[in] n_cols2 number of columns in matrix2
- */
-static inline void gf2to12_matrix_ff_mu_product_mu1ff(
-    gf2to12 *result, const gf2to12 *matrix1, const ff_t *matrix2,
-    const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
-  gf2to12 entry_i_k, entry_k_j, entry_i_j;
-
-  for (uint32_t i = 0; i < n_rows1; i++) {
-    for (uint32_t j = 0; j < n_cols2; j++) {
-      entry_i_j = 0;
-
-      for (uint32_t k = 0; k < n_cols1; k++) {
-        entry_i_k = gf2to12_matrix_ff_mu_get_entry(matrix1, n_rows1, i, k);
-        entry_k_j = gf2to12_matrix_ff_get_entry(matrix2, n_cols1, k, j);
-        entry_i_j ^= gf2to12_ff_mu_mult(entry_i_k, entry_k_j);
-      }
-
-      gf2to12_matrix_ff_mu_set_entry(result, n_rows1, i, j, entry_i_j);
+/// \brief result = matrix1 * matrix2
+/// \param[out] result Matrix over ff_mu
+/// \param[in] matrix1 Matrix over ff_mu
+/// \param[in] matrix2 Matrix over ff
+/// \param[in] n_rows1 number of rows in matrix1
+/// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2
+///                    respectively 
+/// \param[in] n_cols2 number of columns in matrix2
+static inline void gf2to12_matrix_mul_gf2_2(gf2to12 *result,
+                                            const gf2to12 *matrix1,
+                                            const gf2 *matrix2,
+                                            const uint32_t n_rows1, 
+                                            const uint32_t n_cols1,
+                                            const uint32_t n_cols2) {
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            gf2to12 entry_i_j = 0;
+            
+            for (uint32_t k = 0; k < n_cols1; k++) {
+                const gf2to12 entry_i_k = gf2to12_matrix_get(matrix1, n_rows1, i, k);
+                const gf2 entry_k_j = gf2_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf2to12_mul_gf2(entry_i_k, entry_k_j);
+            }
+            
+            gf2to12_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
     }
-  }
 }
 
-/**
- * \fn static inline void gf2to12_matrix_ff_mu_product(gf2to12 *result, const
- * gf2to12 *matrix1, const gf2to12 *matrix2, const uint32_t n_rows1, const
- * uint32_t n_cols1, const uint32_t n_cols2) \brief result = matrix1 * matrix2
- *
- * \param[out] result Matrix over ff_mu
- * \param[in] matrix1 Matrix over ff_mu
- * \param[in] matrix2 Matrix over ff_mu
- * \param[in] n_rows1 number of rows in matrix1
- * \param[in] n_cols1 number of columns and rows in matrix1 and matrix2
- * respectively \param[in] n_cols2 number of columns in matrix2
- */
-static inline void
-gf2to12_matrix_ff_mu_product(gf2to12 *result, const gf2to12 *matrix1,
-                            const gf2to12 *matrix2, const uint32_t n_rows1,
-                            const uint32_t n_cols1, const uint32_t n_cols2) {
-  gf2to12 entry_i_k, entry_k_j, entry_i_j;
-
-  for (uint32_t i = 0; i < n_rows1; i++) {
-    for (uint32_t j = 0; j < n_cols2; j++) {
-      entry_i_j = 0;
-
-      for (uint32_t k = 0; k < n_cols1; k++) {
-        entry_i_k = gf2to12_matrix_ff_mu_get_entry(matrix1, n_rows1, i, k);
-        entry_k_j = gf2to12_matrix_ff_mu_get_entry(matrix2, n_cols1, k, j);
-        entry_i_j ^= gf2to12_ff_mu_mult(entry_i_k, entry_k_j);
-      }
-
-      gf2to12_matrix_ff_mu_set_entry(result, n_rows1, i, j, entry_i_j);
+/// \brief result = matrix1 * matrix2
+/// \param[out] result Matrix over ff_mu
+/// \param[in] matrix1 Matrix over ff_mu
+/// \param[in] matrix2 Matrix over ff_mu
+/// \param[in] n_rows1 number of rows in matrix1
+/// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2
+///                     respectively 
+/// \param[in] n_cols2 number of columns in matrix2
+static inline void gf2to12_matrix_mul(gf2to12 *result, 
+                                      const gf2to12 *matrix1,
+                                      const gf2to12 *matrix2,
+                                      const uint32_t n_rows1,
+                                      const uint32_t n_cols1, 
+                                      const uint32_t n_cols2) {
+    gf2to12 entry_i_k, entry_k_j, entry_i_j;
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            entry_i_j = 0;
+            
+            for (uint32_t k = 0; k < n_cols1; k++) {
+                entry_i_k = gf2to12_matrix_get(matrix1, n_rows1, i, k);
+                entry_k_j = gf2to12_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf2to12_mul(entry_i_k, entry_k_j);
+            }
+            
+            gf2to12_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
     }
-  }
 }
 
-/**
- * \fn static inline void gf2to12_matrix_ff_mu_add_product(gf2to12 *result, const
- * gf2to12 *matrix1, const gf2to12 *matrix2, const uint32_t n_rows1, const
- * uint32_t n_cols1, const uint32_t n_cols2) \brief result += matrix1 * matrix2
- *
- * \param[out] result Matrix over ff_mu
- * \param[in] matrix1 Matrix over ff_mu
- * \param[in] matrix2 Matrix over ff_mu
- * \param[in] n_rows1 number of rows in matrix1
- * \param[in] n_cols1 number of columns and rows in matrix1 and matrix2
- * respectively \param[in] n_cols2 number of columns in matrix2
- */
-static inline void gf2to12_matrix_ff_mu_add_product(
-    gf2to12 *result, const gf2to12 *matrix1, const gf2to12 *matrix2,
-    const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
+///\brief result += matrix1 * matrix2
+///\param[out] result Matrix over ff_mu
+///\param[in] matrix1 Matrix over ff_mu
+///\param[in] matrix2 Matrix over ff_mu
+///\param[in] n_rows1 number of rows in matrix1
+///\param[in] n_cols1 number of columns and rows in matrix1 and matrix2
+///                   respectively 
+///\param[in] n_cols2 number of columns in matrix2
+static inline void gf2to12_matrix_add_mul(gf2to12 *result, 
+                                          const gf2to12 *matrix1,
+                                          const gf2to12 *matrix2,
+                                          const uint32_t n_rows1,
+                                          const uint32_t n_cols1, 
+                                          const uint32_t n_cols2) {
   gf2to12 entry_i_k, entry_k_j, entry_i_j;
 
-  for (uint32_t i = 0; i < n_rows1; i++) {
-    for (uint32_t j = 0; j < n_cols2; j++) {
-      entry_i_j = gf2to12_matrix_ff_mu_get_entry(result, n_rows1, i, j);
-
-      for (uint32_t k = 0; k < n_cols1; k++) {
-        entry_i_k = gf2to12_matrix_ff_mu_get_entry(matrix1, n_rows1, i, k);
-        entry_k_j = gf2to12_matrix_ff_mu_get_entry(matrix2, n_cols1, k, j);
-        entry_i_j ^= gf2to12_ff_mu_mult(entry_i_k, entry_k_j);
-      }
-
-      gf2to12_matrix_ff_mu_set_entry(result, n_rows1, i, j, entry_i_j);
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            entry_i_j = gf2to12_matrix_get(result, n_rows1, i, j);
+            
+            for (uint32_t k = 0; k < n_cols1; k++) {
+              entry_i_k = gf2to12_matrix_get(matrix1, n_rows1, i, k);
+              entry_k_j = gf2to12_matrix_get(matrix2, n_cols1, k, j);
+              entry_i_j ^= gf2to12_mul(entry_i_k, entry_k_j);
+            }
+            
+            gf2to12_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
     }
-  }
 }
 
 /// \param[out] out Matrix over gf2to12
