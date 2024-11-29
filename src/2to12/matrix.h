@@ -45,44 +45,44 @@ static inline void gf2to12_matrix_add(gf2to12 *matrix1,
 
 /// \brief matrix1 = matrix2 + matrix3
 /// \param[out] matrix1 Matrix over gf2to12
-/// \param[in] matrix2 Matrix over gf2to12
-/// \param[in] matrix3 Matrix over gf2
+/// \param[in] matrix2 Matrix over gf2
+/// \param[in] matrix3 Matrix over gf2to12
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
 static inline void gf2to12_matrix_add_gf2(gf2to12 *matrix1,
-                                          const gf2to12 *matrix2,
-                                          const gf2 *matrix3,
+                                          const gf2 *matrix2,
+                                          const gf2to12 *matrix3,
                                           const uint32_t n_rows,
                                           const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            gf2 entry2;
-            const gf2to12 entry1 = gf2to12_matrix_get(matrix2, n_rows, i, j);
-            entry2 = gf2_matrix_get(matrix3, n_rows, i, j);
+            gf2to12 entry2;
+            const gf2to12 entry1 = gf2to12_matrix_get(matrix3, n_rows, i, j);
+            entry2 = gf2_matrix_get(matrix2, n_rows, i, j);
             entry2 = entry1 ^ entry2;
             gf2to12_matrix_set(matrix1, n_rows, i, j, entry2);
         }
     }
 }
 
-/// \brief matrix1 += scalar * matrix2
-/// \param[out] matrix1 Matrix over ff_mu
-/// \param[in] scalar scalar over ff_mu
-/// \param[in] matrix2 Matrix over ff
+/// \brief matrix1 = matrix2 + matrix3
+/// \param[out] matrix1 Matrix over gf2to12
+/// \param[in] matrix2 Matrix over gf2to12
+/// \param[in] matrix3 Matrix over gf2
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static inline void gf2to12_matrix_add_multiple_gf2(gf2to12 *matrix1,
-                                                   gf2to12 scalar,
-                                                   const gf2 *matrix2,
-                                                   const uint32_t n_rows,
-                                                   const uint32_t n_cols) {
+static inline void gf2to12_matrix_add_gf2_v2(gf2to12 *matrix1,
+                                             const gf2to12 *matrix2,
+                                             const gf2 *matrix3,
+                                             const uint32_t n_rows,
+                                             const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            
-            const gf2to12 entry1 = gf2to12_matrix_get(matrix1, n_rows, i, j);
-            const gf2 entry2 = gf2_matrix_get(matrix2, n_rows, i, j);
-            const gf2to12 entry3 = entry1 ^ gf2to12_mul_gf2(scalar, entry2);
-            gf2to12_matrix_set(matrix1, n_rows, i, j, entry3);
+            gf2to12 entry2;
+            const gf2to12 entry1 = gf2to12_matrix_get(matrix2, n_rows, i, j);
+            entry2 = gf2_matrix_get(matrix3, n_rows, i, j);
+            entry2 = entry1 ^ entry2;
+            gf2to12_matrix_set(matrix1, n_rows, i, j, entry2);
         }
     }
 }
@@ -127,6 +127,29 @@ static inline void gf2to12_matrix_add_scalar_v2(gf2to12 *matrix1,
             const gf2to12 entry1 = gf2to12_matrix_get(matrix2, n_rows, i, j);
             const gf2to12 entry2 = gf2to12_matrix_get(matrix3, n_rows, i, j);
             const gf2to12 entry3 = entry1 ^ gf2to12_mul(scalar, entry2);
+            gf2to12_matrix_set(matrix1, n_rows, i, j, entry3);
+        }
+    }
+}
+
+
+/// \brief matrix1 += scalar * matrix2
+/// \param[out] matrix1 Matrix over ff_mu
+/// \param[in] scalar scalar over ff_mu
+/// \param[in] matrix2 Matrix over ff
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static inline void gf2to12_matrix_add_scalar_gf2(gf2to12 *matrix1,
+                                                 gf2to12 scalar,
+                                                 const gf2 *matrix2,
+                                                 const uint32_t n_rows,
+                                                 const uint32_t n_cols) {
+    for (uint32_t i = 0; i < n_rows; i++) {
+        for (uint32_t j = 0; j < n_cols; j++) {
+            
+            const gf2to12 entry1 = gf2to12_matrix_get(matrix1, n_rows, i, j);
+            const gf2 entry2 = gf2_matrix_get(matrix2, n_rows, i, j);
+            const gf2to12 entry3 = entry1 ^ gf2to12_mul_gf2(scalar, entry2);
             gf2to12_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
@@ -266,3 +289,8 @@ static inline void gf2to12_matrix_map_ff_to_ff_mu(gf2to12 *out,
         }
     }
 }
+
+
+#ifdef USE_AVX2
+
+#endif

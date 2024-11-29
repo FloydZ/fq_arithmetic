@@ -7,6 +7,22 @@
 #define gf2_matrix_bytes_size(n_rows, n_cols) ((gf2_matrix_bytes_per_column(n_rows)) * (n_cols))
 
 
+static inline gf2* gf2_matrix_alloc(const uint32_t n_rows, 
+                                    const uint32_t n_cols) {
+    return (gf2 *)malloc(gf2_matrix_bytes_size(n_rows, n_cols));
+}
+
+static inline void gf2_matrix_rng(gf2 *matrix,
+                                  const uint32_t n_rows, 
+                                  const uint32_t n_cols) {
+    const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
+    for (uint32_t i = 0; i < n_cols; i++) {
+        for (uint32_t j = 0; j < p; j++) {
+            matrix[i*n_rows + j] = rand();
+        } 
+    }
+}
+
 static inline void gf2_matrix_set_to_ff(gf2 *matrix, 
                                         const uint32_t n_rows, 
                                         const uint32_t n_cols) {
@@ -112,6 +128,7 @@ static inline void gf2_matrix_add_u256(gf2 *matrix1,
                                        const gf2 *matrix3,
 		                               const uint32_t n_rows, 
                                        const uint32_t n_cols) {
+    /// TODO not correct
     uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
     while(n_bytes >= 32) {
         const __m256i t2 = _mm256_loadu_si256((const __m256i *)matrix2);

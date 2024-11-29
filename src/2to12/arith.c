@@ -98,7 +98,7 @@ uint32_t test_vector_add_gf2() {
     gf2to12 *v2 = gf2to12_vector_alloc(N);
     gf2to12 *v3 = gf2to12_vector_alloc(N);
 
-    gf2_vector_rand(v1, N);
+    gf2_vector_rng(v1, N);
     gf2to12_vector_zero(v2, N);
     gf2to12_vector_zero(v3, N);
 
@@ -126,7 +126,7 @@ uint32_t test_vector_scalar_add_gf2_v3() {
     gf2to12 *v2 = gf2to12_vector_alloc(N);
     gf2to12 *v3 = gf2to12_vector_alloc(N);
 
-    gf2_vector_rand(v1, N);
+    gf2_vector_rng(v1, N);
     gf2to12_vector_zero(v2, N);
     gf2to12_vector_zero(v3, N);
 
