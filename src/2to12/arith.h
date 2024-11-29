@@ -80,6 +80,18 @@ void compute_lookup_table() {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
+
+/// horizontal xor, but not withing a single limb, but over the 16 -16bit limbs
+/// \param in
+/// \return
+static inline uint16_t gf2to12_hadd_u256(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 2));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return _mm256_extract_epi16(ret, 0);
+}
+
 static inline __m128i gf2to12v_mul_u128(const __m128i a,
                                         const __m128i b) {
     const __m128i mod  = _mm_set1_epi16((short)MODULUS);
@@ -401,6 +413,26 @@ static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
     r ^= (mt & t);
     
     return r;
+}
+
+/// @param a
+/// @param b in gf2, not compresses: a single bit in 
+/// @return
+static inline __m256i gf2to12v_mul_gf2_u256(const __m256i a,
+                                            const __m256i b) {
+    const __m256i m1 = _mm256_set1_epi16(-1);
+    const __m256i t1 = _mm256_sign_epi16(b, m1);
+    return a & t1;
+}
+
+/// @param a
+/// @param b in gf2, not compresses: a single bit in 
+/// @return
+static inline __m128i gf2to12v_mul_gf2_u128(const __m128i a,
+                                            const __m128i b) {
+    const __m128i m1 = _mm_set1_epi16(-1);
+    const __m128i t1 = _mm_sign_epi16(b, m1);
+    return a & t1;
 }
 
 ///

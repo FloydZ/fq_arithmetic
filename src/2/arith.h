@@ -39,6 +39,24 @@ static __m256i gf2_scalar_u256(const __m256i a, const gf2 b) {
     const __m256i _b = _mm256_set1_epi8(b);
     return gf2_mul_u256(a, _b);
 }
+
+/// horizontal xor
+/// \param in
+/// \return TODO untested
+static inline gf2 gf2_hadd_u256(const __m256i in) {
+    __m256i ret = in;
+    ret = _mm256_xor_si256(ret, _mm256_slli_epi16(in, 1));
+    ret = _mm256_xor_si256(ret, _mm256_slli_epi16(in, 2));
+    ret = _mm256_xor_si256(ret, _mm256_slli_epi16(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 1));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 2));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    const uint8_t r = _mm256_extract_epi8(ret, 0);
+    return r;
+}
+
 #elif defined(USE_NEON)
 static uint8x16_t add_simd256(const uint8x16_t a, const uint8x16_t b) { 
 		return a ^ b;
@@ -50,20 +68,6 @@ static uint8x16_t mul_simd256(const uint8x16_t a, const uint8x16_t b) {
 	return a & b
 }
 #endif
-
-/// C = A*B, where are `A` is in row-major form and `B` in `colum`-major
-/// NOTE: trivial bitwise implementation
-static void matrix_mul(uint8_t *C, const uint8_t *A, const uint8_t *B,
-		const size_t nrows_A, const size_t ncols_A, const size_t ncols_B) {
-	for (uint32_t i = 0; i < nrows_A; i++) {
-		for (uint32_t j = 0; j < ncols_B; j++) {
-			uint8_t t = 0;
-			for (uint32_t k = 0; k < ncols_A; k++) {
-				// TODO
-			}
-		}
-	}
-}
 
 #include "vector.h"
 #include "matrix.h"

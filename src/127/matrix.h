@@ -764,6 +764,9 @@ static inline
 void gf127_matrix_transpose_opt2(uint8_t *dst,
                                 const uint8_t *src,
                                 const size_t n) {
+    /// NOTE: possible values for `bsize = 8,16,32,64`
+    /// NOTE: this transpose is not completly random choose.
+    /// Floyd: did some benchmarks, see `src/127/README.md`
     const size_t bsize = 32;
     uint64_t rb = 0;
 #ifdef USE_AVX2

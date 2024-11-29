@@ -6,10 +6,6 @@
 
 
 #ifdef USE_AVX2
-
-
-
-
 uint32_t test_arith_vector_mul() {
     uint16_t tmp[32];
     for (int i = 0; i < 1u << 11; ++i) {
@@ -67,7 +63,6 @@ uint32_t test_arith_vector_mul() {
 
     return 0;
 }
-#endif
 
 uint32_t test_vector_add() {
     const uint32_t N = 256;
@@ -110,8 +105,8 @@ uint32_t test_vector_add_gf2() {
     gf2to12_vector_add_gf2(v2, v1, N);
     gf2to12_vector_add_gf2_u256(v3, v1, N);
 
-    gf2to12_vector_print(v2, N);
-    gf2to12_vector_print(v3, N);
+    // gf2to12_vector_print(v2, N);
+    // gf2to12_vector_print(v3, N);
     for (uint32_t i = 0; i < N; i++) {
         if (v2[i] != v3[i]) {
             printf("error test_vector_add_gf2");
@@ -124,12 +119,66 @@ uint32_t test_vector_add_gf2() {
 }
 
 
+uint32_t test_vector_scalar_add_gf2_v3() {
+    const uint32_t N = 256;
+
+    gf2 *v1     = gf2_vector_alloc(N);
+    gf2to12 *v2 = gf2to12_vector_alloc(N);
+    gf2to12 *v3 = gf2to12_vector_alloc(N);
+
+    gf2_vector_rand(v1, N);
+    gf2to12_vector_zero(v2, N);
+    gf2to12_vector_zero(v3, N);
+
+    gf2to12 t = 1;
+    gf2to12_vector_scalar_add_gf2_v3(v2, t, v1, N);
+    gf2to12_vector_scalar_add_gf2_u256_v3(v3, t, v1, N);
+
+    // gf2to12_vector_print(v2, N);
+    // gf2to12_vector_print(v3, N);
+    for (uint32_t i = 0; i < N; i++) {
+        if (v2[i] != v3[i]) {
+            printf("error test_vector_scalar_add_gf2_v3");
+            return 1;
+        }
+    }
+
+    free(v1); free(v2); free(v3);
+    return 0;
+}
+
+uint32_t test_vector_mul_acc(void) {
+    const uint32_t N = 256;
+
+    gf2to12 *v1 = gf2to12_vector_alloc(N);
+    gf2to12 *v2 = gf2to12_vector_alloc(N);
+
+    gf2to12_vector_zero(v1, N);
+    gf2to12_vector_zero(v2, N);
+
+    const gf2to12 t1 = gf2to12_vector_mul_acc(v2, v1, N);
+    const gf2to12 t2 = gf2to12_vector_mul_acc_u256(v2, v1, N);
+
+    if (t1 != t2) {
+        printf("error test_vector_mul_acc");
+        return 1;
+    }
+
+    free(v1); free(v2);
+    return 0;
+}
+#endif
+
+
 int main() {
 #ifdef USE_AVX2
     if (test_arith_vector_mul()) { return 1; }
     if (test_vector_add()) { return 1; }
     if (test_vector_add_gf2()) { return 1; }
+    if (test_vector_scalar_add_gf2_v3()) { return 1; }
+    if (test_vector_mul_acc()) { return 1; }
 #endif
 
+    printf("finished\n");
 	return 0;
 }
