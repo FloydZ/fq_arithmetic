@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string.h>
 #include "arith.h"
 
 
@@ -12,25 +13,44 @@ static inline gf2* gf2_matrix_alloc(const uint32_t n_rows,
     return (gf2 *)malloc(gf2_matrix_bytes_size(n_rows, n_cols));
 }
 
+///
+/// @param matrix
+/// @param n_rows
+/// @param n_cols
 static inline void gf2_matrix_rng(gf2 *matrix,
-                                  const uint32_t n_rows, 
+                                  const uint32_t n_rows,
                                   const uint32_t n_cols) {
     const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t i = 0; i < n_cols; i++) {
         for (uint32_t j = 0; j < p; j++) {
             matrix[i*n_rows + j] = rand();
-        } 
+        }
     }
 }
 
-static inline void gf2_matrix_set_to_ff(gf2 *matrix, 
+///
+/// @param matrix
+/// @param n_rows
+/// @param n_cols
+static inline void gf2_matrix_zero(gf2 *matrix,
+                                   const uint32_t n_rows,
+                                   const uint32_t n_cols) {
+    const uint32_t p = gf2_matrix_bytes_size(n_rows, n_cols);
+    memset(matrix, 0, p);
+}
+
+///
+/// @param matrix
+/// @param n_rows
+/// @param n_cols
+static inline void gf2_matrix_set_to_ff(gf2 *matrix,
                                         const uint32_t n_rows, 
                                         const uint32_t n_cols) {
     if (n_rows & 0x7) {
         const uint32_t matrix_height =  gf2_matrix_bytes_per_column(n_rows);
         const uint32_t matrix_height_x = matrix_height -  1;
 
-        gf2 mask = 0xff >> (8 - (n_rows % 8));
+        const gf2 mask = 0xff >> (8 - (n_rows % 8));
 
         for (uint32_t i = 0; i < n_cols; i++) {
             matrix[i * matrix_height + matrix_height_x ] &= mask;
@@ -38,6 +58,7 @@ static inline void gf2_matrix_set_to_ff(gf2 *matrix,
     }
 }
 
+///
 /// \return matrix[i, j]
 static inline gf2 gf2_matrix_get(const gf2 *matrix, 
                                  const uint32_t n_rows, 
@@ -87,7 +108,7 @@ static inline void gf2_matrix_scalar_add(gf2 *matrix1,
 
     const uint8_t t = -scalar;
     for (uint32_t i = 0; i < n_bytes; i++) {
-        matrix1[i] ^= t&matrix2[i];
+        matrix1[i] ^= (t&matrix2[i]);
     }
 }
 
@@ -128,7 +149,6 @@ static inline void gf2_matrix_add_u256(gf2 *matrix1,
                                        const gf2 *matrix3,
 		                               const uint32_t n_rows, 
                                        const uint32_t n_cols) {
-    /// TODO not correct
     uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
     while(n_bytes >= 32) {
         const __m256i t2 = _mm256_loadu_si256((const __m256i *)matrix2);
@@ -156,8 +176,9 @@ static inline void gf2_matrix_scalar_add_u256(gf2 *matrix1,
     const uint8_t m = -scalar;
     const __m256i m256 = _mm256_set1_epi8(m);
     while(n_bytes >= 32) {
+        const __m256i to = _mm256_loadu_si256((const __m256i *)matrix1);
         const __m256i t2 = _mm256_loadu_si256((const __m256i *)matrix2);
-        const __m256i t1 = m ^ t2;
+        const __m256i t1 = to ^ (m256 & t2);
         _mm256_storeu_si256((__m256i *)matrix1, t1);
         n_bytes -= 32;
         matrix1 += 32;
@@ -179,6 +200,7 @@ static inline void gf2_matrix_mul_u256(gf2 *result,
                                        const uint32_t n_rows1, 
                                        const uint32_t n_cols1, 
                                        const uint32_t n_cols2) {
+    /// TODO
     uint32_t i, j, k;
     gf2 entry_i_k, entry_k_j, entry_i_j;
 

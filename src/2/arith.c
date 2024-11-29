@@ -168,7 +168,7 @@ uint32_t test_matrix_add() {
     const uint32_t p = gf2_matrix_bytes_per_column(nrows);
     for (uint32_t i = 0; i < ncols; i++) {
         for (uint32_t j = 0; j < p; j++) {
-            if (C1[i*nrows + j] != C2[i*nrows + j]) {
+            if (C1[i*p + j] != C2[i*p + j]) {
                 printf("error test_matrix_add\n");
                 ret = 1;
                 goto finish;
@@ -191,6 +191,8 @@ uint32_t test_matrix_scalar_add() {
     gf2 *C2 = gf2_matrix_alloc(nrows, ncols);
 
     gf2_matrix_rng(B, nrows, ncols);
+    gf2_matrix_zero(C1, nrows, ncols);
+    gf2_matrix_zero(C2, nrows, ncols);
 
     const uint8_t scalar = 1;
     gf2_matrix_scalar_add(C1, scalar, B, nrows, ncols);
@@ -199,8 +201,8 @@ uint32_t test_matrix_scalar_add() {
     const uint32_t p = gf2_matrix_bytes_per_column(nrows);
     for (uint32_t i = 0; i < ncols; i++) {
         for (uint32_t j = 0; j < p; j++) {
-            if (C1[i*nrows + j] != C2[i*nrows + j]) {
-                printf("error test_matrix_scalar_add\n");
+            if (C1[i*p + j] != C2[i*p + j]) {
+                printf("error test_matrix_scalar_add %d %d\n", i, j);
                 ret = 1;
                 goto finish;
             }
@@ -232,7 +234,7 @@ uint32_t test_matrix_mul() {
     const uint32_t p = gf2_matrix_bytes_per_column(nrows1);
     for (uint32_t i = 0; i < ncols2; i++) {
         for (uint32_t j = 0; j < p; j++) {
-            if (C1[i*nrows1 + j] != C2[i*nrows1 + j]) {
+            if (C1[i*p + j] != C2[i*p + j]) {
                 printf("error test_matrix_mul\n");
                 ret = 1;
                 goto finish;

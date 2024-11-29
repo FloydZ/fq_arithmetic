@@ -166,6 +166,40 @@ static inline void gf2to12_vector_add_u256(gf2to12 *__restrict__ out,
     }
 }
 
+/// out = in1 + in2
+/// \param out
+/// \param in1
+/// \param d  number of elements NOT bytes
+static inline void gf2to12_vector_add_u256_v2(gf2to12 *__restrict__ out,
+                                              const gf2to12 *__restrict__ in1,
+                                              const gf2to12 *__restrict__ in2,
+                                              const uint32_t d) {
+    uint32_t i = d;
+    // avx2 code
+    while (i >= 16u) {
+        _mm256_storeu_si256((__m256i *)out,
+                            _mm256_loadu_si256((__m256i *)in1) ^
+                            _mm256_loadu_si256((__m256i *)in2));
+        i   -= 16u;
+        in1 += 16u;
+        out += 16u;
+    }
+
+    // sse code
+    while(i >= 8u) {
+        _mm_storeu_si128((__m128i *)out,
+                         _mm_loadu_si128((__m128i *)in1) ^
+                         _mm_loadu_si128((__m128i *)in2));
+        i   -= 8u;
+        in1 += 8u;
+        out += 8u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ = *in1++ ^ *in2++;
+    }
+}
+
 ///
 /// @param out += in
 /// @param in
