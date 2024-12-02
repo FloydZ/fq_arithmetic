@@ -1089,29 +1089,6 @@ uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
 #else
 #endif
 
-uint8_t gf16_vector_get(const uint8_t *v,
-                      const uint32_t i) {
-    const uint32_t pos = i >> 1;
-    uint8_t b = 0;
-    if (i & 1u) {
-        b = v[pos] >> 4;
-    } else {
-        b = v[pos] & 0xF;
-    }
-    return b;
-}
-
-void gf16_vector_set(uint8_t *v,
-                   const uint32_t i,
-                   const uint8_t a) {
-    const uint32_t pos = i >> 1;
-    const uint8_t b = a & 0xF;
-    if (i & 1u) {
-        v[pos] = (v[pos] & 0xF ) ^ (b << 4);
-    } else {
-        v[pos] = (v[pos] & 0xF0) ^ b;
-    }
-}
 #undef MODULUS
 #include "vector.h"
 #include "matrix.h"

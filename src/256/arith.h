@@ -582,7 +582,7 @@ gf256 gf256_sub(const gf256 a,
 /// a*b via the lookup into the muliplication table of 16**i
 /// multiplication is for a single element
 gf256 gf256_mul(const gf256 a,
-               const gf256 b) {
+                const gf256 b) {
     const gf256 *p = &__gf256_mulbase[b * 8u];
     gf256 tmp = 0;
     tmp ^= (a &   1) ? p[0] : 0;
@@ -635,13 +635,23 @@ uint64_t gf256v_sub_64(const uint64_t a,
     return a ^ b;
 }
 
-uint64_t gf256v_mul_u64(uint64_t a, uint64_t b) {
+uint64_t gf256v_mul_u64(const uint64_t a,
+                        const uint64_t b) {
     uint64_t ret = 0;
     for (uint32_t i = 0; i < 8u; ++i) {
         uint64_t t = gf256_mul(a >> (i*8u), b >> (i*8u));
         ret ^= t << (i*8u);
     }
     return ret;
+}
+
+/// \param a \in gf256
+/// \param b \in gf16
+/// \return a*b
+uint64_t gf256_mul_gf16(const gf256 a, 
+                        const uint8_t b) {
+    const gf256 t2 = gf256_expand_tab[b];
+    return gf256_mul(a, t2);
 }
 
 /// vector*constant multiplication without table look
@@ -951,9 +961,9 @@ static inline __m256i gf256_full_mul_simd(__m256i a, const __m256i b) {
 /// \return
 __m256i gf256v_mul_u256(const __m256i a,
                         const __m256i b) {
-//#ifdef __AVX512VL__
-//    return _mm256_gf2p8mul_epi8(a, b);
-//#endif
+#ifdef USE_AVX512
+    return _mm256_gf2p8mul_epi8(a, b);
+#endif
     const __m256i zero = _mm256_set1_epi32(0),
             mask = _mm256_set1_epi8(0x1B);
     __m256i r;
@@ -975,7 +985,7 @@ __m256i gf256v_mul_u256(const __m256i a,
 /// this is the avx version of `gf256v_scalar_u64_v2`.
 /// memory is loaded depending on b. So unsafe if its secret
 __m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
-#ifdef __AVX512VL__
+#ifdef USE_AVX512
     return _mm256_gf2p8mul_epi8(a, b);
 #else
 	// bitselection masks
@@ -1084,166 +1094,6 @@ __m256i gf256v_mul_scalar_u256(__m256i a, uint8_t _b) {
 
     return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
-
-
-/// out = in1 ^ in2
-static inline void gf256_vector_add_u256(gf256 *out,
-                                         const gf256 *in1,
-                                         const gf256 *in2,
-                                         const size_t bytes) {
-    size_t i = bytes;
-    // avx2 code
-    while (i >= 32u) {
-        _mm256_storeu_si256((__m256i *)out,
-                            _mm256_loadu_si256((__m256i *)in1) ^
-                            _mm256_loadu_si256((__m256i *)in2));
-        i -= 32u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        _mm_storeu_si128((__m128i *)out,
-                         _mm_loadu_si128((__m128i *)in1) ^
-                         _mm_loadu_si128((__m128i *)in2));
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-        i -= 16;
-    }
-
-    for(uint32_t j = 0; j<i; j++) {
-        out[j] = in1[j] ^ in2[j];
-    }
-}
-
-/// out[i] = in1[i] + scalar*in2[i] for all i = 0...bytes-1
-static inline void gf256_vector_add_scalar_u256(gf256 *out,
-                                                const gf256 *in1,
-                                                const gf256 scalar,
-                                                const gf256 *in2,
-                                                const size_t bytes) {
-    size_t i = bytes;
-    __m256i s256 = _mm256_set1_epi32(scalar), tmp;
-    __m128i s128 = _mm_set1_epi32(scalar), tmp128;
-
-    // avx2 code
-    while (i >= 32u) {
-        tmp = gf256v_mul_u256(_mm256_loadu_si256((__m256i *)in2), s256);
-        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)in1) ^ tmp);
-        i -= 32u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        tmp128 = gf256v_mul_u128(_mm_loadu_si128((__m128i *)in2), s128);
-        _mm_storeu_si128((__m128i *)out, _mm_loadu_si128((__m128i *)in1) ^ tmp128);
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-        i -= 16;
-    }
-
-    for(uint32_t j = 0; j<i; j++) {
-        out[j] = in1[j] ^ gf256_mul(scalar, in2[j]);
-    }
-}
-
-
-#elif defined(USE_NEON)
-// TODO
-#endif // end avx/neon
-
-
-#ifdef __AVX512VL__
-
-/// \return a * b
-static inline __m512i gf256v_mul_u512(const __m512i a,
-                                      const __m512i b) {
-    return _mm512_gf2p8mul_epi8(a, b);
-}
-
-/// out = in1 ^ in2
-static inline void gf256v_vector_add_u512(gf256 *out,
-                                          const gf256 *in1,
-                                          const gf256 *in2,
-                                          const size_t bytes) {
-    size_t i = bytes;
-    // avx512 code
-    while (i >= 64u) {
-        _mm512_storeu_si512((__m512i *)out,
-                            _mm512_loadu_si512((__m512i *)in1) ^
-                            _mm512_loadu_si512((__m512i *)in2));
-        i   -= 64u;
-        in1 += 64u;
-        in2 += 64u;
-        out += 64u;
-    }
-
-    // avx2 code
-    while (i >= 32u) {
-        _mm256_storeu_si256((__m256i *)out,
-                            _mm256_loadu_si256((__m256i *)in1) ^
-                            _mm256_loadu_si256((__m256i *)in2));
-        i -= 32u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        _mm_storeu_si128((__m128i *)out,
-                         _mm_loadu_si128((__m128i *)in1) ^
-                         _mm_loadu_si128((__m128i *)in2));
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-        i -= 16;
-    }
-
-    for(uint32_t j = 0; j<i; j++) {
-        out[j] = in1[j] ^ in2[j];
-    }
-}
-
-/// out = in1 ^ scalar* in2
-static inline void gf256_vector_add_scalar_u512(gf256 *out,
-                                                const gf256 *in1,
-                                                const gf256 scalar,
-                                                const gf256 *in2,
-                                                const size_t bytes) {
-    size_t i = bytes;
-    const __m512i s = _mm512_set1_epi8(scalar);
-
-    // avx512 code
-    while (i >= 64u) {
-        const __m512i tmp = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)in2), s);
-        _mm512_storeu_si512((__m512i *)out, _mm512_loadu_si512((__m512i *)in1) ^ tmp);
-        i   -= 64u;
-        in1 += 64u;
-        in2 += 64u;
-        out += 64u;
-    }
-
-    uint8_t tmp[64];
-    for (uint32_t j = 0; j < i; ++j) {
-        tmp[j] = in2[j];
-    }
-
-    const __m512i t = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)tmp), s);
-    _mm512_storeu_si512((__m512i *)out, t);
-
-    for (uint32_t j = 0; j < i; ++j) {
-        out[j] = in1[j] ^ tmp[j];
-    }
-}
-
-#endif
+#endif /// end USE_AVX2
 #undef MODULUS
 #endif // end namespace

@@ -5,6 +5,32 @@
 
 #include "arith.h"
 
+/// \return v[i]
+gf16 gf16_vector_get(const uint8_t *v,
+                     const uint32_t i) {
+    const uint32_t pos = i >> 1;
+    uint8_t b = 0;
+    if (i & 1u) {
+        b = v[pos] >> 4;
+    } else {
+        b = v[pos] & 0xF;
+    }
+    return b;
+}
+
+/// v[i] = a
+void gf16_vector_set(uint8_t *v,
+                     const uint32_t i,
+                     const uint8_t a) {
+    const uint32_t pos = i >> 1;
+    const uint8_t b = a & 0xF;
+    if (i & 1u) {
+        v[pos] = (v[pos] & 0xF ) ^ (b << 4);
+    } else {
+        v[pos] = (v[pos] & 0xF0) ^ b;
+    }
+}
+
 ///
 /// @param n
 /// @return
@@ -16,7 +42,7 @@ static inline gf16* gf16_vector_alloc(const uint32_t n) {
 /// @param v
 /// @param n
 static inline void gf16_vector_zero(gf16 *v,
-                                       const uint32_t n) {
+                                    const uint32_t n) {
     memset(v, 0, ((n + 1)/2) *sizeof(gf16));
 }
 
@@ -53,3 +79,4 @@ static inline void gf16_vector_add(gf16 *out,
         out[i] ^= in[i];
     }
 }
+

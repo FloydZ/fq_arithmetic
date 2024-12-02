@@ -49,6 +49,17 @@ static inline void gf2to12_vector_copy(gf2to12 *__restrict__ v1,
 }
 
 ///
+/// a = b
+static inline void gf2to12_vector_set_to_gf2(gf2to12 *a,
+                                             const gf2 *b,
+                                             const uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        const gf2 t = gf2_vector_get(b, i);
+        a[i] = t;
+    }
+}
+
+///
 /// @param out += in
 /// @param in
 /// @param n
@@ -447,4 +458,43 @@ static inline gf2to12 gf2to12_vector_mul_acc_u256(const gf2to12 *a,
     gf2to12 t = gf2to12_hadd_u256(acc);
     return t;
 }
+
+
+static inline void gf2to12_vector_set_to_gf2_u256(gf2to12 *out,
+                                                  const gf2 *in,
+                                                  const uint32_t n) {
+    uint32_t bytes = (n+7)/8;
+
+    while (bytes >= 2u) {
+        const uint8_t t11 = *(in + 0);
+        const uint8_t t12 = *(in + 1);
+
+        const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+        const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+
+        const __m128i t1 = _mm_set_epi64x(t22, t21);
+        const __m256i mi = _mm256_cvtepu8_epi16(t1);
+        _mm256_storeu_si256((__m256i *)out, mi);
+        in  += 2u;
+        out += 16u;
+        bytes -= 2;
+    }
+
+    if (bytes) {
+        uint16_t tmp[16] __attribute__((aligned(32))) = {0};
+        uint8_t t11, t12=0;
+
+        t11 = *(in + 0);
+        if (bytes > 1) { t12 = *(in + 1); }
+
+        const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+        const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+        const __m128i t1 = _mm_set_epi64x(t22, t21);
+        const __m256i mi = _mm256_cvtepu8_epi16(t1);
+        _mm256_store_si256((__m256i *)tmp, mi);
+
+        for (uint32_t j = 0; j < (bytes * 8); j++) { out[j] = tmp[j];}
+    } 
+}
+
 #endif
