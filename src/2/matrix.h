@@ -595,6 +595,60 @@ size_t gf2_matrix_echelonize(uint8_t *M,
 	return r;
 }
 
+static uint64_t const transpose_mask[6] = {
+    0x5555555555555555ULL, 0x3333333333333333ULL, 0x0F0F0F0F0F0F0F0FULL,
+    0x00FF00FF00FF00FFULL, 0x0000FFFF0000FFFFULL, 0x00000000FFFFFFFFULL,
+};
+
+/// code original from m4ri
+/// Transpose 64/j matrices of size jxj in parallel.
+/// 
+/// Where j equals n rounded up to the nearest power of 2.
+/// The input array t must be of size j (containing the rows i of all matrices in t[i]).
+/// 
+/// t[0..{j-1}]  = [Al]...[A1][A0]
+/// 
+/// \param t An array of j words.
+/// \param n The number of rows in each matrix.
+/// \return log2(j)
+static inline int _mzd_transpose_Nxjx64(uint64_t *restrict t,
+                                        int n) {
+  int j  = 1;
+  int mi = 0;  // Index into the transpose_mask array.
+
+  while (j < n)  // Don't swap with entirely undefined data (where [D] exists entirely of
+                 // non-existant rows).
+  {
+    // Swap 64/j matrices of size jxj in 2j rows. Thus,
+    // <---- one word --->
+    // [Al][Bl]...[A0][B0]
+    // [Cl][Dl]...[C0][D0], where l = 64/j - 1 and each matrix [A], [B] etc is jxj.
+    // Then swap [A] and [D] in-place.
+
+    // m runs over the values in transpose_mask, so that at all
+    // times m exists of j zeroes followed by j ones, repeated.
+    uint64_t const m = transpose_mask[mi];
+    int k        = 0;  // Index into t[].
+    do {
+      // Run over all rows of [A] and [D].
+      for (int i = 0; i < j; ++i, ++k) {
+        // t[k] contains row i of all [A], and t[k + j] contains row i of all [D]. Swap them.
+        uint64_t xor = ((t[k] >> j) ^ t[k + j]) & m;
+        t[k] ^= xor << j;
+        t[k + j] ^= xor;
+      }
+      k += j;         // Skip [C].
+    } while (k < n);  // Stop if we passed all valid input.
+
+    // Double the size of j and repeat this for the next 2j rows until all
+    // n rows have been swapped (possibly with non-existant rows).
+    j <<= 1;
+    ++mi;
+  }
+
+  return mi;
+}
+
 /// original code from m4ri
 /// Transpose a n x m matrix with width 1, offset 0 and m and n less than or equal 8.
 /// Rows of all matrices are expected to have offset zero
@@ -645,4 +699,176 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
         wk -= rowstride_dst;
     }
     *wk = (unsigned char)w;
+}
+
+/// Rows of all matrices are expected to have offset zero
+/// and lay entirely inside a single block.
+/// 
+/// \note This function also works to transpose in-place.
+/// Transpose a n x m matrix with width 1, offset 0 and m and n less than or equal 16.
+/// 
+/// \param dst First word of destination matrix.
+/// \param src First word of source matrix.
+/// \param rowstride_dst Rowstride of destination matrix.
+/// \param rowstride_src Rowstride of source matrix.
+/// \param n Number of rows in source matrix, must be less than or equal 16.
+/// \param m Number of columns in source matrix, must be less than or equal 16.
+/// \param maxsize TODO
+static inline void gf2_matrix_transpose_le16xle16(uint8_t *restrict dst,
+                                                  uint8_t const *restrict src,
+                                                  const uint32_t rowstride_dst, 
+                                                  const uint32_t rowstride_src, 
+                                                  int n,
+                                                  int m, 
+                                                  int maxsize) {
+  int end                  = maxsize * 3;
+  uint8_t const *restrict wks = (uint8_t *restrict)src;
+  uint64_t t[4];
+  int i = n;
+  do {
+    t[0] = *((uint16_t *)(wks+0));
+    if (--i == 0) {
+      t[1] = 0;
+      t[2] = 0;
+      t[3] = 0;
+      break;
+    }
+    t[1] = *(uint16_t *)(wks+rowstride_src);
+    if (--i == 0) {
+      t[2] = 0;
+      t[3] = 0;
+      break;
+    }
+    t[2] = *(uint16_t *)(wks+2*rowstride_src);
+    if (--i == 0) {
+      t[3] = 0;
+      break;
+    }
+    t[3] = *(uint16_t *)(wks+3*rowstride_src);
+    if (--i == 0) break;
+    wks += 4*rowstride_src;
+    for (uint32_t shift = 16;; shift += 16) {
+      t[0] |= ((uint64_t)(*(uint16_t *)wks) << shift);
+      if (--i == 0) break;
+      t[1] |= ((uint64_t)(*(uint16_t *)(wks + 1*rowstride_src)) << shift);
+      if (--i == 0) break;
+      t[2] |= ((uint64_t)(*(uint16_t *)(wks + 2*rowstride_src)) << shift);
+      if (--i == 0) break;
+      t[3] |= ((uint64_t)(*(uint16_t *)(wks + 3*rowstride_src)) << shift);
+      if (--i == 0) break;
+      wks += 4 * rowstride_src;
+    }
+  } while (0);
+  uint64_t mask = 0xF0000F0000F0ULL;
+  int shift = 12;
+  uint64_t xor [4];
+  do {
+    xor[0] = (t[0] ^ (t[0] >> shift)) & mask;
+    xor[1] = (t[1] ^ (t[1] >> shift)) & mask;
+    xor[2] = (t[2] ^ (t[2] >> shift)) & mask;
+    xor[3] = (t[3] ^ (t[3] >> shift)) & mask;
+    mask >>= 16;
+    t[0] ^= (xor[0] << shift);
+    t[1] ^= (xor[1] << shift);
+    t[2] ^= (xor[2] << shift);
+    t[3] ^= (xor[3] << shift);
+    shift += 12;
+    t[0] ^= xor[0];
+    t[1] ^= xor[1];
+    t[2] ^= xor[2];
+    t[3] ^= xor[3];
+  } while (shift < end);
+  _mzd_transpose_Nxjx64(t, 4);
+  i                 = m;
+  uint8_t *restrict wk = (uint8_t *)dst;
+  do {
+    *(uint16_t *)wk = (uint16_t)t[0];
+    if (--i == 0) break;
+    *(uint16_t *)(wk+rowstride_dst) = (uint16_t)t[1];
+    if (--i == 0) break;
+    *(uint16_t *)(wk+2*rowstride_dst) = (uint16_t)t[2];
+    if (--i == 0) break;
+    *(uint16_t *)(wk+3*rowstride_dst) = (uint16_t)t[3];
+    if (--i == 0) break;
+    wk += 4 * rowstride_dst;
+    for (int shift = 16;; shift += 16) {
+      wk[0] = (uint16_t)(t[0] >> shift);
+      *(uint16_t *)wk = (uint16_t)(t[0] >> shift);
+      if (--i == 0) break;
+      wk[rowstride_dst] = (uint16_t)(t[1] >> shift);
+      *(uint16_t *)(wk + rowstride_dst) = (uint16_t)(t[1] >> shift);
+      if (--i == 0) break;
+      *(uint16_t *)(wk + 2*rowstride_dst) = (uint16_t)(t[2] >> shift);
+      if (--i == 0) break;
+      *(uint16_t *)(wk + 3*rowstride_dst) = (uint16_t)(t[3] >> shift);
+      if (--i == 0) break;
+      wk += 4 * rowstride_dst;
+    }
+  } while (0);
+}
+
+/// Rows of all matrices are expected to have offset zero
+/// and lay entirely inside a single block.
+///
+/// \note This function also works to transpose in-place.
+/// Transpose a n x m matrix with width 1, offset 0 and m and n less than or equal 32.
+///
+/// \param dst First word of destination matrix.
+/// \param src First word of source matrix.
+/// \param rowstride_dst Rowstride of destination matrix.
+/// \param rowstride_src Rowstride of source matrix.
+/// \param n Number of rows in source matrix, must be less than or equal 32.
+/// \param m Number of columns in source matrix, must be less than or equal 32.
+static inline void gf2_matrix_transpose_le32xle32(uint8_t *restrict dst,
+                                                  uint8_t const *restrict src,
+                                                  const uint32_t rowstride_dst, 
+                                                  const uint32_t rowstride_src, 
+                                                  int n,
+                                                  int m) {
+  uint8_t const *restrict wks = (const uint8_t *)src;
+  uint64_t t[16];
+  int i = n;
+  if (n > 16) {
+    i -= 16;
+    for (uint32_t j = 0; j < 16; ++j) {
+      t[j] = *(uint32_t *)wks;
+      wks += rowstride_src;
+    }
+    int j = 0;
+    do {
+      t[j++] |= (((uint64_t)*(uint32_t *)wks) << 32);
+      wks += rowstride_src;
+    } while (--i);
+  } else {
+    uint32_t j = 0;
+    for (; j < n; ++j) {
+      t[j] = *wks;
+      wks += rowstride_src;
+    }
+    for (; j < 16; ++j) t[j] = 0;
+  }
+  _mzd_transpose_Nxjx64(t, 16);
+  int one_more      = (m & 1);
+  uint8_t *restrict wk = (uint8_t *)dst;
+  if (m > 16) {
+    m -= 16;
+    for (int j = 0; j < 16; j += 2) {
+      *(uint32_t *)wk				  = (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000);
+      *(uint32_t *)(wk+rowstride_dst) = (t[j + 1] & 0xFFFF) | ((t[j + 1] >> 16) & 0xFFFF0000);
+      wk += 2 * rowstride_dst;
+    }
+    for (int j = 1; j < m; j += 2) {
+      *(uint32_t *)wk				  = ((t[j - 1] >> 16) & 0xFFFF) | ((t[j - 1] >> 32) & 0xFFFF0000);
+      *(uint32_t *)(wk+rowstride_dst) = ((t[j] >> 16) & 0xFFFF) | ((t[j] >> 32) & 0xFFFF0000);
+      wk += 2 * rowstride_dst;
+    }
+    if (one_more) { *(uint32_t *)wk = ((t[m - 1] >> 16) & 0xFFFF) | ((t[m - 1] >> 32) & 0xFFFF0000); }
+  } else {
+    for (int j = 1; j < m; j += 2) {
+      *(uint32_t *)wk                 = (t[j - 1] & 0xFFFF) | ((t[j - 1] >> 16) & 0xFFFF0000);
+      *(uint32_t *)(wk+rowstride_dst) = (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000);
+      wk += 2 * rowstride_dst;
+    }
+    if (one_more) { *(uint32_t *)wk = (t[m - 1] & 0xFFFF) | ((t[m - 1] >> 16) & 0xFFFF0000); }
+  }
 }
