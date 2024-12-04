@@ -3,8 +3,67 @@
 #include <stdio.h>
 
 #include "arith.h"
+#include "matrix.h"
 #include "vector.h"
 
+/// TODO padding and stuff
+uint32_t test_matrix_m4ri() {
+    uint32_t ret = 0;
+    const uint32_t nrows = 10, 
+                   ncols = 10;
+    gf2 *A = gf2_matrix_alloc_padded(nrows, ncols);
+    gf2_matrix_rng_full_rank(A, nrows, ncols, 1);
+    gf2_matrix_print(A, nrows, ncols);
+
+    gf2_matrix_echelonize(A, nrows, ncols, 4);
+    gf2_matrix_print(A, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < nrows; j++) {
+            const gf2 t = gf2_matrix_get(A, ncols, i, j);
+            if (t != (i == j)) {
+                printf("error: test_m4ri_gaus\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish: 
+    free(A);
+    return ret;
+}
+
+uint32_t test_matrix_transpose_le8xle8() {
+    uint32_t ret = 0;
+    const uint32_t nrows = 8,
+                   ncols = 8;
+    gf2 *A = gf2_matrix_alloc(nrows, ncols);
+    gf2 *B = gf2_matrix_alloc(nrows, ncols);
+    gf2_matrix_rng(A, nrows, ncols);
+    gf2_matrix_print(A, nrows, ncols);
+    printf("\n");
+
+    gf2_matrix_transpose_le8xle8(B, A, 1, 1, nrows, ncols, 8);
+    gf2_matrix_print(B, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < nrows; j++) {
+            const gf2 ta = gf2_matrix_get(A, ncols, i, j);
+            const gf2 tb = gf2_matrix_get(B, nrows, j, i);
+            if (ta != tb) {
+                printf("error: test_matrix_transpose_le8xle8\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish: 
+    free(A);
+    free(B);
+    return ret;
+}
 #ifdef USE_AVX2 
 
 uint32_t test_vector_add() {
@@ -251,15 +310,11 @@ finish:
 
 #endif
 
-bool test1() {
-	gf2 a = 1, b = 1;
-	if (gf2_add(a, b)) { return false; }
-
-	return true;
-}
-
 int main() {
-	if (!test1()) { return -1; }
+    if (test_matrix_transpose_le8xle8()) { return 1; }
+    return 0;
+    if (test_matrix_m4ri()) { return 1; }
+    return 0;
 
 #ifdef USE_AVX2
     if (test_vector_add()) { return 1; }
