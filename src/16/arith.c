@@ -41,6 +41,35 @@ uint32_t test_vector_mul() {
     return 0;
 }
 
+
+// TODO add transpose and reading the solutinn
+// todo the same for the compressed versiton: additional write an `expanding` transpose
+
+#define nrows 32
+#define ncols 32
+
+/// tests the mayo code
+uint32_t test_matrix_gaus() {
+    uint8_t ret = 0;
+    uint8_t A[nrows*(ncols/2)];
+    for (uint32_t i = 0; i < nrows * (ncols/2); i++) { A[i] = rand();  }
+
+    row_echelon_form(A, nrows, ncols);
+    gf16_matrix_print(A, 32, 64);
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const gf16 t = gf16_matrix_get(A, ncols, j, i);
+            if ((i==j) && (t != 1)) {
+                printf("error: test_matrix_gaus\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+    finish:
+    return ret;
+}
+
 #endif
 
 uint32_t test_transpose() {
@@ -136,7 +165,8 @@ int main() {
     // if (test_solve()) { return 1; }
 
 #ifdef USE_AVX2
-    if (test_vector_mul()) { return 1; }
+    if (test_matrix_gaus()) { return 1; }
+    // if (test_vector_mul()) { return 1; }
 #endif
 
     return 0;

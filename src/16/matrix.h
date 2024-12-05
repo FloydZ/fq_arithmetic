@@ -7,6 +7,25 @@
 #define gf16_matrix_bytes_per_column(n_rows) ((n_rows >> 1u) + (n_rows & 1u))
 #define gf16_matrix_bytes_size(n_rows, n_cols) ((gf16_matrix_bytes_per_column(n_rows)) * (n_cols))
 
+
+// a > b -> b - a is negative
+// returns 0xFFFFFFFF if true, 0x00000000 if false
+static inline uint32_t ct_is_greater_than(int a, int b) {
+    int32_t diff = b - a;
+    return (uint32_t) (diff >> (8*sizeof(uint32_t)-1));
+}
+
+// if a == b -> 0x00000000, else 0xFFFFFFFF
+static inline uint32_t ct_compare_32(int a, int b) {
+    return (uint32_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
+}
+
+// if a == b -> 0x00, else 0xFF
+static inline unsigned char ct_compare_8(unsigned char a, unsigned char b) {
+    return (int8_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
+}
+
+
 uint32_t gf16_matrix_load4(const ff_t *m,
                               const uint32_t nrows,
                               const uint32_t i,
@@ -39,6 +58,12 @@ ff_t gf16_matrix_get(const ff_t *matrix,
     }
 }
 
+///
+/// \param matrix
+/// \param n_rows
+/// \param i
+/// \param j
+/// \param scalar
 void gf16_matrix_set(ff_t *matrix,
                            const uint32_t n_rows,
                            const uint32_t i,
@@ -104,6 +129,10 @@ void gf16_sub_row_transpose(uint8_t *A,
     }
 }
 
+///
+/// \param A
+/// \param nrows
+/// \param ncols
 void gf16_matrix_print(uint8_t *A,
                        const uint32_t nrows,
                        const uint32_t ncols) {
@@ -116,6 +145,10 @@ void gf16_matrix_print(uint8_t *A,
     printf("\n\n");
 }
 
+///
+/// \param A
+/// \param nrows
+/// \param ncols
 void gf16_matrix_print_transposed(uint8_t *A,
                        const uint32_t nrows,
                        const uint32_t ncols) {
@@ -128,6 +161,10 @@ void gf16_matrix_print_transposed(uint8_t *A,
     printf("\n\n");
 }
 
+///
+/// \param C
+/// \param nrows
+/// \param ncols
 void gf16_matrix_zero(uint8_t *C,
 				    const size_t nrows,
 				    const size_t ncols) {
@@ -586,3 +623,122 @@ uint32_t gf16_solve_transpose(uint8_t *B,
     return row;
 }
 
+#ifdef USE_AVX2
+// org code from:https://github.com/PQCMayo/MAYO-C/blob/nibbling-mayo/src/AVX2/echelon_form.h
+// put matrix in row echelon form with ones on first nonzero entries in constant time
+static inline void row_echelon_form_compressed(unsigned char *A, int _nrows, int _ncols) {
+
+    (void) _nrows;
+    (void) _ncols;
+
+#define nrows 32
+#define ncols 64
+
+
+
+#define AVX_REGS_PER_ROW ((ncols + 63) / 64)
+#define MAX_COLS (AVX_REGS_PER_ROW * 64)
+
+    __m256i _pivot_row[AVX_REGS_PER_ROW];
+    __m256i A_avx     [AVX_REGS_PER_ROW * nrows];
+
+    // TODO transpose and stuff
+    unsigned char* pivot_row_bytes = (unsigned char*) _pivot_row;
+    unsigned char* A_bytes = (unsigned char*) A_avx;
+
+    // load A in the tail of AVX2 registers
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < (ncols/2); j++) {
+            A_bytes[i*(MAX_COLS/2) + ((MAX_COLS/2) - (ncols/2)) + j] = A[i*(ncols/2) + j ];
+        }
+    }
+    const __m256i xf = _mm256_set1_epi8(0xf);
+
+    // pivot row is secret, pivot col is not
+    unsigned char inverse;
+    int pivot_row = 0;
+    int pivot_col = MAX(MAX_COLS - ncols, 0);
+    for (; pivot_col < MAX_COLS-128; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+    for (; pivot_col < MAX_COLS-96; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+    for (; pivot_col < MAX_COLS-64; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+    for (; pivot_col < MAX_COLS-32; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+    for (; pivot_col < MAX_COLS; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+
+    // write the matrix A back
+    for (int i = 0; i < nrows; i++) {
+        for (int j = 0; j < (ncols/2); j++) {
+            A[i * (ncols/2) + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + ((MAX_COLS/2) - (ncols/2)) + j];
+        }
+    }
+#undef ncols
+#undef nrows
+#undef AVX_REGS_PER_ROW
+#undef MAX_COLS
+}
+
+static inline void row_echelon_form(unsigned char *A, int _nrows, int _ncols) {
+
+    (void) _nrows;
+    (void) _ncols;
+
+#define nrows 32
+#define ncols 32
+#define AVX_REGS_PER_ROW ((ncols + 31) / 32)
+#define MAX_COLS (AVX_REGS_PER_ROW * 32)
+
+    __m256i _pivot_row[AVX_REGS_PER_ROW];
+    __m256i A_avx     [AVX_REGS_PER_ROW * nrows];
+
+    unsigned char* pivot_row_bytes = (unsigned char*) _pivot_row;
+    unsigned char* A_bytes = (unsigned char*) A_avx;
+
+    // load A in the tail of AVX2 registers
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            A_bytes[i*MAX_COLS + (MAX_COLS - ncols) + j] = A[i*ncols + j ];
+        }
+    }
+    const __m256i xf = _mm256_set1_epi8(0xf);
+
+    // pivot row is secret, pivot col is not
+    unsigned char inverse;
+    int pivot_row = 0;
+    int pivot_col = MAX(MAX_COLS - ncols, 0);
+    for (; pivot_col < MAX_COLS-128; pivot_col++) {
+        #include "echelon_form_loop.h"
+    }
+    for (; pivot_col < MAX_COLS-96; pivot_col++) {
+        #include "echelon_form_loop.h"
+    }
+    for (; pivot_col < MAX_COLS-64; pivot_col++) {
+        #include "echelon_form_loop.h"
+    }
+    for (; pivot_col < MAX_COLS-32; pivot_col++) {
+        #include "echelon_form_loop.h"
+    }
+    for (; pivot_col < MAX_COLS; pivot_col++) {
+        #include "echelon_form_loop.h"
+    }
+
+    // write the matrix A back
+    for (int i = 0; i < nrows; i++) {
+        for (int j = 0; j < (ncols/2); j++) {
+            A[i * ncols + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + (MAX_COLS - ncols) + j];
+        }
+    }
+#undef ncols
+#undef nrows
+#undef AVX_REGS_PER_ROW
+#undef MAX_COLS
+}
+#endif
