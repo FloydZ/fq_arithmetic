@@ -110,11 +110,11 @@ uint32_t test_matrix_transpose_le32xle32() {
             gf2 *A = gf2_matrix_alloc(nrows, ncols);
             gf2 *B = gf2_matrix_alloc(nrows, ncols);
             gf2_matrix_rng(A, nrows, ncols);
-            gf2_matrix_print(A, nrows, ncols);
-            printf("\n");
+            // gf2_matrix_print(A, nrows, ncols);
+            // printf("\n");
 
             gf2_matrix_transpose_le32xle32(B, A, 4, 4, nrows, ncols);
-            gf2_matrix_print(B, nrows, ncols);
+            // gf2_matrix_print(B, nrows, ncols);
 
             for (uint32_t i = 0; i < nrows; i++) {
                 for (uint32_t j = 0; j < nrows; j++) {
@@ -135,7 +135,141 @@ uint32_t test_matrix_transpose_le32xle32() {
     }
     return ret;
 }
-#ifdef USE_AVX2 
+
+uint32_t test_matrix_transpose_64x64() {
+    uint32_t ret = 0, nrows=64, ncols=64;
+    gf2 *A = gf2_matrix_alloc(nrows, ncols);
+    gf2 *B = gf2_matrix_alloc(nrows, ncols);
+    gf2_matrix_rng(A, nrows, ncols);
+    // gf2_matrix_print(A, nrows, ncols);
+    // printf("\n");
+
+    gf2_matrix_transpose_64x64(B, A, 8, 8);
+    // gf2_matrix_print(B, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < nrows; j++) {
+            const gf2 ta = gf2_matrix_get(A, ncols, i, j);
+            const gf2 tb = gf2_matrix_get(B, nrows, j, i);
+            if (ta != tb) {
+                printf("error: test_matrix_transpose_64x64\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish:
+    free(A);
+    free(B);
+    return ret;
+}
+
+uint32_t test_matrix_transpose_le64xle64() {
+    uint32_t ret = 0;
+    for (uint32_t nrows = 64; nrows <= 64; nrows ++) {
+        // for (uint32_t ncols = 0; ncols <= 8; ncols ++) {
+        const uint32_t ncols = nrows;
+        gf2 *A = gf2_matrix_alloc(nrows, ncols);
+        gf2 *B = gf2_matrix_alloc(nrows, ncols);
+        gf2_matrix_rng(A, nrows, ncols);
+        gf2_matrix_transpose_le64xle64(B, A, 8, 8, nrows, ncols);
+
+        for (uint32_t i = 0; i < nrows; i++) {
+            for (uint32_t j = 0; j < nrows; j++) {
+                const gf2 ta = gf2_matrix_get(A, ncols, i, j);
+                const gf2 tb = gf2_matrix_get(B, nrows, j, i);
+                if (ta != tb) {
+                    printf("error: test_matrix_transpose_le64xle64\n");
+                    gf2_matrix_print(A, nrows, ncols);
+                    printf("\n");
+                    gf2_matrix_print(B, nrows, ncols);
+
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+
+        finish:
+        free(A);
+        free(B);
+        // }
+    }
+    return ret;
+}
+
+uint32_t test_matrix_transpose_small() {
+    uint32_t ret = 0;
+    for (uint32_t nrows = 8; nrows <= 64; nrows ++) {
+        // for (uint32_t ncols = 0; ncols <= 8; ncols ++) {
+        const uint32_t ncols = nrows;
+        gf2 *A = gf2_matrix_alloc(nrows, ncols);
+        gf2 *B = gf2_matrix_alloc(nrows, ncols);
+        gf2_matrix_rng(A, nrows, ncols);
+
+        const uint32_t maxsize = MAX(nrows, ncols);
+        const uint32_t stride = (nrows + 7u) / 8u;
+        gf2_matrix_transpose_small(B, A, stride, stride, nrows, ncols, maxsize);
+
+        for (uint32_t i = 0; i < nrows; i++) {
+            for (uint32_t j = 0; j < nrows; j++) {
+                const gf2 ta = gf2_matrix_get(A, ncols, i, j);
+                const gf2 tb = gf2_matrix_get(B, nrows, j, i);
+                if (ta != tb) {
+                    printf("error: test_matrix_transpose_small nrows: %d, ncols: %d\n", nrows, ncols);
+                    gf2_matrix_print(A, nrows, ncols);
+                    printf("\n");
+                    gf2_matrix_print(B, nrows, ncols);
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+        finish:
+        free(A);
+        free(B);
+        // }
+    }
+    return ret;
+}
+
+uint32_t test_matrix_transpose_middle() {
+    uint32_t ret = 0;
+    for (uint32_t nrows = 64; nrows <= 512; nrows ++) {
+        // for (uint32_t ncols = 0; ncols <= 8; ncols ++) {
+        const uint32_t ncols = nrows;
+        gf2 *A = gf2_matrix_alloc(nrows, ncols);
+        gf2 *B = gf2_matrix_alloc(nrows, ncols);
+        gf2_matrix_rng(A, nrows, ncols);
+
+        const uint32_t maxsize = MAX(nrows, ncols);
+        const uint32_t stride = (nrows + 7u) / 8u;
+        gf2_matrix_transpose_small(B, A, stride, stride, nrows, ncols, maxsize);
+
+        for (uint32_t i = 0; i < nrows; i++) {
+            for (uint32_t j = 0; j < nrows; j++) {
+                const gf2 ta = gf2_matrix_get(A, ncols, i, j);
+                const gf2 tb = gf2_matrix_get(B, nrows, j, i);
+                if (ta != tb) {
+                    printf("error: test_matrix_transpose_middle nrows: %d, ncols: %d\n", nrows, ncols);
+                    gf2_matrix_print(A, nrows, ncols);
+                    printf("\n");
+                    gf2_matrix_print(B, nrows, ncols);
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+    finish:
+        free(A);
+        free(B);
+        // }
+    }
+    return ret;
+}
+
+#ifdef USE_AVX2
 
 uint32_t test_vector_add() {
     const uint32_t N = 100;
@@ -385,6 +519,10 @@ int main() {
     if (test_matrix_transpose_le8xle8()) { return 1; }
     if (test_matrix_transpose_le16xle16()) { return 1; }
     if (test_matrix_transpose_le32xle32()) { return 1; }
+    if (test_matrix_transpose_64x64()) { return 1; }
+    if (test_matrix_transpose_le64xle64()) { return 1; }
+    // TODO if (test_matrix_transpose_small()) { return 1; }
+    if (test_matrix_transpose_middle()) { return 1; }
     return 0;
     if (test_matrix_m4ri()) { return 1; }
     return 0;
