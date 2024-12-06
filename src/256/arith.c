@@ -3,9 +3,22 @@
 #include <stdbool.h>
 
 #include "arith.h"
+#include "vector.h"
+#include "matrix.h"
 #include "bitslice.h"
 
 #ifdef USE_AVX2
+
+uint32_t test_vector_set_to_gf16_u256() {
+    uint32_t ret = 0;
+    const uint32_t N = 100;
+    gf16 *A = gf16_vector_alloc(N); 
+    gf256 *B = gf256_vector_alloc(N); 
+
+
+    return ret;
+}
+
 int check_gf256v_mul_u256() {
     v256 v1 = {0}, v2 = {0}, v3;
     for (uint32_t i = 0; i < 8; ++i) {
@@ -72,13 +85,9 @@ int check_gf256v_mul_scalar_u256() {
 #endif
 
 int main() {
-    return check_gf256v_mul_scalar_u256();
-
-	const uint64_t t1 = gf256v_scalar_u64(121, 8);
-	const uint64_t t2 = gf256v_scalar_u64_v2(121, 8);
-    const uint64_t t3 = gf256v_mul_u64(121, 8);
-    const uint64_t t7 = gf256_mul_v2(121, 8);
-	printf("%lu %lu %lu\n", t1, t2, t3);
-
+#ifdef USE_AVX2
+    if(check_gf256v_mul_u256()) { return 1; }
+    if(check_gf256v_mul_scalar_u256()) { return 1; }
+#endif
 	return 0;
 }

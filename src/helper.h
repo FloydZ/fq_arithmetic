@@ -1,6 +1,8 @@
 #ifndef FQ_ARITHMETIC_HELPER_H
 #define FQ_ARITHMETIC_HELPER_H
 
+#include <stdint.h>
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 #endif
@@ -22,5 +24,23 @@ typedef union v256_t {
 #ifndef MAX
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
+
+
+// a > b -> b - a is negative
+// returns 0xFFFFFFFF if true, 0x00000000 if false
+static inline uint32_t ct_is_greater_than(int a, int b) {
+    int32_t diff = b - a;
+    return (uint32_t) (diff >> (8*sizeof(uint32_t)-1));
+}
+
+// if a == b -> 0x00000000, else 0xFFFFFFFF
+static inline uint32_t ct_compare_32(int a, int b) {
+    return (uint32_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
+}
+
+// if a == b -> 0x00, else 0xFF
+static inline unsigned char ct_compare_8(unsigned char a, unsigned char b) {
+    return (int8_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
+}
 
 #endif //FQ_ARITHMETIC_HELPER_H

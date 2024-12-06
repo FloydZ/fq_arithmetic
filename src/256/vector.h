@@ -213,8 +213,8 @@ static inline void gf256_vector_add_scalar_u256(gf256 *out,
 /// TODO unfinished
 /// \param n = number of elements in `in`, not bytes.
 static inline void gf2to12_vector_set_to_gf16_u256(gf256 *out,
-                                                  const gf16 *in,
-                                                  const uint32_t n) {
+                                                   const gf16 *in,
+                                                   const uint32_t n) {
     uint32_t bytes = (n+7)/8;
 
     while (bytes >= 2u) {

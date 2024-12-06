@@ -1,36 +1,25 @@
 #pragma once
 
 #include <string.h>
+
 #include "arith.h"
+#include "vector.h"
 
 
 #define gf16_matrix_bytes_per_column(n_rows) ((n_rows >> 1u) + (n_rows & 1u))
 #define gf16_matrix_bytes_size(n_rows, n_cols) ((gf16_matrix_bytes_per_column(n_rows)) * (n_cols))
 
 
-// a > b -> b - a is negative
-// returns 0xFFFFFFFF if true, 0x00000000 if false
-static inline uint32_t ct_is_greater_than(int a, int b) {
-    int32_t diff = b - a;
-    return (uint32_t) (diff >> (8*sizeof(uint32_t)-1));
-}
-
-// if a == b -> 0x00000000, else 0xFFFFFFFF
-static inline uint32_t ct_compare_32(int a, int b) {
-    return (uint32_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
-}
-
-// if a == b -> 0x00, else 0xFF
-static inline unsigned char ct_compare_8(unsigned char a, unsigned char b) {
-    return (int8_t)((-(int32_t)(a ^ b)) >> (8*sizeof(uint32_t)-1));
-}
-
-
+/// \param m
+/// \param nrows
+/// \param i
+/// \param j
+/// \param bytes
 uint32_t gf16_matrix_load4(const ff_t *m,
-                              const uint32_t nrows,
-                              const uint32_t i,
-                              const uint32_t j,
-                              const uint32_t bytes) {
+                           const uint32_t nrows,
+                           const uint32_t i,
+                           const uint32_t j,
+                           const uint32_t bytes) {
     uint8_t tmp[4];
     const uint32_t pos = gf16_matrix_bytes_per_column(nrows) * j + i/2;
     for (uint32_t k = 0; k < MIN(bytes, 4); k++) {
@@ -40,11 +29,18 @@ uint32_t gf16_matrix_load4(const ff_t *m,
     return *((uint32_t*)tmp);
 }
 
+/// \param n_rows
+/// \param n_cols
 ff_t* gf16_matrix_alloc(const uint32_t n_rows,
                         const uint32_t n_cols) {
     return (ff_t*)malloc(gf16_matrix_bytes_size(n_rows, n_cols));
 }
 
+/// \param m
+/// \param n_rows
+/// \param i
+/// \param j
+/// \return m[i, j]
 ff_t gf16_matrix_get(const ff_t *matrix,
                       const uint32_t n_rows,
                       const uint32_t i,
@@ -161,7 +157,6 @@ void gf16_matrix_print_transposed(uint8_t *A,
     printf("\n\n");
 }
 
-///
 /// \param C
 /// \param nrows
 /// \param ncols
@@ -171,6 +166,9 @@ void gf16_matrix_zero(uint8_t *C,
     memset((void *)C, 0, gf16_matrix_bytes_size(nrows, ncols));
 }
 
+/// \param C
+/// \param nrows
+/// \param ncols
 void gf16_matrix_id(uint8_t *C,
 				    const size_t nrows,
 				    const size_t ncols) {
@@ -181,9 +179,12 @@ void gf16_matrix_id(uint8_t *C,
 	}
 }
 
+/// \param C
+/// \param nrows
+/// \param ncols
 void gf16_matrix_rng(uint8_t *C,
-				const size_t nrows,
-				const size_t ncols) {
+				     const size_t nrows,
+				     const size_t ncols) {
 	for (uint32_t i = 0; i < nrows; i++) {
 		for (uint32_t j = 0; j < ncols; j++) {
 		    gf16_matrix_set(C, nrows, i, j, rand()&0xF);
@@ -191,9 +192,12 @@ void gf16_matrix_rng(uint8_t *C,
 	}
 }
 
+/// \param C
+/// \param nrows
+/// \param ncols
 void gf16_matrix_rng_full_rank(uint8_t *C,
-				const size_t nrows,
-				const size_t ncols) {
+				               const size_t nrows,
+				               const size_t ncols) {
 	for (uint32_t i = 0; i < nrows; i++) {
 		for (uint32_t j = 0; j < ncols; j++) {
 		    gf16_matrix_set(C, nrows, i, j, rand()&0xF);
@@ -212,8 +216,12 @@ void gf16_matrix_rng_full_rank(uint8_t *C,
 }
 
 /// A, B, C are in row-majow form
-void matrix_mul(uint8_t *C, uint8_t *A, uint8_t *B,
-				const size_t nrows_A, const size_t ncols_A, const size_t ncols_B) {
+void matrix_mul(uint8_t *C,
+                uint8_t *A,
+                uint8_t *B,
+				const size_t nrows_A, 
+                const size_t ncols_A, 
+                const size_t ncols_B) {
 	for (uint32_t i = 0; i < nrows_A; i++) {
 		for (uint32_t j = 0; j < ncols_B; j++) {
 			ff_t t = 0;
@@ -226,6 +234,10 @@ void matrix_mul(uint8_t *C, uint8_t *A, uint8_t *B,
 	}
 }
 
+/// \param B[out]
+/// \param A[in]
+/// \param nrows[in]
+/// \param ncols[in]
 void gf16_matrix_tranpose(uint8_t *B,
                           const uint8_t *const A,
 				          const size_t nrows,
@@ -741,4 +753,713 @@ static inline void row_echelon_form(unsigned char *A, int _nrows, int _ncols) {
 #undef AVX_REGS_PER_ROW
 #undef MAX_COLS
 }
-#endif
+
+/// src:
+/// c = a * b;
+static void gf16mat_prod_16x16_avx2(uint8_t * c,
+                                    const uint8_t * matA,
+                                    const uint8_t * b ) {
+    __m256i multabs[16];
+    uint8_t temp[16] __attribute__((aligned(16)));
+    for(uint32_t i=0;i<8;i++) { temp[i]=b[i]; }
+    __m128i x0 = _mm_load_si128((const __m128i*)temp);
+    xmmx2_t xx = gf16v_split_16to32_sse2( x0 );
+    gf16v_generate_multab_16_avx2(multabs , xx.v0 , 16 );
+    mat_simd_16x16(c, matA, multabs);
+}
+
+
+
+
+
+/// around 30-40% faster than the normal approach
+/// Implements the full 16x16 matrix-matrix multiplication
+/// NOTE: eventhough this implementation assumes 16columns on 16 elements input matrix, its ok to input
+///         matrices of dimension 16x15 (e.g. only 15 elements per column).
+/// \param c out matrix
+/// \param a in matrix
+/// \param b in matrix
+void gf16mat_prod_16x16_avx2_wrapper_v2(uint8_t *__restrict c,
+                                        const uint8_t *__restrict__ a,
+                                        unsigned int height_A,
+                                        const uint8_t *__restrict__ b) {
+    const uint32_t *a32 = (const uint32_t *) a;
+    const uint32_t *b32 = (const uint32_t *) b;
+    uint64_t *c64 = (uint64_t *) c;
+
+    const uint32_t mask = 0x0f0f0f0f;
+    const __m256i Amask = _mm256_setr_epi32(0,2,4,6,8,10,12,14);
+    const __m256i perm  = _mm256_setr_epi8(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3);
+
+    __m256i tmp,acc;
+    const __m256i Al1 = _mm256_i32gather_epi32((const int *)a32 +  0u, Amask, 4u);
+    const __m256i Al2 = _mm256_i32gather_epi32((const int *)a32 + 16u, Amask, 4u);
+    const __m256i Ah1 = _mm256_i32gather_epi32((const int *)a32 +  1u, Amask, 4u);
+    const __m256i Ah2 = _mm256_i32gather_epi32((const int *)a32 + 17u, Amask, 4u);
+
+    for (uint32_t i = 0; i < height_A; ++i) {
+        // load first 4bytes
+        uint32_t d11 = b32[2*i+0] & mask;
+        uint32_t d12 = (b32[2*i+0] >> 4) & mask;
+
+        __m256i B11 = _mm256_set1_epi32(d11);
+        __m256i B12 = _mm256_set1_epi32(d12);
+        B11 = _mm256_shuffle_epi8(B11, perm);
+        B12 = _mm256_shuffle_epi8(B12, perm);
+        const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); //0b10101010
+
+        // load the next 4 bytes
+        uint32_t d21 = b32[2*i+1] & mask;
+        uint32_t d22 = (b32[2*i+1] >> 4) & mask;
+
+        __m256i B21 = _mm256_set1_epi32(d21);
+        __m256i B22 = _mm256_set1_epi32(d22);
+        B21 = _mm256_shuffle_epi8(B21, perm);
+        B22 = _mm256_shuffle_epi8(B22, perm);
+        const __m256i B2 = _mm256_blend_epi32(B21, B22, 0xaa);
+
+
+        acc = gf16v_mul_u256(Al1, B1);
+        tmp = gf16v_mul_u256(Al2, B2);
+        __m256i tmp1 = _mm256_xor_si256(acc, tmp);
+
+        acc = gf16v_mul_u256(Ah1, B1);
+        tmp = gf16v_mul_u256(Ah2, B2);
+        __m256i tmp2 = _mm256_xor_si256(acc, tmp);
+
+        __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
+        __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
+        tempk3 = _mm256_xor_si256(tempk3, tempk4);
+        __m256i ret = _mm256_xor_si256(tempk3, _mm256_srli_si256(tempk3, 8));
+        ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 0x81)); //0b10000001
+        c64[i] = _mm256_extract_epi64(ret, 0);
+    }
+}
+
+/// this is an adapted version of `gf16mat_prod_16x16_avx2_wrapper_v2` which allows for smaller input matrices
+/// \param c out matrix
+/// \param a in matrix
+/// \param height_B number of columns in B
+/// \param column_A_bytes number of bytes i each column of A
+/// \param nr_cols_A  nr of cols in A
+/// \param b in vector or length <= 8 elements
+void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
+                                          const uint8_t *__restrict__ a,
+                                          const unsigned int nr_cols_B,
+                                          const unsigned int column_A_bytes,
+                                          const unsigned int nr_cols_A,
+                                          const uint8_t *__restrict__ b) {
+    const uint32_t *a32 = (const uint32_t *) a;
+    uint64_t *c64 = (uint64_t *) c;
+    assert(column_A_bytes <= 8);
+    assert(nr_cols_A <= 8);
+
+    /// make sure this number is smaller/equal than 4.
+    const uint32_t nr_bytes_B_col = nr_cols_A>>1;
+    const uint32_t mask = (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
+    const __m256i Amask = _mm256_setr_epi32(0, 2, 4, 6, 8, 10, 12, 14);
+    const __m256i perm = _mm256_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
+                                          3, 3, 3, 3, 3, 3);
+    const __m256i zero = _mm256_setzero_si256();
+
+    const uint32_t n = nr_cols_A;
+    const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 < n ? -1 : 0, 2 < n ? -1 : 0, 3 < n ? -1 : 0, 4 < n ? -1 : 0, 5 < n ? -1 : 0, 6 < n ? -1 : 0, 7 < n ? -1 : 0);
+    __m256i tmp1, tmp2, Al1, Ah1;
+
+    const uint32_t BMask = (1u << (8u*nr_bytes_B_col)) - 1u;
+    Al1 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 0u, Amask, gather_mask, 4u);
+    if (column_A_bytes > 4)
+        Ah1 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 1u, Amask, gather_mask, 4u);
+
+
+    uint64_t rdata;
+    for (uint32_t i = 0; i < nr_cols_B; ++i) {
+        uint32_t b_data = 0;
+        if (i == nr_cols_B-1) {
+            for (uint32_t i = 0; i < (nr_cols_B * nr_bytes_B_col) % 4; i++) {
+                b_data ^= b[nr_bytes_B_col * (nr_cols_B - 1) + i] << (i * 8);
+            }
+        }
+         b_data = *((uint32_t *)(b+(nr_bytes_B_col * i))) & BMask;
+        uint32_t d11 = b_data & mask;
+        uint32_t d12 = (b_data >> 4) & mask;
+
+        __m256i B11 = _mm256_set1_epi32(d11);
+        __m256i B12 = _mm256_set1_epi32(d12);
+        B11 = _mm256_shuffle_epi8(B11, perm);
+        B12 = _mm256_shuffle_epi8(B12, perm);
+        const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+        tmp1 = gf16v_mul_u256(Al1, B1);
+        if (column_A_bytes > 4)
+            tmp2 = gf16v_mul_u256(Ah1, B1);
+        else
+            tmp2 = zero;
+
+        __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
+        __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
+        tempk3 = _mm256_xor_si256(tempk3, tempk4);
+        __m256i ret = _mm256_xor_si256(tempk3, _mm256_srli_si256(tempk3, 8));
+        ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 0x81)); //0b10000001
+        rdata = _mm256_extract_epi64(ret, 0);
+        if (i < (nr_cols_B-1))
+            *((uint64_t *) (c + i * column_A_bytes)) = rdata;
+    }
+
+
+    // write the last element in a sane and memory safe way
+    for (uint32_t i = 0; i < column_A_bytes; i++) {
+        c[(nr_cols_B - 1)*column_A_bytes + i] = (uint8_t)(rdata>>(i*8));
+    }
+}
+
+
+/// this function differs from `gf16mat_prod_le8xle8_avx2_wrapper_v2`, by allowing the matrix A to have a column length
+/// greater than 8.
+/// \param c out matrix
+/// \param a in matrix
+/// \param height_B number of columns in B
+/// \param column_A_bytes number of bytes i each column of A
+/// \param nr_cols_A  nr of cols in A
+/// \param b in vector or length <= 8 elements
+void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
+                                       const uint8_t *__restrict__ a,
+                                       const unsigned int nr_cols_B,
+                                       const unsigned int column_A_bytes,
+                                       const unsigned int nr_cols_A,
+                                       const uint8_t *__restrict__ b) {
+    const uint32_t *a32 = (const uint32_t *) a;
+    assert(column_A_bytes > 8);
+    assert(column_A_bytes < 12);
+    assert(column_A_bytes == 10 || column_A_bytes == 11);
+
+    const uint32_t nr_bytes_B_col = nr_cols_A>>1;
+    const uint32_t mask = nr_bytes_B_col%4==0 ? 0x0f0f0f0f : (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
+    const __m256i perm = _mm256_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
+                                          3, 3, 3, 3, 3, 3);
+    __m256i tmp1, tmp2, tmp3;
+
+    // old and original code
+    //const __m256i Ashfl = _mm256_setr_epi32(0, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u, ((uint32_t)(1u)<<(8*off)) - 1u);
+    //const __m256i Ashft = _mm256_setr_epi32(0, 8*off, 8*off, 8*off, 8*off, 8*off, 8*off, 8*off);
+    //const __m256i Abla = _mm256_setr_epi32(0, 0, 1, 2, 3, 4, 5, 6);
+    //const __m256i A3ma = _mm256_set1_epi32(((uint32_t)(1u)<<(8*(column_A_bytes % 4))) - 1u);
+
+    //__m256i A1 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 0u, Amask, gather_mask, 4u);
+    //__m256i A11 = _mm256_sllv_epi32(A1, Ashft);
+    //__m256i A12 = _mm256_srli_epi32(A1, 8*(column_A_bytes % 4));
+
+    //__m256i A2 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 1u, Amask, gather_mask, 4u);
+    //__m256i A21 = _mm256_sllv_epi32(A2, Ashft);
+    //__m256i A22 = _mm256_srli_epi32(A2, 8*(column_A_bytes % 4));
+
+    //__m256i A3 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 2u, Amask, gather_mask, 4u);
+    //__m256i A31 = _mm256_sllv_epi32(_mm256_and_si256(A3ma, A3), Ashft);
+    //__m256i A32 = _mm256_permutevar8x32_epi32(_mm256_srli_epi32(A3, 8*(column_A_bytes % 4)), Abla);
+
+    __m256i Asel, Ashup, Ashdo, Ashfl, Ash, Abla, A1, A2, A3;
+    Abla = _mm256_setr_epi32(0, 0, 1, 2, 3, 4, 5, 6);
+    Asel = _mm256_setr_epi32(0, 3, 6, 9, 11, 14, 17, 20);
+    Ashup = _mm256_setr_epi32(0, 8, 16, 24, 0, 8, 16, 24);
+    Ashdo = _mm256_setr_epi32(0, 24, 16, 8, 0, 24, 16, 8);
+    Ashfl = _mm256_setr_epi32(0, (1u << 8u) - 1u, (1u << 16u) - 1u, (1u << 24u) - 1u, 0, (1u << 8u) - 1u,(1u << 16u) - 1u, (1u << 24u) - 1u);
+    A1 = _mm256_i32gather_epi32((const int *)a32 + 0u, Asel, 4u);
+    __m256i A11 = _mm256_sllv_epi32(A1, Ashup);
+    __m256i A12 = _mm256_srlv_epi32(A1, Ashdo);
+
+    A2 = _mm256_i32gather_epi32((const int *)a32 + 1u, Asel, 4u);
+    __m256i A21 = _mm256_sllv_epi32(A2, Ashup);
+    __m256i A22 = _mm256_srlv_epi32(A2, Ashdo);
+
+    A3 = _mm256_i32gather_epi32((const int *)a32 + 2u, Asel, 4u);
+    __m256i A31 = _mm256_sllv_epi32(A3, Ashup);
+    __m256i A32 = _mm256_permutevar8x32_epi32(A3, Abla);
+    A32 = _mm256_srlv_epi32(A32, Ashdo);
+
+    A1 = _mm256_blendv_epi8(A11, A32, Ashfl);
+    A2 = _mm256_blendv_epi8(A21, A12, Ashfl);
+    A3 = _mm256_blendv_epi8(A31, A22, Ashfl);
+
+    //
+    if (column_A_bytes == 10) {
+        Asel = _mm256_setr_epi32(0, 2, 5, 7, 10, 12, 15, 17);
+        Ash = _mm256_setr_epi32(0, 16, 0, 16, 0, 16, 0, 16);
+        Ashfl = _mm256_setr_epi32(0, (-1u)<<16u, 0, (-1u)<<16u, 0, (-1u)<<16u,0, (-1u)<<16u);
+        Abla = _mm256_setr_epi32(1, 1, 2, 3, 4, 5, 6, 7);
+
+        A1 = _mm256_i32gather_epi32((const int *)a32 + 0u, Asel, 4u);
+        __m256i A11 = _mm256_srlv_epi32(A1, Ash);
+        //__m256i A12 = _mm256_sllv_epi32(A1, Ash);
+
+        A2 = _mm256_i32gather_epi32((const int *)a32 + 1u, Asel, 4u);
+        __m256i A21 = _mm256_srlv_epi32(A2, Ash);
+        __m256i A22 = _mm256_permutevar8x32_epi32(_mm256_sllv_epi32(A2, Ash), Abla);
+
+        A3 = _mm256_i32gather_epi32((const int *)a32 + 2u, Asel, 4u);
+        __m256i A31 = _mm256_srlv_epi32(A3, Ash);
+        __m256i A32 = _mm256_sllv_epi32(A3, Ash);
+
+        A1 = _mm256_blendv_epi8(A11, A22, Ashfl);
+        A2 = _mm256_blendv_epi8(A21, A32, Ashfl);
+        A3 = A31;
+    }
+
+    uint32_t rdata2;
+
+    for (uint32_t i = 0; i < nr_cols_B; ++i) {
+        uint32_t b_data = *((uint32_t *) (b + (nr_bytes_B_col * i)));
+        uint32_t d11 = b_data & mask;
+        uint32_t d12 = (b_data >> 4) & mask;
+
+        __m256i B11 = _mm256_set1_epi32(d11);
+        __m256i B12 = _mm256_set1_epi32(d12);
+        B11 = _mm256_shuffle_epi8(B11, perm);
+        B12 = _mm256_shuffle_epi8(B12, perm);
+        const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+        tmp1 = gf16v_mul_u256(A1, B1);
+        tmp2 = gf16v_mul_u256(A2, B1);
+        tmp3 = gf16v_mul_u256(A3, B1);
+
+        __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
+        __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
+        tempk3 = _mm256_xor_si256(tempk3, tempk4);
+        __m256i ret = _mm256_xor_si256(tempk3, _mm256_srli_si256(tempk3, 8));
+        ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 0x81)); //0b10000001
+        uint64_t rdata = _mm256_extract_epi64(ret, 0);
+        *((uint64_t *) (c + i * column_A_bytes)) = rdata;
+
+        rdata2 = _mm256_extract_epi32(gf16_hadd_avx2_32(tmp3), 0);
+        if (i < nr_cols_B - 1) {
+            *((uint32_t *) (c + i * column_A_bytes + 8)) = rdata2;
+        }
+    }
+
+    // write the last element in a sane and memory safe way
+    for (uint32_t i = 0; i < column_A_bytes%4; i++) {
+        c[(nr_cols_B - 1)*column_A_bytes + 8 + i] = (uint8_t)(rdata2>>(i*8));
+    }
+}
+
+
+/// this is an adapted version of `gf16mat_prod_16x16_avx2_wrapper_v2` which allows for smaller input matrices
+/// \param c out matrix
+/// \param a in matrix
+/// \param height_B number of columns in B
+/// \param column_A_bytes number of bytes i each column of A
+/// \param nr_cols_A  nr of cols in A
+/// \param b in vector or length <= 8 elements
+void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
+                                       const uint8_t *__restrict__ a,
+                                       const unsigned int nr_cols_B,
+                                       const unsigned int column_A_bytes,
+                                       const unsigned int nr_cols_A,
+                                       const uint8_t *__restrict__ b) {
+    const uint32_t *a32 = (const uint32_t *) a;
+    assert(column_A_bytes <= 4);
+    assert(nr_cols_A <= 16);
+    __m256i Al1, Al2, tmp1, tmp2;
+
+    const __m256i zero = _mm256_setzero_si256();
+    const uint32_t nr_bytes_B_col = nr_cols_A >> 1;
+    const uint32_t mask = nr_bytes_B_col == 4 ? 0x0f0f0f0f : (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
+    const uint32_t n = ((nr_cols_A + 1) * column_A_bytes) >> 2;
+
+    const __m256i perm = _mm256_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,
+                                          3,3, 3, 3, 3, 3, 3);
+    if (column_A_bytes == 4) {
+        Al1 = _mm256_loadu_si256((__m256i *)a);
+        if (nr_cols_A > 8) {
+            Al2 = _mm256_loadu_si256((__m256i *)(a + 32));
+        }
+    } else if (column_A_bytes == 3) {
+        const __m256i Amask = _mm256_setr_epi32(0, 1, 2, 2, 3, 4, 5, 5);
+
+        const __m256i Ashup = _mm256_setr_epi32(0, 8, 16, 24, 0, 8, 16, 24);
+        const __m256i Ashdo = _mm256_setr_epi32(24, 16, 8, 8, 24, 16, 8, 8);
+        const __m256i Abla = _mm256_setr_epi32(0, 0, 1, 2, 0, 4, 5, 6);
+        const __m256i Ashfl = _mm256_setr_epi32(0, (1 << 8) - 1, (1 << 16) - 1, (1u << 24) - 1, 0, (1 << 8) - 1,
+                                                (1 << 16) - 1, (1u << 24) - 1);
+        const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 <= n ? -1 : 0, 2 <= n ? -1 : 0,
+                                                      3 <= n ? -1 : 0, 4 <= n ? -1 : 0, 5 <= n ? -1 : 0,
+                                                      6 <= n ? -1 : 0, 7 <= n ? -1 : 0);
+
+        Al1 = _mm256_mask_i32gather_epi32(zero, (const int *)(a32 + 0u), Amask, gather_mask, 4u);
+        __m256i A11 = _mm256_sllv_epi32(Al1, Ashup);
+        __m256i A12 = _mm256_srlv_epi32(Al1, Ashdo);
+        __m256i A13 = _mm256_permutevar8x32_epi32(A12, Abla);
+
+        Al1 = _mm256_blendv_epi8(A11, A13, Ashfl);
+
+        if (nr_cols_A > 8) {
+            Al2 = _mm256_mask_i32gather_epi32(zero, (const int *)(a32 + 6u), Amask, gather_mask, 4u);
+            __m256i A21 = _mm256_sllv_epi32(Al2, Ashup);
+            __m256i A22 = _mm256_srlv_epi32(Al2, Ashdo);
+            __m256i A23 = _mm256_permutevar8x32_epi32(A22, Abla);
+
+            Al2 = _mm256_blendv_epi8(A21, A23, Ashfl);
+        }
+    } else if (column_A_bytes == 2) {
+        const __m256i Amask = _mm256_setr_epi32(0, 0, 1, 1, 2, 2, 3, 3);
+
+        const __m256i Ashdo = _mm256_set1_epi32(8);
+        const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 <= n ? -1 : 0, 2 <= n ? -1 : 0,
+                                                      3 <= n ? -1 : 0, 4 <= n ? -1 : 0, 5 <= n ? -1 : 0,
+                                                      6 <= n ? -1 : 0, 7 <= n ? -1 : 0);
+
+        Al1 = _mm256_mask_i32gather_epi32(zero, (const int *) a32 + 0u, Amask, gather_mask, 4u);
+        Al1 = _mm256_srlv_epi32(Al1, Ashdo);
+    }
+
+
+
+    uint32_t rdata;
+    for (uint32_t i = 0; i < nr_cols_B; ++i) {
+        uint32_t b_data = 0;
+        if (i == nr_cols_B - 1) {
+            for (uint32_t j = 0; j < (nr_cols_B * nr_bytes_B_col) % 4; j++) {
+                b_data ^= b[nr_bytes_B_col * (nr_cols_B - 1) + j] << (j * 8);
+            }
+        }
+        b_data = *((uint32_t *)(b+(nr_bytes_B_col * i)));
+        uint32_t d11 = b_data & mask;
+        uint32_t d12 = (b_data >> 4) & mask;
+
+        __m256i B11 = _mm256_set1_epi32(d11);
+        __m256i B12 = _mm256_set1_epi32(d12);
+        B11 = _mm256_shuffle_epi8(B11, perm);
+        B12 = _mm256_shuffle_epi8(B12, perm);
+        const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+        if (nr_cols_A > 8) {
+            b_data = *((uint32_t *)(b+(nr_bytes_B_col * i + 4)));
+            uint32_t d11 = b_data & mask;
+            uint32_t d12 = (b_data >> 4) & mask;
+
+            __m256i B11 = _mm256_set1_epi32(d11);
+            __m256i B12 = _mm256_set1_epi32(d12);
+            B11 = _mm256_shuffle_epi8(B11, perm);
+            B12 = _mm256_shuffle_epi8(B12, perm);
+            const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+            tmp1 = gf16v_mul_u256(Al1, B1);
+            tmp2 = gf16v_mul_u256(Al2, B2);
+            tmp1 = _mm256_xor_si256(tmp1, tmp2);
+        } else {
+            tmp1 = gf16v_mul_u256(Al1, B1);
+        }
+
+        rdata = _mm256_extract_epi32(gf16_hadd_avx2_32(tmp1), 0);
+        if (i < nr_cols_B - 1) {
+            *((uint32_t *) (c + i * column_A_bytes)) = rdata;
+        }
+    }
+
+    // write the last element in a sane and memory safe way
+    for (uint32_t i = 0; i < column_A_bytes; i++) {
+        c[(nr_cols_B - 1)*column_A_bytes + i] = (uint8_t)(rdata>>(i*8));
+    }
+}
+
+
+
+/// this is an adapted version of `gf16mat_prod_16x16_avx2_wrapper_v2`
+/// which allows for smaller input matrices
+/// \param c out matrix
+/// \param a in matrix
+/// \param height_B number of columns in B
+/// \param column_A_bytes number of bytes i each column of A
+/// \param nr_cols_A  nr of cols in A
+/// \param b in vector or length <= 8 elements
+void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
+                                          const uint8_t *__restrict__ a,
+                                          const unsigned int nr_cols_B,
+                                          const unsigned int column_A_bytes,
+                                          const unsigned int nr_cols_A,
+                                          const uint8_t *__restrict__ b) {
+    const uint32_t *a32 = (const uint32_t *) a;
+    uint64_t *c64 = (uint64_t *) c;
+    assert(column_A_bytes < 8);
+    assert(column_A_bytes > 4);
+    assert(column_A_bytes == 5);
+    assert(nr_cols_A <= 16);
+    __m256i A1, A2, A3, A4, tmp1, tmp2;
+
+    const __m256i zero = _mm256_setzero_si256();
+    const uint32_t nr_bytes_B_col = nr_cols_A >> 1;
+    const uint32_t mask =nr_bytes_B_col%4==0 ? 0x0f0f0f0f : (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
+    const uint32_t n = ((nr_cols_A + 1) * column_A_bytes) >> 2;
+    const __m256i perm = _mm256_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
+                                          3, 3, 3, 3, 3, 3);
+
+    const __m256i Amask = _mm256_setr_epi32(0, 1, 2, 3, 5, 6, 7, 8);
+    const __m256i Ashdo = _mm256_setr_epi32(0, 8, 16, 24, 0, 8, 16, 24);
+    const __m256i Ashup = _mm256_setr_epi32(0, 24, 16, 8, 0, 24, 16, 8);
+    const __m256i Ashfl = _mm256_setr_epi32(0, ((1<<8)-1)<<24, ((1<<16)-1)<<16, ((1<<24)-1)<<8,
+                                            0, ((1<<8)-1)<<24, ((1<<16)-1)<<16, ((1<<24)-1)<<8);
+    const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 <= n ? -1 : 0, 2 <= n ? -1 : 0,
+                                                  3 <= n ? -1 : 0, 4 <= n ? -1 : 0, 5 <= n ? -1 : 0,
+                                                  6 <= n ? -1 : 0, 7 <= n ? -1 : 0);
+
+    A1 = _mm256_i32gather_epi32((const int *)(a32 + 0u), Amask, 4u);
+    A2 = _mm256_i32gather_epi32((const int *)(a32 + 1u), Amask, 4u);
+    __m256i A11 = _mm256_srlv_epi32(A1, Ashdo);
+    __m256i A22 = _mm256_sllv_epi32(A2, Ashup);
+    A2 = _mm256_srlv_epi32(A2, Ashdo);
+    A1 = _mm256_blendv_epi8(A11, A22, Ashfl);
+
+    if (nr_cols_A > 8) {
+        A3 = _mm256_i32gather_epi32((const int *)(a32 + 10u), Amask, 4u);
+        A4 = _mm256_i32gather_epi32((const int *)(a32 + 11u), Amask, 4u);
+        __m256i A31 = _mm256_srlv_epi32(A3, Ashdo);
+        __m256i A42 = _mm256_sllv_epi32(A4, Ashup);
+        A4 = _mm256_srlv_epi32(A4, Ashdo);
+        A3 = _mm256_blendv_epi8(A31, A42, Ashfl);
+    }
+
+    uint64_t rdata;
+    for (uint32_t i = 0; i < nr_cols_B; ++i) {
+        uint32_t b_data = 0;
+        if (i == nr_cols_B - 1) {
+            for (uint32_t j = 0; j < (nr_cols_B * nr_bytes_B_col) % 4; j++) {
+                b_data ^= b[nr_bytes_B_col * (nr_cols_B - 1) + j] << (j * 8);
+            }
+        }
+
+        b_data = *((uint32_t *)(b+(nr_bytes_B_col * i)));
+        uint32_t d11 = b_data & mask;
+        uint32_t d12 = (b_data >> 4) & mask;
+
+        __m256i B11 = _mm256_set1_epi32(d11);
+        __m256i B12 = _mm256_set1_epi32(d12);
+        B11 = _mm256_shuffle_epi8(B11, perm);
+        B12 = _mm256_shuffle_epi8(B12, perm);
+        const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+        tmp1 = gf16v_mul_u256(A1, B1);
+        tmp2 = gf16v_mul_u256(A2, B1);
+
+        if (nr_cols_A > 8) {
+            b_data = *((uint32_t *)(b+(nr_bytes_B_col * i + 4)));
+            d11 = b_data & mask;
+            d12 = (b_data >> 4) & mask;
+
+            B11 = _mm256_set1_epi32(d11);
+            B12 = _mm256_set1_epi32(d12);
+            B11 = _mm256_shuffle_epi8(B11, perm);
+            B12 = _mm256_shuffle_epi8(B12, perm);
+            const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
+
+
+            tmp1 ^= gf16v_mul_u256(A3, B2);
+            tmp2 ^= gf16v_mul_u256(A4, B2);
+        }
+
+        __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
+        __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
+        tempk3 = _mm256_xor_si256(tempk3, tempk4);
+        __m256i ret = _mm256_xor_si256(tempk3, _mm256_srli_si256(tempk3, 8));
+        ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 0x81)); //0b10000001
+        rdata = _mm256_extract_epi64(ret, 0);
+        if (i < nr_cols_B - 1) {
+            *((uint64_t *) (c + i * column_A_bytes)) = rdata;
+        }
+    }
+
+    // write the last element in a sane and memory safe way
+    for (uint32_t i = 0; i < column_A_bytes; i++) {
+        c[(nr_cols_B - 1)*column_A_bytes + i] = (uint8_t)(rdata>>(i*8));
+    }
+}
+
+///
+/// \param b
+/// \param cBb number of bytes in each column
+/// \return
+static inline
+__m256i gf16mat_new_core_scatter_helper(const uint8_t *b,
+										const uint32_t mask1,
+										const uint32_t bytes) {
+    const uint32_t mask = 0x0f0f0f0f & mask1;
+    const __m256i perm  = _mm256_setr_epi8(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3);
+	uint8_t arr[4] = {0};
+	for (uint32_t i = 0; i<bytes; i++) {
+		arr[i] = b[i];
+	}
+
+    // load 4bytes
+    const uint32_t d11 = ( * (uint32_t *)arr)         & mask;
+    const uint32_t d12 = ((*((uint32_t *)arr)) >> 4u) & mask;
+
+    __m256i B11 = _mm256_set1_epi32(d11);
+    __m256i B12 = _mm256_set1_epi32(d12);
+    B11 = _mm256_shuffle_epi8(B11, perm);
+    B12 = _mm256_shuffle_epi8(B12, perm);
+    __m256i B = _mm256_blend_epi32(B11, B12, 0xaa); //0b10101010
+
+    return B;
+}
+
+static inline
+void gf16mat_new_core_scatter(uint8_t *__restrict__ c,
+                              const uint8_t *__restrict__ a,
+                              const unsigned int nr_cols_B,
+                              const unsigned int column_A_bytes,
+                              const unsigned int nr_cols_A,
+                              const uint8_t *__restrict__ b) {
+    __m256i Al1, Al2, Al3,
+            Am1, Am2, Am3,
+            Ah1, Ah2, Ah3;
+
+    /// TODO research question:
+    ///     - would it better if `cAb` >= 8 to use `_mm256_i64gather_epi32?`
+    const uint32_t cBb = (nr_cols_A+1) >> 1;        // nr of bytes in each column in B
+    const uint32_t cAb = column_A_bytes;            // nr of bytes in each column in A
+    const uint32_t nAc = nr_cols_A;                 // nr of cols in A
+    const uint32_t oA = cAb;                        // offset of each column in A
+    const __m256i Amask = _mm256_setr_epi32(0, oA, 2*oA, 3*oA, 4*oA, 5*oA, 6*oA, 7*oA);
+
+    /// load the whole matrix A into registers
+                   Al1 = _mm256_i32gather_epi32((const int *) (a + 0u), Amask, 1u);
+    if (cAb > 4) { Am1 = _mm256_i32gather_epi32((const int *) (a + 4u), Amask, 1u); }
+    if (cAb > 8) { Ah1 = _mm256_i32gather_epi32((const int *) (a + 8u), Amask, 1u); }
+
+    if (nAc > 8) {
+                       Al2 = _mm256_i32gather_epi32((const int *)( a + 8*cAb + 0u), Amask, 1u);
+        if (cAb > 4) { Am2 = _mm256_i32gather_epi32((const int *) (a + 8*cAb + 4u), Amask, 1u); }
+        if (cAb > 8) { Ah2 = _mm256_i32gather_epi32((const int *) (a + 8*cAb + 8u), Amask, 1u); }
+    }
+
+    if (nAc > 16) {
+                       Al3 = _mm256_i32gather_epi32((const int *) (a + 16*cAb + 0u), Amask, 1u);
+        if (cAb > 4) { Am3 = _mm256_i32gather_epi32((const int *) (a + 16*cAb + 4u), Amask, 1u); }
+        if (cAb > 8) { Ah3 = _mm256_i32gather_epi32((const int *) (a + 16*cAb + 8u), Amask, 1u); }
+    }
+
+    /// TODO improve mask computation
+    const uint32_t mask_B_1 = cBb > 4 ? 0xffffffff : (cBb%4u == 0) ? 0xffffffff : (1u << (8*(cBb%4u))) - 1u;
+    const uint32_t mask_B_2 = cBb > 8 ? 0xffffffff : (cBb%4u == 0) ? 0xffffffff : (1u << (8*(cBb%4u))) - 1u;
+    const uint32_t mask_B_3 =                        (cBb%4u == 0) ? 0xffffffff : (1u << (8*(cBb%4u))) - 1u;
+
+    const uint32_t mask1 = cAb > 4 ? 0xffffffff : (cAb%4u == 0) ? 0xffffffff : (1u << (8*(cBb%4u))) - 1u;
+    const uint32_t mask2 = cAb > 4 ? 0xffffffff : (cAb%4u == 0) ? 0xffffffff : (1u << (8*(cBb%4u))) - 1u;
+
+    __m256i acc1, acc2 = _mm256_setzero_si256(), acc3 = _mm256_setzero_si256();
+    for (uint32_t i = 0; i < nr_cols_B; ++i) {
+        // TODO I think this can be partly replace by `_mm256_cvtepu8_epi32`
+        __m256i B = gf16mat_new_core_scatter_helper(b + i*cBb, mask_B_1, MIN(cBb, 4));
+
+        // compute the multiplication:
+                       acc1 = gf16v_mul_u256(Al1, B);
+        if (cAb > 4) { acc2 = gf16v_mul_u256(Am1, B); }
+        if (cAb > 8) { acc3 = gf16v_mul_u256(Ah1, B); }
+
+        if (nAc > 8) {
+            B = gf16mat_new_core_scatter_helper(b + i*cBb + 4, mask_B_2, MIN(cBb-4, 4));
+                           acc1 ^= gf16v_mul_u256(Al2, B);
+            if (cAb > 4) { acc2 ^= gf16v_mul_u256(Am2, B); }
+            if (cAb > 8) { acc3 ^= gf16v_mul_u256(Ah2, B); }
+        }
+
+        if (nAc > 16) {
+            B = gf16mat_new_core_scatter_helper(b + i*cBb + 8, mask_B_3, MIN(cBb-8, 4));
+                           acc1 ^= gf16v_mul_u256(Al3, B);
+            if (cAb > 4) { acc2 ^= gf16v_mul_u256(Am3, B); }
+            if (cAb > 8) { acc3 ^= gf16v_mul_u256(Ah3, B); }
+        }
+
+        /// NOTE: do not remove this mask. For whatever reason C is not zero extending this cast.
+        __uint128_t    tmp0  = _mm256_extract_epi32(gf16_hadd_avx2_32(acc1), 0) & (0xffffffff);
+        if (cAb > 4) { tmp0 ^= ((__uint128_t )(_mm256_extract_epi32(gf16_hadd_avx2_32(acc2), 0) & mask1)) << 32u; }
+        if (cAb > 8) { tmp0 ^= ((__uint128_t )(_mm256_extract_epi32(gf16_hadd_avx2_32(acc3), 0) & mask2)) << 64u; }
+
+        for (uint32_t j = 0; j < cAb; j++) {
+            c[i*cAb + j] ^= (uint8_t)(tmp0>>(j*8u));
+        }
+    }
+}
+
+// matrix1 += matrix2
+static inline
+void gf16_matrix_add_u256(ff_t *matrix1, 
+                          const ff_t *matrix2, 
+		                  const uint32_t n_rows, 
+                          const uint32_t n_cols) {
+    __m256i temp_sumand1, temp_sumand2, temp_result;
+    uint32_t n_32, rem, n_bytes, jump = 0;
+
+    n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    n_32 = (n_bytes >> 5);
+    rem = n_bytes & 0x1f;
+    
+    while (n_32--) {
+        temp_sumand1 = _mm256_loadu_si256((__m256i*) (matrix1 +  jump));
+        temp_sumand2 = _mm256_loadu_si256((const __m256i*)(matrix2 + jump));
+        temp_result = _mm256_xor_si256(temp_sumand1, temp_sumand2);
+        _mm256_storeu_si256 ((__m256i*) (matrix1 + jump), temp_result);
+        jump += 32;
+    }
+
+    uint32_t i = 0;
+
+    for (; i+8 <= rem; i+=8) {
+        const uint64_t temp_sumand1 = *((uint64_t *)(matrix1 + jump + i));
+        const uint64_t temp_sumand2 = *((uint64_t *)(matrix2 + jump + i));
+        const uint64_t temp_result = temp_sumand1 ^ temp_sumand2;
+        *((uint64_t *)(matrix1 + jump + i)) = temp_result;
+    }
+
+    for (; i+4 <= rem; i+=4) {
+        const uint32_t temp_sumand1 = *((uint32_t *)(matrix1 + jump + i));
+        const uint32_t temp_sumand2 = *((uint32_t *)(matrix2 + jump + i));
+        const uint32_t temp_result = temp_sumand1 ^ temp_sumand2;
+        *((uint32_t *)(matrix1 + jump + i)) = temp_result;
+    }
+
+    for (; i < rem; ++i) {
+        const uint8_t temp_sumand1 = matrix1[jump + i];
+        const uint8_t temp_sumand2 = matrix2[jump + i];
+        const uint8_t temp_result = temp_sumand1 ^ temp_sumand2;
+        matrix1[jump + i] = temp_result;
+    }
+}
+
+
+// matrix1 += scalar *matrix2
+static inline
+void _matrix_add_multiple(ff_t *matrix1, ff_t scalar, const ff_t *matrix2,
+    const uint32_t n_rows, const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16v_madd_avx2(matrix1, matrix2, scalar, n_bytes);
+}
+
+
+// result += matrix1 * matrix2
+// matrix1 of size n_rows1 * n_cols1
+// matrix2 of size n_cols1 * n_cols2
+// result  of size n_rows1 * n_cols2
+static inline
+void _matrix_add_product(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
+    const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
+    const uint32_t n_bytes_per_column1 = gf16_matrix_bytes_per_column(n_rows1);
+    gf16mat_new_core_scatter(matrix1, matrix2, n_cols2, n_bytes_per_column1, 2*((n_cols1+1)>>1), matrix3);
+}
+
+
+// result = matrix2 * matrix3
+// matrix1 of size n_rows1 * n_cols1
+// matrix2 of size n_cols1 * n_cols2
+// result  of size n_rows1 * n_cols2
+static inline
+void _matrix_product(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
+    const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
+    const uint32_t n_bytes_per_column1 = gf16_matrix_bytes_per_column(n_rows1);
+	
+	// first zero out the output matrix
+	gf16_matrix_add_u256(matrix1, matrix1, n_rows1, n_cols2);
+    gf16mat_new_core_scatter(matrix1, matrix2, n_cols2, n_bytes_per_column1, 2*((n_cols1+1)>>1), matrix3);
+}
+
+
+#endif // end: USE_AVX2
+
