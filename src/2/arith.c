@@ -11,11 +11,13 @@ uint32_t test_matrix_m4ri() {
     uint32_t ret = 0;
     const uint32_t nrows = 10, 
                    ncols = 10;
-    gf2 *A = gf2_matrix_alloc_padded(nrows, ncols);
+    const uint32_t k = 2;
+    gf2 *A = gf2_matrix_alloc(nrows, ncols);
     gf2_matrix_rng_full_rank(A, nrows, ncols, 1);
-    gf2_matrix_print(A, nrows, ncols);
+    gf2_matrix_print_row_major(A, nrows, ncols);
+    printf("\n");
 
-    gf2_matrix_echelonize(A, nrows, ncols, 4);
+    gf2_matrix_echelonize(A, nrows, ncols, k);
     gf2_matrix_print(A, nrows, ncols);
 
     for (uint32_t i = 0; i < nrows; i++) {
@@ -516,6 +518,9 @@ finish:
 #endif
 
 int main() {
+    if (test_matrix_m4ri()) { return 1; }
+    return 0;
+
     if (test_matrix_transpose_le8xle8()) { return 1; }
     if (test_matrix_transpose_le16xle16()) { return 1; }
     if (test_matrix_transpose_le32xle32()) { return 1; }
@@ -523,8 +528,6 @@ int main() {
     if (test_matrix_transpose_le64xle64()) { return 1; }
     // TODO if (test_matrix_transpose_small()) { return 1; }
     if (test_matrix_transpose_middle()) { return 1; }
-    return 0;
-    if (test_matrix_m4ri()) { return 1; }
     return 0;
 
 #ifdef USE_AVX2

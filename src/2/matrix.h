@@ -42,8 +42,11 @@
 ///
 #define __LEFT_BITMASK(n) ((-1ull) >> (64 - (n)) % 64)
 
+/// NOTE: the max is only `MAX_M4RI_K` - 1
+#define MAX_M4RI_K 9
+
 /// precomputed with `table_precompute.c`
-const uint8_t rev[9][256] __attribute__((aligned(64))) = {
+const uint8_t rev[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -56,7 +59,7 @@ const uint8_t rev[9][256] __attribute__((aligned(64))) = {
 };
 
 /// precompted 
-const uint8_t diff[9][256] __attribute__((aligned(64))) = {
+const uint8_t diff[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -106,11 +109,10 @@ static inline gf2 gf2_matrix_get_row_major(const gf2 *matrix,
                                            const uint32_t ncols, 
                                            const uint32_t i,
                                            const uint32_t j) {
-    const uint32_t nbytes_row = gf2_matrix_bytes_per_column(ncols);
     const uint32_t idx_line = j / 8;
     const uint32_t bit_line = j % 8;
 
-    return (matrix[ncols * i + idx_line] >> bit_line) & 0x01;
+    return (matrix[(ncols + 7)/8 * i + idx_line] >> bit_line) & 0x01;
 }
 
 
@@ -142,9 +144,10 @@ static inline void gf2_matrix_rng(gf2 *matrix,
 }
 
 /// NOTE: performs row operations
-/// @param matrix
-/// @param nrows
-/// @param ncols
+/// \param matrix
+/// \param nrows
+/// \param ncols
+/// \param padded
 static inline void gf2_matrix_rng_full_rank(gf2 *matrix,
                                             const uint32_t nrows,
                                             const uint32_t ncols,
@@ -204,6 +207,7 @@ static inline void gf2_matrix_set_to_ff(gf2 *matrix,
     }
 }
 
+/// col major
 /// \param matrix: the matrix to print
 /// \param nrows
 /// \param ncols
@@ -238,6 +242,39 @@ static inline void gf2_matrix_print(const gf2 *matrix,
     }
 }
 
+/// row major
+/// \param matrix: the matrix to print
+/// \param nrows
+/// \param ncols
+static inline void gf2_matrix_print_row_major(const gf2 *matrix,
+                                              const uint32_t nrows,
+                                              const uint32_t ncols) {
+    const uint32_t p = (ncols + 63) / 64;
+    for (uint32_t i = 0; i < nrows; i++) {
+        printf("[");
+        for (uint32_t j = 0; j < p; j++) {
+            for (uint32_t k = 0; k < 64; k++) {
+                const uint32_t pos = j*64 + k;
+                if (pos >= ncols) { break; }
+
+                const gf2 t = gf2_matrix_get_row_major(matrix, ncols, i, pos);
+                if (t) {
+                    printf("1");
+                } else {
+                    printf(" ");
+                }
+
+                if ((pos % 64 != 0) && (pos % 32 == 0)) {
+                    printf(":");
+                }
+                if ((pos % 64 == 0) && (pos % 32 != 0)) {
+                    printf("|");
+                }
+            }
+        }
+        printf("]\n");
+    }
+}
 /// NOTE: row major
 /// reads nn bits from row x and column y on
 uint64_t matrix_read_bits(const uint8_t *M,
@@ -245,17 +282,15 @@ uint64_t matrix_read_bits(const uint8_t *M,
                           const size_t x,
                           const size_t y,
                           const size_t nn) {
-	const uint32_t spot  = y % WORD_SIZE;
-	const uint64_t block = y / WORD_SIZE;
-    const uint64_t *M2 = (uint64_t *)M;
-    const uint32_t cp = (ncols + 63) / 64;
+	const uint32_t spot  = y % 8;
+	const uint64_t block = y / 8;
+    const uint32_t cp = (ncols + 7) / 8;
+    const uint16_t mask = (1u << nn) - 1u;
 
-	// this must be negative...
-	const int32_t spill = spot + nn - WORD_SIZE;
-	uint64_t temp = (spill <= 0) ? M[x*cp + block + 0] << -spill
-	                             :(M[x*cp + block + 1] << (WORD_SIZE - spill)) |
-	                              (M[x*cp + block + 0] >> spill);
-	return temp >> (WORD_SIZE - nn);
+    const uint16_t t1 = *(uint16_t *)(M + x*cp + block);
+    const uint16_t t2 = t1 >> spot;
+    const uint16_t t3 = t2 & mask;
+	return t3;
 }
 
 /// matrix1 = matrix2 + matrix3
@@ -313,25 +348,7 @@ static inline void gf2_matrix_mul(gf2 *result,
     }
 }
 
-#ifndef USE_AVX2
-/// \param x
-/// \param y
-/// \param z = x ^ y
-/// \param nn number of avx2 elements to add
-inline void gf2_matrix_xor_rows(const uint8_t *x,
-                                const uint8_t *y,
-                                uint8_t *z,
-                                const uint32_t nn) {
-	for (uint32_t i = 0; i < nn; i += 1) {
-		((uint64_t *)z)[4*i+0] = ((uint64_t *)x)[4*i+0] ^ ((uint64_t *)y)[4*i+0];
-		((uint64_t *)z)[4*i+1] = ((uint64_t *)x)[4*i+1] ^ ((uint64_t *)y)[4*i+1];
-		((uint64_t *)z)[4*i+2] = ((uint64_t *)x)[4*i+2] ^ ((uint64_t *)y)[4*i+2];
-		((uint64_t *)z)[4*i+3] = ((uint64_t *)x)[4*i+3] ^ ((uint64_t *)y)[4*i+3];
-    }
-}
-#endif
-
-#ifdef USE_AVX2 
+#ifdef USE_AVX2
 
 /// matrix1 = matrix2 + matrix3
 static inline void gf2_matrix_add_u256(gf2 *matrix1, 
@@ -408,70 +425,50 @@ static inline void gf2_matrix_mul_u256(gf2 *result,
         }
     }
 }
+#endif
 
 /// NOTE: assumes row major
 /// \param x [in]
 /// \param y [in]
 /// \param z [out] z = x ^ y
-/// \param nn number of avx2 registers
 void gf2_matrix_xor_rows(const uint8_t *x,
                          const uint8_t *y,
                          uint8_t *z,
-                         const uint32_t nn) {
-	for (uint32_t i = 0; i < nn; i += 1) {
+                         const uint32_t bytes) {
+    uint32_t i = 0;
 #ifdef USE_AVX2
-#ifdef USE_AVX2_SPECIAL_ALIGNMENT
-		__m256i x_avx = _mm256_load_si256((__m256i *)x + i);
-		__m256i y_avx = _mm256_load_si256((__m256i *)y + i);
-		__m256i z_avx = _mm256_xor_si256(x_avx, y_avx);
-		_mm256_store_si256((__m256i *)z + i, z_avx);
-#else
-		__m256 x_avx = _mm256_loadu_ps((float*)x + 8*i);
-		__m256 y_avx = _mm256_loadu_ps((float*)y + 8*i);
-		__m256 z_avx = _mm256_xor_ps(x_avx,y_avx);
-		_mm256_storeu_ps((float*)z + 8*i, z_avx);
+	for (; i+32 <= bytes; i += 32) {
+	    __m256 x_avx = _mm256_loadu_ps((float*)(x + i));
+	    __m256 y_avx = _mm256_loadu_ps((float*)(y + i));
+	    __m256 z_avx = _mm256_xor_ps(x_avx,y_avx);
+	    _mm256_storeu_ps((float*)(z + i), z_avx);
+	}
 #endif
-#else
-		((uint64_t *)z)[4*i] = ((uint64_t *)x)[4*i] ^ ((uint64_t *)y)[4*i];
-		((uint64_t *)z)[4*i+1] = ((uint64_t *)x)[4*i+1] ^ ((uint64_t *)y)[4*i+1];
-		((uint64_t *)z)[4*i+2] = ((uint64_t *)x)[4*i+2] ^ ((uint64_t *)y)[4*i+2];
-		((uint64_t *)z)[4*i+3] = ((uint64_t *)x)[4*i+3] ^ ((uint64_t *)y)[4*i+3];
-#endif
+	for (; i+8 <= bytes; i += 8) {
+		*((uint64_t *)(z+i)) = *((uint64_t *)(x+i)) ^ *((uint64_t *)(y+i));
+	}
+
+	for (; i < bytes; i++) {
+	    z[i] = x[i] ^ y[i];
 	}
 }
 
 /// NOTE: row major
 /// swaps row i with j
 /// \param M the matrix
-/// \param ncols: number of columns 
-/// \param i 
-/// \param j 
-void gf2_matrix_swap_rows_u256(uint8_t *__restrict__ M,
-                               const uint32_t ncols,
-                               const uint32_t i,
-                               const uint32_t j) {
-    if (i == j) { return; }
-	const uint32_t cols_padded_ymm = MATRIX_AVX_PADDING(ncols) / 256;
-    const uint32_t cp = (ncols+7) / 8;
-
-	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cols_padded_ymm);
-	gf2_matrix_xor_rows((uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), cols_padded_ymm);
-	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cols_padded_ymm);
-}
-
-#endif
-
-inline void gf2_matrix_swap_rows(uint8_t *__restrict__ M,
+/// \param ncols: number of columns
+/// \param i
+/// \param j
+static void gf2_matrix_swap_rows(uint8_t *__restrict__ M,
                                  const uint32_t ncols,
                                  const uint32_t i,
                                  const uint32_t j) {
     if (i == j) { return; }
-	const uint32_t cols_padded_ymm = MATRIX_AVX_PADDING(ncols) / 256;
     const uint32_t cp = (ncols+7) / 8;
 
-	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cols_padded_ymm);
-	gf2_matrix_xor_rows((uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), cols_padded_ymm);
-	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cols_padded_ymm);
+	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cp);
+	gf2_matrix_xor_rows((uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), cp);
+	gf2_matrix_xor_rows((uint8_t *) M+(i*cp), (uint8_t *) M+(j*cp), (uint8_t *) M+(i*cp), cp);
 }
 
 /// NOTE assumes row major
@@ -488,29 +485,28 @@ static size_t matrix_gauss_submatrix(uint8_t *__restrict__ M,
                                      const size_t ncols,
                                      const size_t k) {
 	size_t start_row = r, j;
-	const uint32_t cols_padded_ymm = MATRIX_AVX_PADDING(ncols) / 256;
-    const uint32_t cp = ncols / 8;
+    const uint32_t cp = (ncols + 7) / 8;
 
 	for (j = c; j < c + k; ++j) {
 		int found = 0;
 		for (size_t i = start_row; i < nrows; ++i) {
 			for (size_t l = 0; l < j - c; ++l) {
-                if (gf2_matrix_get(M, ncols, i, c+l)) {
+                if (gf2_matrix_get_row_major(M, ncols, i, c+l)) {
 					gf2_matrix_xor_rows((uint8_t *) M+((r+l)*cp),
 					                    (uint8_t *) M+(i*cp),
 					                    (uint8_t *) M+(i*cp),
-					                    cols_padded_ymm);
+					                    cp);
 				}
 			}
 
-            if (gf2_matrix_get(M, ncols, i, j)) {
-				gf2_matrix_swap_rows_u256(M, ncols, i, start_row);
+            if (gf2_matrix_get_row_major(M, ncols, i, j)) {
+				gf2_matrix_swap_rows(M, ncols, i, start_row);
 				for (size_t l = r; l < start_row; ++l) {
-                    if (gf2_matrix_get(M, ncols, l, j)) {
+                    if (gf2_matrix_get_row_major(M, ncols, l, j)) {
 						gf2_matrix_xor_rows((uint8_t *) M+(start_row*cp),
 						                    (uint8_t *) M+(l*cp),
 						                    (uint8_t *) M+(l*cp),
-						                    cols_padded_ymm);
+						                    cp);
 					}
 				}
 				++start_row;
@@ -537,11 +533,9 @@ void matrix_make_table(uint8_t *__restrict__ M,
                        const size_t cols,
                        const size_t k,
                        uint64_t *T,
-                       uint32_t **diff) {
-	const uint32_t cols_padded = MATRIX_AVX_PADDING(cols);
-	const uint32_t cols_padded_word = cols_padded / 64;
-	const uint32_t cols_padded_ymm = cols_padded / 256;
-    const uint32_t cp = cols / 8;
+                       const uint8_t diff[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)]) {
+	const uint32_t cols_padded_word = (cols + 63) / 64;
+    const uint32_t cp = (cols + 7) / 8;
 
 	for (size_t i = 0; i < cols_padded_word; ++i) {
 		T[i] = 0L;
@@ -551,7 +545,7 @@ void matrix_make_table(uint8_t *__restrict__ M,
 		gf2_matrix_xor_rows((uint8_t *)M+((r + diff[k][i])*cp),
 		                    (uint8_t *)T,
 		                    (uint8_t *)(T + cols_padded_word),
-		                    cols_padded_ymm);
+		                    cp);
 		T += cols_padded_word;
 	}
 }
@@ -563,30 +557,24 @@ void matrix_process_rows(uint8_t *__restrict__ M,
                          const size_t rstop,
                          const size_t k,
                          const size_t cols,
-                         uint64_t *T,
-                         uint32_t **rev) {
-	const uint32_t cols_padded = MATRIX_AVX_PADDING(cols);
-	const uint32_t cols_padded_ymm = cols_padded / 256;
-	const uint32_t cols_padded_word = cols_padded / 64;
+                         const uint64_t *T,
+                         const uint8_t rev[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)]) {
+	const uint32_t cols_padded_word = (cols + 63) / 64;
     const uint32_t cp = (cols+7) / 8;
 
 	for (size_t r = rstart; r < rstop; ++r) {
-		size_t x0 = rev[k][matrix_read_bits(M, cols, r, cstart, k)];
+		const size_t x0 = rev[k][matrix_read_bits(M, cols, r, cstart, k)];
 		if (x0) {
 			gf2_matrix_xor_rows((uint8_t *) (T + x0 * cols_padded_word),
 			                    (uint8_t *) M+(r*cp),
 			                    (uint8_t *) M+(r*cp),
-			                    cols_padded_ymm);
+			                    cp);
 		}
 	}
 }
 
 ///
-/// \param M 			matrix
-/// \param k 			m4ri k
-/// \param rstop 		row stop
-/// \param matrix_data 	helper data
-/// \param cstart 		column start.
+
 /// \return rank of the matrix
 size_t gf2_matrix_echelonize(uint8_t *M,
                              const uint32_t nrows,
@@ -1375,7 +1363,7 @@ static inline void gf2_matrix_transpose_small(uint8_t *restrict fwd,
     }
 }
 
-/// TODO
+/// TODO not implement
 /// \param fwd
 /// \param fws
 /// \param rowstride_dst
@@ -1409,9 +1397,9 @@ void gf2_matrix_transpose_base(uint8_t *restrict fwd,
          * --Carlo Wood
          */
         int js = ncols & nrows & 64;  // True if the total number of whole 64x64 matrices is odd.
-        const uint32_t const rowstride_64_dst      = 64 * rowstride_dst;
-        uint64_t *restrict fwd_current       = fwd;
-        uint64_t const *restrict fws_current = fws;
+        const uint32_t rowstride_64_dst      = 64 * rowstride_dst;
+        uint64_t *restrict fwd_current       = (uint64_t *)fwd;
+        uint64_t const *restrict fws_current = (uint64_t *)fws;
         if (js) {
             js = 1;
             gf2_matrix_transpose_64x64(fwd, fws, rowstride_dst, rowstride_src);
