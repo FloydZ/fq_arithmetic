@@ -9,6 +9,7 @@ stdenv.mkDerivation {
     cmake
   	git 
 	clang
+	llvm # needed for symbol resolution
     gbenchmark
 	jasmin-compiler
   ] ++ (lib.optionals pkgs.stdenv.isLinux ([

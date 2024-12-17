@@ -6,8 +6,9 @@
 #include <assert.h>
 
 #include "arith.h"
+#include "../helper.h"
 
-#define MAX(a,b) (((a)>(b))?(a):(b))
+
 #define MATRIX_AVX_PADDING(len) (((len + 255) / 256) * 256)
 #define MAX_K           8
 #define MAX_COLUMNS     256
@@ -80,7 +81,7 @@ static inline int log2_ceil(int n) { return log2_ceil_table[n - 1]; }
 /// \return a new matrix
 static inline gf2* gf2_matrix_alloc(const uint32_t n_rows, 
                                     const uint32_t n_cols) {
-    return (gf2 *)malloc(gf2_matrix_bytes_size(n_rows, n_cols));
+    return (gf2 *)calloc(1, gf2_matrix_bytes_size(n_rows, n_cols));
 }
 
 /// \return a new matrix, with 256 cols
@@ -186,6 +187,19 @@ static inline void gf2_matrix_zero(gf2 *matrix,
                                    const uint32_t n_cols) {
     const uint32_t p = gf2_matrix_bytes_size(n_rows, n_cols);
     memset(matrix, 0, p);
+}
+
+///
+/// \param matrix
+/// \param n_rows
+/// \param n_cols
+static inline void gf2_matrix_id(gf2 *matrix,
+                                 const uint32_t n_rows,
+                                 const uint32_t n_cols) {
+    gf2_matrix_zero(matrix, n_rows, n_cols);
+    for (uint32_t  i = 0; i < MIN(n_rows, n_cols); ++i) {
+        gf2_matrix_set(matrix, n_rows, i, i, 1);
+    }
 }
 
 ///
@@ -681,7 +695,7 @@ static inline int _mzd_transpose_Nxjx64(uint64_t *restrict t,
 /// \param rowstride_src Rowstride of source matrix.
 /// \param n Number of rows in source matrix, must be less than or equal 8.
 /// \param m Number of columns in source matrix, must be less than or equal 8.
-/// \param maxsize TODO
+/// \param maxsize the max(n, m)
 void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
                                   uint8_t const *__restrict__ src,
                                   const uint32_t rowstride_dst, 
@@ -715,7 +729,7 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
     } while (shift < end);
 
     uint8_t *restrict wk = dst + m * rowstride_dst;
-    for (int shift = 8 * m; shift > 0; shift -= 8) {
+    for (uint32_t shift = 8 * m; shift > 0; shift -= 8) {
         *wk = (unsigned char)(w >> shift);
         wk -= rowstride_dst;
     }
@@ -937,8 +951,8 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
     /// Therefore, wk starts at the first row and then has rowstride
     /// added j times, running over the rows of A, then skips C
 
-    const uint32_t rowstride_dst = _rowstride_dst/8;
-    const uint32_t rowstride_src = _rowstride_src/8;
+    const uint32_t rowstride_dst = (_rowstride_dst + 7)/8;
+    const uint32_t rowstride_src = (_rowstride_src + 7)/8;
     uint64_t m               = (uint64_t)0xFFFFFFFF;
     uint32_t j_rowstride_dst = rowstride_dst * 64;
     uint32_t j_rowstride_src = rowstride_src * 32;
@@ -1072,20 +1086,22 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
                                                 uint8_t const *restrict src,
                                                 const uint32_t rowstride_dst,
                                                 const uint32_t rowstride_src,
-                                                int n) {
+                                                const uint32_t n) {
     // Preload the n input rows into level 1, using a minimum of cache lines (compact storage).
     uint64_t t[64];
-    uint64_t const *restrict wks = (uint64_t *)src;
+    uint8_t const *restrict wks = src;
+    uint64_t const m      = __LEFT_BITMASK(n);
     int k;
     for (k = 0; k < n; ++k) {
-        t[k] = *wks;
+        t[k] = *(uint64_t *)wks;
+        t[k] &= m;
         wks += rowstride_src;
     }
     // see https://bitbucket.org/malb/m4ri/issues/53
     for (; k < 64; ++k) { t[k] = 0; }
     if (n > 32) {
         while (k < 64) { t[k++] = 0; }
-        gf2_matrix_transpose_64x64(dst, (uint8_t *)t, rowstride_dst, 1);
+        gf2_matrix_transpose_64x64(dst, (uint8_t *)t, rowstride_dst, 8);
         return;
     }
 
@@ -1098,14 +1114,13 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
     // [A1]
     // ...
     // [Al]
-    uint64_t const m      = __LEFT_BITMASK(n);
-    uint64_t *restrict wk = (uint64_t *)dst;
+    uint8_t *restrict wk = (uint8_t *)dst;
     switch (log2j) {
         case 5: {
             const uint32_t j_rowstride_dst = 32 * rowstride_dst;
             for (uint32_t k = 0; k < 32; ++k) {
-                wk[0]               = t[k] & m;
-                wk[j_rowstride_dst] = (t[k] >> 32) & m;
+                *(uint64_t *)(wk + 0)               = t[k] & m;
+                *(uint64_t *)(wk + j_rowstride_dst) = (t[k] >> 32) & m;
                 wk += rowstride_dst;
             }
             break;
@@ -1190,7 +1205,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
     }
 }
 
-/// TODO
+/// TODO case n=1,2,3
 /// Rows of all matrices are expected have offset zero
 /// and lay entirely inside a single block.
 ///
@@ -1207,24 +1222,25 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
                                                 uint8_t const *restrict src,
                                                 const uint32_t rowstride_dst,
                                                 const uint32_t rowstride_src,
-                                                int n) {
+                                                const uint32_t n) {
     uint64_t t[64];
-    int log2j                = log2_ceil(n);
+    int log2j = log2_ceil((int)n);
     const uint8_t  *restrict wks = src;
+    const uint64_t mask = __LEFT_BITMASK(n);
     switch (log2j) {
         case 6: {
-            gf2_matrix_transpose_64x64((uint8_t *)t, src, 1, rowstride_src);
+            gf2_matrix_transpose_64x64((uint8_t *)t, src, 8, rowstride_src);
             uint8_t *restrict wk = dst;
-            for (int k = 0; k < n; ++k) {
-                *wk = t[k];
+            for (uint32_t k = 0; k < n; ++k) {
+                *(uint64_t *)wk = t[k] & mask;
                 wk += rowstride_dst;
             }
             return;
         }
         case 5: {
             const uint32_t j_rowstride_src = 32 * rowstride_src;
-            for (int k = 0; k < 32; ++k) {
-                t[k] = wks[0] | (wks[j_rowstride_src] << 32);
+            for (uint64_t k = 0; k < 32; ++k) {
+                t[k] = ((*(uint64_t *)wks)&mask) | (*((uint64_t *)(wks + j_rowstride_src)) << 32);
                 wks += rowstride_src;
             }
             break;
@@ -1232,8 +1248,8 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
         case 4: {
             const uint32_t j_rowstride_src = 16 * rowstride_src;
             for (int k = 0; k < 16; ++k) {
-                t[k] = wks[0] | (wks[j_rowstride_src] << 16);
-                t[k] |= (wks[2 * j_rowstride_src] << 32) | (wks[3 * j_rowstride_src] << 48);
+                t[k] =  *((uint64_t *)(wks + 0))                          | (*((uint64_t *)(wks +     j_rowstride_src)) << 16);
+                t[k]|= (*((uint64_t *)(wks + 2 * j_rowstride_src)) << 32) | (*((uint64_t *)(wks + 3 * j_rowstride_src)) << 48);
                 wks += rowstride_src;
             }
             break;
@@ -1242,10 +1258,10 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
             const uint32_t j_rowstride_src = 8 * rowstride_src;
             uint64_t tt;
             for (int k = 0; k < 8; ++k) {
-                tt   = wks[0] | (wks[j_rowstride_src] << 8);
-                t[k] = (wks[2 * j_rowstride_src] << 16) | (wks[3 * j_rowstride_src] << 24);
-                tt |= (wks[4 * j_rowstride_src] << 32) | (wks[5 * j_rowstride_src] << 40);
-                t[k] |= (wks[6 * j_rowstride_src] << 48) | (wks[7 * j_rowstride_src] << 56);
+                tt   =  (*(uint64_t *)(wks + 0))                          | ((*(uint64_t *)(wks +     j_rowstride_src)) <<  8);
+                t[k] = ((*(uint64_t *)(wks + 2 * j_rowstride_src)) << 16) | ((*(uint64_t *)(wks + 3 * j_rowstride_src)) << 24);
+                tt  |= ((*(uint64_t *)(wks + 4 * j_rowstride_src)) << 32) | ((*(uint64_t *)(wks + 5 * j_rowstride_src)) << 40);
+                t[k]|= ((*(uint64_t *)(wks + 6 * j_rowstride_src)) << 48) | ((*(uint64_t *)(wks + 7 * j_rowstride_src)) << 56);
                 wks += rowstride_src;
                 t[k] |= tt;
             }
@@ -1253,10 +1269,10 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
         }
         case 2: {
             uint8_t const *restrict wks2 = wks + 60 * rowstride_src;
-            t[0]                      = wks2[0];
-            t[1]                      = wks2[rowstride_src];
-            t[2]                      = wks2[2 * rowstride_src];
-            t[3]                      = wks2[3 * rowstride_src];
+            t[0]                      = *(uint64_t *)(wks2 + 0);
+            t[1]                      = *(uint64_t *)(wks2 +     rowstride_src);
+            t[2]                      = *(uint64_t *)(wks2 + 2 * rowstride_src);
+            t[3]                      = *(uint64_t *)(wks2 + 3 * rowstride_src);
             for (int i = 0; i < 15; ++i) {
                 wks2 -= 4 * rowstride_src;
                 t[0] <<= 4;
@@ -1300,7 +1316,7 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
     _mzd_transpose_Nxjx64(t, j);
     uint8_t *restrict wk = dst;
     for (int k = 0; k < n; ++k) {
-        *(uint64_t *)wk = t[k];
+        *(uint64_t *)wk = t[k] & mask;
         wk += rowstride_dst;
     }
 }
@@ -1316,8 +1332,8 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *restrict dst,
                                                   uint8_t const *restrict src,
                                                   const uint32_t rowstride_dst,
                                                   const uint32_t rowstride_src,
-                                                  int n,
-                                                  int m) {
+                                                  const uint32_t n,
+                                                  const uint32_t m) {
     uint8_t const *restrict wks = src;
     uint64_t t[64];
     const uint64_t mask = __LEFT_BITMASK(m);
@@ -1331,8 +1347,8 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *restrict dst,
 
     gf2_matrix_transpose_64x64((uint8_t *)t, (uint8_t *)t, 8, 8);
     uint8_t *restrict wk = dst;
-    for (uint32_t k = 0; k < m; ++k) {
-        *(uint64_t *)wk = t[k];
+    for (uint32_t s = 0; s < m; ++s) {
+        *(uint64_t *)wk = t[s];
         wk += rowstride_dst;
     }
 }

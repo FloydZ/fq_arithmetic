@@ -380,6 +380,9 @@ finish:
 
 
 int main() {
+    uint16_t a = 0x010;
+    uint16_t b = 0x100;
+    uint16_t c = gf16to3_mul(b, a);
     // if (test_add()) { return 1; }
     // if (test_mul()) { return 1; }
 #ifdef USE_AVX2
