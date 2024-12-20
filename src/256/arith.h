@@ -1,5 +1,4 @@
-#ifndef FQ_ARITHMETIC_GF256_ARITH_H
-#define FQ_ARITHMETIC_GF256_ARITH_H
+#pragma once
 
 #include <stdint.h>
 #include "../helper.h"
@@ -17,7 +16,10 @@
 typedef uint8_t gf256;
 
 /// translates a gf16 element to an gf256 element
-const uint8_t gf256_expand_tab[16] = {
+/// NOTE: extend to 32 elements to make it easy for avx instruction to
+///     just load the memory
+const uint8_t gf256_expand_tab[32] = {
+    0, 1, 92, 93, 224, 225, 188, 189, 80, 81, 12, 13, 176, 177, 236, 237,
     0, 1, 92, 93, 224, 225, 188, 189, 80, 81, 12, 13, 176, 177, 236, 237
 };
 
@@ -1096,4 +1098,4 @@ __m256i gf256v_mul_scalar_u256(__m256i a, uint8_t _b) {
 }
 #endif /// end USE_AVX2
 #undef MODULUS
-#endif // end namespace
+

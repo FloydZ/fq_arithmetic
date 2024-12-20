@@ -159,6 +159,7 @@ void gf16_vector_multiple_u256(ff_t *poly1,
         for (uint32_t j = 0; j<i; j++) { poly1[j] = tmp[j]; }
     }
 }
+
 /// d = number of elements not bytes
 /// poly1 = poly2 + scalar * poly3
 static inline

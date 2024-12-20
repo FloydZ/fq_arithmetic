@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
@@ -653,5 +654,3 @@ uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
 #endif
 
 #undef MODULUS
-#include "vector.h"
-#include "matrix.h"

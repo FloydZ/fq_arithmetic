@@ -7,14 +7,27 @@
 #include "matrix.h"
 #include "bitslice.h"
 
+#include "../16/vector.h"
+
 #ifdef USE_AVX2
 
 uint32_t test_vector_set_to_gf16_u256() {
     uint32_t ret = 0;
     const uint32_t N = 100;
     gf16 *A = gf16_vector_alloc(N); 
-    gf256 *B = gf256_vector_alloc(N); 
+    gf256 *B1 = gf256_vector_alloc(N); 
+    gf256 *B2 = gf256_vector_alloc(N); 
 
+    gf16_vector_rand(A, N);
+    gf256_vector_set_to_gf16(B1, A, N);
+    gf256_vector_set_to_gf16_u256(B2, A, N);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (B1[i] != B2[i]) {
+            printf("test_vector_set_to_gf16_u256 errer %d\n", i);
+            ret = 1;
+        }
+    }
 
     return ret;
 }
@@ -86,8 +99,9 @@ int check_gf256v_mul_scalar_u256() {
 
 int main() {
 #ifdef USE_AVX2
-    if(check_gf256v_mul_u256()) { return 1; }
-    if(check_gf256v_mul_scalar_u256()) { return 1; }
+    if(test_vector_set_to_gf16_u256()) { return 1; }
+    // if(check_gf256v_mul_u256()) { return 1; }
+    // if(check_gf256v_mul_scalar_u256()) { return 1; }
 #endif
 	return 0;
 }

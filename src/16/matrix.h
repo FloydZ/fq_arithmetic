@@ -581,12 +581,12 @@ uint32_t gf16_solve(uint8_t *A,
 }
 
 /// TODO not finished, the `gf16_swap_rows is not fully correct`
-/// @param B
-/// @param A tmp matrix, must be size of transposed of B
-/// @param b
-/// @param nrows
-/// @param ncols
-/// @return
+/// \param B
+/// \param A tmp matrix, must be size of transposed of B
+/// \param b
+/// \param nrows
+/// \param ncols
+/// \return
 uint32_t gf16_solve_transpose(uint8_t *B,
                               uint8_t *A,
                               uint8_t *b,
@@ -612,7 +612,8 @@ uint32_t gf16_solve_transpose(uint8_t *B,
         /// solve current pivot row
         // gf16_matrix_print_transposed(A, nrows, ncols);
         gf16_solve_row_transpose(A, nrows, ncols, row, c);
-        gf16_vector_set(b, row, gf16_mul(gf16_vector_get(b, row), c));
+        const gf16 t = gf16_vector_get(b, row);
+        gf16_vector_set(b, row, gf16_mul(t, c));
         // gf16_matrix_print_transposed(A, nrows, ncols);
 
         // solve remaining rows below

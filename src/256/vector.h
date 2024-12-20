@@ -3,14 +3,14 @@
 #include "arith.h"
 #include "../16/vector.h"
 
-/// @param n size of the vector
-/// @return vector(n)
+/// \param n size of the vector
+/// \return vector(n)
 static inline gf256* gf256_vector_alloc(const uint32_t n) {
     return (gf256 *)malloc(n*sizeof(gf256));
 }
 
-/// @param v vector to print
-/// @param n size of the vector
+/// \param v vector to print
+/// \param n size of the vector
 static inline void gf256_vector_print(gf256 *v,
                                        const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -19,15 +19,15 @@ static inline void gf256_vector_print(gf256 *v,
     printf("\n");
 }
 
-/// @param v = 0
-/// @param n size of vector
+/// \param v = 0
+/// \param n size of vector
 static inline void gf256_vector_zero(gf256 *v,
                                      const uint32_t n) {
     memset(v, 0, n*sizeof(gf256));
 }
 
-/// @param v v[i] = rand()
-/// @param n size of vector
+/// \param v v[i] = rand()
+/// \param n size of vector
 static inline void gf256_vector_rand(gf256 *v,
                                      const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -35,10 +35,9 @@ static inline void gf256_vector_rand(gf256 *v,
     }
 }
 
-///
-/// @param v1 = v2 
-/// @param v2
-/// @param n size of the two vectors
+/// \param v1 = v2 
+/// \param v2
+/// \param n size of the two vectors
 static inline void gf256_vector_copy(gf256 *__restrict__ v1,
                                      const gf256 *__restrict__ v2,
                                      const uint32_t n) {
@@ -47,21 +46,20 @@ static inline void gf256_vector_copy(gf256 *__restrict__ v1,
     }
 }
 
-///
 /// a = b
 static inline void gf256_vector_set_to_gf16(gf256 *a,
                                             const gf16 *b,
                                             const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
-        const gf16 t = gf16_vector_get(b, i);
-        a[i] = t;
+        const gf16 t1 = gf16_vector_get(b, i);
+        const gf16 t2 = gf256_expand_tab[t1];
+        a[i] = t2;
     }
 }
 
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf256_vector_add(gf256 *out,
                                     const gf256 *in,
                                     const uint32_t n) {
@@ -70,11 +68,9 @@ static inline void gf256_vector_add(gf256 *out,
     }
 }
 
-
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf256_vector_add_gf2(gf256 *__restrict__ out,
                                         const gf16 *__restrict__ in,
                                         const uint32_t n) {
@@ -85,10 +81,10 @@ static inline void gf256_vector_add_gf2(gf256 *__restrict__ out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf256_vector_scalar_add(gf256 *out,
                                            const gf256 c,
                                            const gf256 *in,
@@ -98,10 +94,10 @@ static inline void gf256_vector_scalar_add(gf256 *out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf256_vector_scalar_add_gf2(gf256 *__restrict__ out,
                                                const gf16 c,
                                                const gf256 *__restrict__ in,
@@ -112,9 +108,9 @@ static inline void gf256_vector_scalar_add_gf2(gf256 *__restrict__ out,
 }
 
 
-/// @param out += t*in
-/// @param in
-/// @param n length of the vectors
+/// \param out += t*in
+/// \param in
+/// \param n length of the vectors
 static inline void gf256_vector_scalar_add_gf2_v3(gf256 *__restrict__ out,
                                                     const gf256 t,
                                                     const gf16 *__restrict__ in,
@@ -210,43 +206,50 @@ static inline void gf256_vector_add_scalar_u256(gf256 *out,
     }
 }
 
-/// TODO unfinished
 /// \param n = number of elements in `in`, not bytes.
-static inline void gf2to12_vector_set_to_gf16_u256(gf256 *out,
-                                                   const gf16 *in,
-                                                   const uint32_t n) {
-    uint32_t bytes = (n+7)/8;
+static inline void gf256_vector_set_to_gf16_u256(gf256 *out,
+                                                 const gf16 *in,
+                                                 const uint32_t n) {
+    uint32_t i = n;
+    const gf16 *in2 = in;
 
-    while (bytes >= 2u) {
-        const uint8_t t11 = *(in + 0);
-        const uint8_t t12 = *(in + 1);
+    const __m256i perm = _mm256_load_si256((const __m256i *)gf256_expand_tab);
+    while (i >= 32u) {
+        const uint32_t t11 = *(uint32_t *)(in +  0);
+        const uint32_t t12 = *(uint32_t *)(in +  4);
+        const uint32_t t13 = *(uint32_t *)(in +  8);
+        const uint32_t t14 = *(uint32_t *)(in + 12);
 
-        const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
-        const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t23 = _pdep_u64(t13, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t24 = _pdep_u64(t14, 0x0F0F0F0F0F0F0F0F);
 
-        const __m128i t1 = _mm_set_epi64x(t22, t21);
-        const __m256i mi = _mm256_cvtepu8_epi16(t1);
-        _mm256_storeu_si256((__m256i *)out, mi);
-        in  += 2u;
-        out += 16u;
-        bytes -= 2;
+        const __m256i t3 = _mm256_setr_epi64x(t21, t22, t23, t24);
+        const __m256i t4 = _mm256_shuffle_epi8(perm, t3);
+        _mm256_storeu_si256((__m256i *)out, t4);
+        in  += 16u;
+        out += 32u;
+        i   -= 32u;
     }
 
-    if (bytes) {
-        uint16_t tmp[16] __attribute__((aligned(32))) = {0};
-        uint8_t t11, t12=0;
+    // NOTE: in case this is an bottleneck maybe extend it
+    // while (i >= 8) {
+    //     const uint32_t t1 = *(uint32_t *)(in +  0);
+    //     const uint64_t t2 = _pdep_u64(t1, 0x0F0F0F0F0F0F0F0F);
+    //     *(uint64_t *)out = t2;
+    //     in  += 4u;
+    //     out += 8u;
+    //     i   -= 8u;
+    // }
 
-        t11 = *(in + 0);
-        if (bytes > 1) { t12 = *(in + 1); }
-
-        const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
-        const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
-        const __m128i t1 = _mm_set_epi64x(t22, t21);
-        const __m256i mi = _mm256_cvtepu8_epi16(t1);
-        _mm256_store_si256((__m256i *)tmp, mi);
-
-        for (uint32_t j = 0; j < (bytes * 8); j++) { out[j] = tmp[j];}
-    } 
+    while (i) {
+        const gf16 t1 = gf16_vector_get(in2, n - i);
+        const gf256 t2 = gf256_expand_tab[t1];
+        *out = t2;
+        out++;
+        i -= 1;
+    }
 }
 
 #elif defined(USE_NEON)
