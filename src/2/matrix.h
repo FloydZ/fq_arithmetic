@@ -133,9 +133,9 @@ static inline void gf2_matrix_set(gf2 *matrix,
 /// @param matrix
 /// @param n_rows
 /// @param n_cols
-static inline void gf2_matrix_rng(gf2 *matrix,
-                                  const uint32_t n_rows,
-                                  const uint32_t n_cols) {
+static inline void gf2_matrix_random(gf2 *matrix,
+                                    const uint32_t n_rows,
+                                    const uint32_t n_cols) {
     const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t i = 0; i < n_cols; i++) {
         for (uint32_t j = 0; j < p; j++) {
@@ -646,7 +646,7 @@ static uint64_t const transpose_mask[6] = {
 /// \param t An array of j words.
 /// \param n The number of rows in each matrix.
 /// \return log2(j)
-static inline int _mzd_transpose_Nxjx64(uint64_t *restrict t,
+static inline int _mzd_transpose_Nxjx64(uint64_t *__restrict__ t,
                                         int n) {
   int j  = 1;
   int mi = 0;  // Index into the transpose_mask array.
@@ -668,9 +668,9 @@ static inline int _mzd_transpose_Nxjx64(uint64_t *restrict t,
       // Run over all rows of [A] and [D].
       for (int i = 0; i < j; ++i, ++k) {
         // t[k] contains row i of all [A], and t[k + j] contains row i of all [D]. Swap them.
-        uint64_t xor = ((t[k] >> j) ^ t[k + j]) & m;
-        t[k] ^= xor << j;
-        t[k + j] ^= xor;
+        uint64_t xor_ = ((t[k] >> j) ^ t[k + j]) & m;
+        t[k] ^= xor_ << j;
+        t[k + j] ^= xor_;
       }
       k += j;         // Skip [C].
     } while (k < n);  // Stop if we passed all valid input.
@@ -704,7 +704,7 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
                                   int m,
                                   int maxsize) {
     int end                      = maxsize * 7;
-    uint8_t const *restrict wks  = src;
+    uint8_t const *__restrict__ wks  = src;
     uint64_t w                   = *wks;
     int shift                    = 0;
     for (uint32_t i = 1; i < n; ++i) {
@@ -720,15 +720,15 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
     --m;
 
     do {
-        uint64_t xor = (w ^ w7) & mask;
+        uint64_t xor_ = (w ^ w7) & mask;
         mask >>= 8;
-        w ^= (xor << shift);
+        w ^= (xor_ << shift);
         shift += 7;
         w7 >>= 7;
-        w ^= xor;
+        w ^= xor_;
     } while (shift < end);
 
-    uint8_t *restrict wk = dst + m * rowstride_dst;
+    uint8_t *__restrict__ wk = dst + m * rowstride_dst;
     for (uint32_t shift = 8 * m; shift > 0; shift -= 8) {
         *wk = (unsigned char)(w >> shift);
         wk -= rowstride_dst;
@@ -749,15 +749,15 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
 /// \param n Number of rows in source matrix, must be less than or equal 16.
 /// \param m Number of columns in source matrix, must be less than or equal 16.
 /// \param maxsize TODO
-static inline void gf2_matrix_transpose_le16xle16(uint8_t *restrict dst,
-                                                  uint8_t const *restrict src,
+static inline void gf2_matrix_transpose_le16xle16(uint8_t *__restrict__ dst,
+                                                  uint8_t const *__restrict__ src,
                                                   const uint32_t rowstride_dst, 
                                                   const uint32_t rowstride_src, 
                                                   int n,
                                                   int m, 
                                                   int maxsize) {
   int end                  = maxsize * 3;
-  uint8_t const *restrict wks = (uint8_t *restrict)src;
+  uint8_t const *__restrict__ wks = (uint8_t *__restrict__)src;
   uint64_t t[4];
   int i = n;
   do {
@@ -796,26 +796,26 @@ static inline void gf2_matrix_transpose_le16xle16(uint8_t *restrict dst,
   } while (0);
   uint64_t mask = 0xF0000F0000F0ULL;
   int shift = 12;
-  uint64_t xor [4];
+  uint64_t xor_ [4];
   do {
-    xor[0] = (t[0] ^ (t[0] >> shift)) & mask;
-    xor[1] = (t[1] ^ (t[1] >> shift)) & mask;
-    xor[2] = (t[2] ^ (t[2] >> shift)) & mask;
-    xor[3] = (t[3] ^ (t[3] >> shift)) & mask;
+    xor_[0] = (t[0] ^ (t[0] >> shift)) & mask;
+    xor_[1] = (t[1] ^ (t[1] >> shift)) & mask;
+    xor_[2] = (t[2] ^ (t[2] >> shift)) & mask;
+    xor_[3] = (t[3] ^ (t[3] >> shift)) & mask;
     mask >>= 16;
-    t[0] ^= (xor[0] << shift);
-    t[1] ^= (xor[1] << shift);
-    t[2] ^= (xor[2] << shift);
-    t[3] ^= (xor[3] << shift);
+    t[0] ^= (xor_[0] << shift);
+    t[1] ^= (xor_[1] << shift);
+    t[2] ^= (xor_[2] << shift);
+    t[3] ^= (xor_[3] << shift);
     shift += 12;
-    t[0] ^= xor[0];
-    t[1] ^= xor[1];
-    t[2] ^= xor[2];
-    t[3] ^= xor[3];
+    t[0] ^= xor_[0];
+    t[1] ^= xor_[1];
+    t[2] ^= xor_[2];
+    t[3] ^= xor_[3];
   } while (shift < end);
   _mzd_transpose_Nxjx64(t, 4);
   i                 = m;
-  uint8_t *restrict wk = (uint8_t *)dst;
+  uint8_t *__restrict__ wk = (uint8_t *)dst;
   do {
     *(uint16_t *)wk = (uint16_t)t[0];
     if (--i == 0) break;
@@ -854,13 +854,13 @@ static inline void gf2_matrix_transpose_le16xle16(uint8_t *restrict dst,
 /// \param rowstride_src Rowstride of source matrix.
 /// \param n Number of rows in source matrix, must be less than or equal 32.
 /// \param m Number of columns in source matrix, must be less than or equal 32.
-static inline void gf2_matrix_transpose_le32xle32(uint8_t *restrict dst,
-                                                  uint8_t const *restrict src,
+static inline void gf2_matrix_transpose_le32xle32(uint8_t *__restrict__ dst,
+                                                  uint8_t const *__restrict__ src,
                                                   const uint32_t rowstride_dst, 
                                                   const uint32_t rowstride_src, 
                                                   int n,
                                                   int m) {
-  uint8_t const *restrict wks = (const uint8_t *)src;
+  uint8_t const *__restrict__ wks = (const uint8_t *)src;
   uint64_t t[16];
 
   const uint32_t mask = __LEFT_BITMASK(m);
@@ -887,7 +887,7 @@ static inline void gf2_matrix_transpose_le32xle32(uint8_t *restrict dst,
   }
   _mzd_transpose_Nxjx64(t, 16);
   int one_more      = (m & 1);
-  uint8_t *restrict wk = (uint8_t *)dst;
+  uint8_t *__restrict__ wk = (uint8_t *)dst;
   if (m > 16) {
     m -= 16;
     for (int j = 0; j < 16; j += 2) {
@@ -962,12 +962,12 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
     // the two 32x32 corner matrices.
     int j = 32;
     j_rowstride_dst >>= 1;
-    uint64_t *restrict wk = (uint64_t *)dst;
-    for (uint64_t const *restrict wks = (uint64_t *)src; wk < end; wk += j_rowstride_dst, wks += j_rowstride_src) {
+    uint64_t *__restrict__ wk = (uint64_t *)dst;
+    for (uint64_t const *__restrict__ wks = (uint64_t *)src; wk < end; wk += j_rowstride_dst, wks += j_rowstride_src) {
         for (int k = 0; k < j; ++k, wk += rowstride_dst, wks += rowstride_src) {
-            uint64_t xor            = ((*wks >> j) ^ *(wks + j_rowstride_src)) & m;
-            *wk                     = *wks ^ (xor << j);
-            *(wk + j_rowstride_dst) = *(wks + j_rowstride_src) ^ xor;
+            uint64_t xor_           = ((*wks >> j) ^ *(wks + j_rowstride_src)) & m;
+            *wk                     = *wks ^ (xor_ << j);
+            *(wk + j_rowstride_dst) = *(wks + j_rowstride_src) ^ xor_;
         }
     }
 
@@ -979,9 +979,9 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
         j_rowstride_dst >>= 1;
         for (wk = (uint64_t *)dst; wk < end; wk += j_rowstride_dst) {
             for (int k = 0; k < j; ++k, wk += rowstride_dst) {
-                uint64_t xor             = ((*wk >> j) ^ *(wk + j_rowstride_dst)) & m;
-                *wk                     ^= xor << j;
-                *(wk + j_rowstride_dst) ^= xor;
+                uint64_t xor_            = ((*wk >> j) ^ *(wk + j_rowstride_dst)) & m;
+                *wk                     ^= xor_ << j;
+                *(wk + j_rowstride_dst) ^= xor_;
             }
         }
     }
@@ -1000,10 +1000,10 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
 /// \param src2 First word of source matrix 2.
 /// \param _rowstride_dst Rowstride of destination matrices.
 /// \param _rowstride_src Rowstride of source matrices.
-static inline void gf2_matrix_transpose_64x64_2(uint8_t *restrict dst1,
-                                                uint8_t *restrict dst2,
-                                                uint8_t const *restrict src1,
-                                                uint8_t const *restrict src2,
+static inline void gf2_matrix_transpose_64x64_2(uint8_t *__restrict__ dst1,
+                                                uint8_t *__restrict__ dst2,
+                                                uint8_t const *__restrict__ src1,
+                                                uint8_t const *__restrict__ src2,
                                                 const uint32_t _rowstride_dst,
                                                 const uint32_t _rowstride_src) {
     uint64_t m               = 0xFFFFFFFF;
@@ -1013,9 +1013,9 @@ static inline void gf2_matrix_transpose_64x64_2(uint8_t *restrict dst1,
     uint32_t j_rowstride_src = rowstride_src * 32;
     uint64_t *const end      = ((uint64_t *)dst1) + j_rowstride_dst;
     int j                = 32;
-    uint64_t *restrict wk[2];
-    uint64_t const *restrict wks[2];
-    uint64_t xor [2];
+    uint64_t *__restrict__ wk[2];
+    uint64_t const *__restrict__ wks[2];
+    uint64_t xor_[2];
 
     j_rowstride_dst >>= 1;
     wk[0]  = (uint64_t *)dst1;
@@ -1025,12 +1025,12 @@ static inline void gf2_matrix_transpose_64x64_2(uint8_t *restrict dst1,
 
     do {
         for (int k = 0; k < j; ++k) {
-            xor[0]                     = ((*wks[0] >> j) ^ *(wks[0] + j_rowstride_src)) & m;
-            xor[1]                     = ((*wks[1] >> j) ^ *(wks[1] + j_rowstride_src)) & m;
-            *wk[0]                     = *wks[0] ^ (xor[0] << j);
-            *wk[1]                     = *wks[1] ^ (xor[1] << j);
-            *(wk[0] + j_rowstride_dst) = *(wks[0] + j_rowstride_src) ^ xor[0];
-            *(wk[1] + j_rowstride_dst) = *(wks[1] + j_rowstride_src) ^ xor[1];
+            xor_[0]                    = ((*wks[0] >> j) ^ *(wks[0] + j_rowstride_src)) & m;
+            xor_[1]                    = ((*wks[1] >> j) ^ *(wks[1] + j_rowstride_src)) & m;
+            *wk[0]                     = *wks[0] ^ (xor_[0] << j);
+            *wk[1]                     = *wks[1] ^ (xor_[1] << j);
+            *(wk[0] + j_rowstride_dst) = *(wks[0] + j_rowstride_src) ^ xor_[0];
+            *(wk[1] + j_rowstride_dst) = *(wks[1] + j_rowstride_src) ^ xor_[1];
             wk[0] += rowstride_dst;
             wk[1] += rowstride_dst;
             wks[0] += rowstride_src;
@@ -1053,12 +1053,12 @@ static inline void gf2_matrix_transpose_64x64_2(uint8_t *restrict dst1,
         do {
 
             for (int k = 0; k < j; ++k) {
-                xor[0] = ((*wk[0] >> j) ^ *(wk[0] + j_rowstride_dst)) & m;
-                xor[1] = ((*wk[1] >> j) ^ *(wk[1] + j_rowstride_dst)) & m;
-                *wk[0] ^= xor[0] << j;
-                *wk[1] ^= xor[1] << j;
-                *(wk[0] + j_rowstride_dst) ^= xor[0];
-                *(wk[1] + j_rowstride_dst) ^= xor[1];
+                xor_[0] = ((*wk[0] >> j) ^ *(wk[0] + j_rowstride_dst)) & m;
+                xor_[1] = ((*wk[1] >> j) ^ *(wk[1] + j_rowstride_dst)) & m;
+                *wk[0] ^= xor_[0] << j;
+                *wk[1] ^= xor_[1] << j;
+                *(wk[0] + j_rowstride_dst) ^= xor_[0];
+                *(wk[1] + j_rowstride_dst) ^= xor_[1];
                 wk[0] += rowstride_dst;
                 wk[1] += rowstride_dst;
             }
@@ -1082,14 +1082,14 @@ static inline void gf2_matrix_transpose_64x64_2(uint8_t *restrict dst1,
 /// \param rowstride_dst Rowstride of destination matrix.
 /// \param rowstride_src Rowstride of source matrix.
 /// \param n Number of rows in source matrix, must be less than 64.
-static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
-                                                uint8_t const *restrict src,
+static inline void gf2_matrix_transpose_le64x64(uint8_t *__restrict__ dst,
+                                                uint8_t const *__restrict__ src,
                                                 const uint32_t rowstride_dst,
                                                 const uint32_t rowstride_src,
                                                 const uint32_t n) {
     // Preload the n input rows into level 1, using a minimum of cache lines (compact storage).
     uint64_t t[64];
-    uint8_t const *restrict wks = src;
+    uint8_t const *__restrict__ wks = src;
     uint64_t const m      = __LEFT_BITMASK(n);
     int k;
     for (k = 0; k < n; ++k) {
@@ -1114,7 +1114,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
     // [A1]
     // ...
     // [Al]
-    uint8_t *restrict wk = (uint8_t *)dst;
+    uint8_t *__restrict__ wk = (uint8_t *)dst;
     switch (log2j) {
         case 5: {
             const uint32_t j_rowstride_dst = 32 * rowstride_dst;
@@ -1154,7 +1154,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
         case 2: {
             const uint32_t j_rowstride_dst = 4 * rowstride_dst;
             for (uint32_t k = 0; k < 4; ++k) {
-                uint64_t *restrict wk2 = wk;
+                uint64_t *__restrict__ wk2 = (uint64_t *__restrict__)wk;
                 uint64_t tk            = t[k];
                 for (int i = 0; i < 2; ++i) {
                     wk2[0]                   = tk & m;
@@ -1175,7 +1175,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
         case 1: {
             const uint32_t j_rowstride_dst = 2 * rowstride_dst;
             for (uint32_t k = 0; k < 2; ++k) {
-                uint64_t *restrict wk2 = wk;
+                uint64_t *__restrict__ wk2 = (uint64_t *__restrict__)wk;
                 uint64_t tk            = t[k];
                 for (int i = 0; i < 8; ++i) {
                     wk2[0]                   = tk & m;
@@ -1190,7 +1190,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
             break;
         }
         case 0: {
-            uint64_t *restrict wk2 = wk;
+            uint64_t *__restrict__ wk2 = (uint64_t *__restrict__) wk;
             uint64_t tk            = t[0];
             for (int i = 0; i < 16; ++i) {
                 wk2[0]                 = tk & m;
@@ -1218,19 +1218,19 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *restrict dst,
 /// \param rowstride_dst Rowstride of destination matrix.
 /// \param rowstride_src Rowstride of source matrix.
 /// \param n Number of columns in source matrix, must be less than 64.
-static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
-                                                uint8_t const *restrict src,
+static inline void gf2_matrix_transpose_64xle64(uint8_t *__restrict__ dst,
+                                                uint8_t const *__restrict__ src,
                                                 const uint32_t rowstride_dst,
                                                 const uint32_t rowstride_src,
                                                 const uint32_t n) {
     uint64_t t[64];
     int log2j = log2_ceil((int)n);
-    const uint8_t  *restrict wks = src;
+    const uint8_t  *__restrict__ wks = src;
     const uint64_t mask = __LEFT_BITMASK(n);
     switch (log2j) {
         case 6: {
             gf2_matrix_transpose_64x64((uint8_t *)t, src, 8, rowstride_src);
-            uint8_t *restrict wk = dst;
+            uint8_t *__restrict__ wk = dst;
             for (uint32_t k = 0; k < n; ++k) {
                 *(uint64_t *)wk = t[k] & mask;
                 wk += rowstride_dst;
@@ -1268,7 +1268,7 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
             break;
         }
         case 2: {
-            uint8_t const *restrict wks2 = wks + 60 * rowstride_src;
+            uint8_t const *__restrict__ wks2 = wks + 60 * rowstride_src;
             t[0]                      = *(uint64_t *)(wks2 + 0);
             t[1]                      = *(uint64_t *)(wks2 +     rowstride_src);
             t[2]                      = *(uint64_t *)(wks2 + 2 * rowstride_src);
@@ -1314,7 +1314,7 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
     }
     int j = 1 << log2j;
     _mzd_transpose_Nxjx64(t, j);
-    uint8_t *restrict wk = dst;
+    uint8_t *__restrict__ wk = dst;
     for (int k = 0; k < n; ++k) {
         *(uint64_t *)wk = t[k] & mask;
         wk += rowstride_dst;
@@ -1328,13 +1328,13 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *restrict dst,
 /// \param rowstride_src
 /// \param n
 /// \param m
-static inline void gf2_matrix_transpose_le64xle64(uint8_t *restrict dst,
-                                                  uint8_t const *restrict src,
+static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
+                                                  uint8_t const *__restrict__ src,
                                                   const uint32_t rowstride_dst,
                                                   const uint32_t rowstride_src,
                                                   const uint32_t n,
                                                   const uint32_t m) {
-    uint8_t const *restrict wks = src;
+    uint8_t const *__restrict__ wks = src;
     uint64_t t[64];
     const uint64_t mask = __LEFT_BITMASK(m);
     int k;
@@ -1346,7 +1346,7 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *restrict dst,
     while (k < 64) t[k++] = 0;
 
     gf2_matrix_transpose_64x64((uint8_t *)t, (uint8_t *)t, 8, 8);
-    uint8_t *restrict wk = dst;
+    uint8_t *__restrict__ wk = dst;
     for (uint32_t s = 0; s < m; ++s) {
         *(uint64_t *)wk = t[s];
         wk += rowstride_dst;
@@ -1360,8 +1360,8 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *restrict dst,
 /// \param nrows
 /// \param ncols
 /// \param maxsize
-static inline void gf2_matrix_transpose_small(uint8_t *restrict fwd,
-                                              uint8_t const *restrict fws,
+static inline void gf2_matrix_transpose_small(uint8_t *__restrict__ fwd,
+                                              uint8_t const *__restrict__ fws,
                                               const uint32_t rowstride_dst,
                                               const uint32_t rowstride_src,
                                               const uint32_t nrows,
@@ -1387,8 +1387,8 @@ static inline void gf2_matrix_transpose_small(uint8_t *restrict fwd,
 /// \param nrows
 /// \param ncols
 /// \param maxsize
-void gf2_matrix_transpose_base(uint8_t *restrict fwd,
-                               uint8_t const *restrict fws,
+void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
+                               uint8_t const *__restrict__ fws,
                                const uint32_t rowstride_dst,
                                const uint32_t rowstride_src,
                                uint32_t nrows,
@@ -1414,8 +1414,8 @@ void gf2_matrix_transpose_base(uint8_t *restrict fwd,
          */
         int js = ncols & nrows & 64;  // True if the total number of whole 64x64 matrices is odd.
         const uint32_t rowstride_64_dst      = 64 * rowstride_dst;
-        uint64_t *restrict fwd_current       = (uint64_t *)fwd;
-        uint64_t const *restrict fws_current = (uint64_t *)fws;
+        uint64_t *__restrict__ fwd_current       = (uint64_t *)fwd;
+        uint64_t const *__restrict__ fws_current = (uint64_t *)fws;
         if (js) {
             js = 1;
             gf2_matrix_transpose_64x64(fwd, fws, rowstride_dst, rowstride_src);
@@ -1428,8 +1428,8 @@ void gf2_matrix_transpose_base(uint8_t *restrict fwd,
         const uint32_t whole_64cols = ncols / 64;
         // The use of delayed and even, is to avoid calling _mzd_copy_transpose_64x64_2 twice.
         // This way it can be inlined without duplicating the amount of code that has to be loaded.
-        uint64_t *restrict fwd_delayed       = NULL;
-        uint64_t const *restrict fws_delayed = NULL;
+        uint64_t *__restrict__ fwd_delayed       = NULL;
+        uint64_t const *__restrict__ fws_delayed = NULL;
         int even                         = 0;
         while (1) {
             for (int j = js; j < whole_64cols; ++j) {
@@ -1437,8 +1437,9 @@ void gf2_matrix_transpose_base(uint8_t *restrict fwd,
                     fwd_delayed = fwd_current;
                     fws_delayed = fws_current;
                 } else {
-                    gf2_matrix_transpose_64x64_2(fwd_delayed, fwd_current, fws_delayed, fws_current,
-                                                rowstride_dst, rowstride_src);
+                    // TODO wont compile on C++
+                    // gf2_matrix_transpose_64x64_2(fwd_delayed, fwd_current, fws_delayed, fws_current,
+                    //                             rowstride_dst, rowstride_src);
                 }
                 fwd_current += rowstride_64_dst;
                 ++fws_current;
@@ -1453,8 +1454,8 @@ void gf2_matrix_transpose_base(uint8_t *restrict fwd,
             fws += 64 * rowstride_src;
             if (nrows < 64) break;
             js          = 0;
-            fws_current = fws;
-            fwd_current = fwd;
+            fws_current =(uint64_t *__restrict__)fws;
+            fwd_current =(uint64_t *__restrict__)fwd;
         }
     }
 

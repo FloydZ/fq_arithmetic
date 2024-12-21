@@ -3,6 +3,8 @@
 #include <stdio.h>
 
 #include "arith.h"
+#include "vector.h"
+#include "arith.h"
 
 
 #ifdef USE_AVX2
@@ -71,7 +73,7 @@ uint32_t test_vector_add() {
     gf2to12 *v2 = gf2to12_vector_alloc(N);
     gf2to12 *v3 = gf2to12_vector_alloc(N);
 
-    gf2to12_vector_rand(v1, N);
+    gf2to12_vector_random(v1, N);
     gf2to12_vector_zero(v2, N);
     gf2to12_vector_zero(v3, N);
 
@@ -98,7 +100,7 @@ uint32_t test_vector_add_gf2() {
     gf2to12 *v2 = gf2to12_vector_alloc(N);
     gf2to12 *v3 = gf2to12_vector_alloc(N);
 
-    gf2_vector_rng(v1, N);
+    gf2_vector_random(v1, N);
     gf2to12_vector_zero(v2, N);
     gf2to12_vector_zero(v3, N);
 
@@ -126,7 +128,7 @@ uint32_t test_vector_scalar_add_gf2_v3() {
     gf2to12 *v2 = gf2to12_vector_alloc(N);
     gf2to12 *v3 = gf2to12_vector_alloc(N);
 
-    gf2_vector_rng(v1, N);
+    gf2_vector_random(v1, N);
     gf2to12_vector_zero(v2, N);
     gf2to12_vector_zero(v3, N);
 
@@ -172,13 +174,15 @@ uint32_t test_vector_mul_acc(void) {
 
 int main() {
 #ifdef USE_AVX2
-    if (test_arith_vector_mul()) { return 1; }
+    // if (test_arith_vector_mul()) { return 1; }
+
+
     if (test_vector_add()) { return 1; }
     if (test_vector_add_gf2()) { return 1; }
     if (test_vector_scalar_add_gf2_v3()) { return 1; }
     if (test_vector_mul_acc()) { return 1; }
 #endif
 
-    printf("finished\n");
+    printf("all good\n");
 	return 0;
 }

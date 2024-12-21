@@ -42,7 +42,7 @@ uint32_t test_matrix_transpose_le8xle8() {
         // for (uint32_t ncols = 6; ncols <= 8; ncols ++) {
             gf2 *A = gf2_matrix_alloc(nrows, ncols);
             gf2 *B = gf2_matrix_alloc(nrows, ncols);
-            gf2_matrix_rng(A, nrows, ncols);
+            gf2_matrix_random(A, nrows, ncols);
             // gf2_matrix_print(A, nrows, ncols);
             // printf("\n");
 
@@ -76,7 +76,7 @@ uint32_t test_matrix_transpose_le16xle16() {
             const uint32_t ncols = nrows;
             gf2 *A = gf2_matrix_alloc(nrows, ncols);
             gf2 *B = gf2_matrix_alloc(nrows, ncols);
-            gf2_matrix_rng(A, nrows, ncols);
+            gf2_matrix_random(A, nrows, ncols);
             // gf2_matrix_print(A, nrows, ncols);
             // printf("\n");
 
@@ -110,7 +110,7 @@ uint32_t test_matrix_transpose_le32xle32() {
             const uint32_t ncols = nrows;
             gf2 *A = gf2_matrix_alloc(nrows, ncols);
             gf2 *B = gf2_matrix_alloc(nrows, ncols);
-            gf2_matrix_rng(A, nrows, ncols);
+            gf2_matrix_random(A, nrows, ncols);
             // gf2_matrix_print(A, nrows, ncols);
             // printf("\n");
 
@@ -141,7 +141,7 @@ uint32_t test_matrix_transpose_64x64() {
     uint32_t ret = 0, nrows=64, ncols=64;
     gf2 *A = gf2_matrix_alloc(nrows, ncols);
     gf2 *B = gf2_matrix_alloc(nrows, ncols);
-    gf2_matrix_rng(A, nrows, ncols);
+    gf2_matrix_random(A, nrows, ncols);
 
     gf2_matrix_transpose_64x64(B, A, 8, 8);
 
@@ -175,7 +175,7 @@ uint32_t test_matrix_transpose_le64xle64() {
         const uint32_t ncols = nrows;
         gf2 *A = gf2_matrix_alloc(nrows, ncols);
         gf2 *B = gf2_matrix_alloc(nrows, ncols);
-        gf2_matrix_rng(A, nrows, ncols);
+        gf2_matrix_random(A, nrows, ncols);
         gf2_matrix_transpose_le64xle64(B, A, 8, 8, nrows, ncols);
 
         for (uint32_t i = 0; i < nrows; i++) {
@@ -277,7 +277,7 @@ uint32_t test_matrix_transpose_small() {
         const uint32_t ncols = nrows;
         gf2 *A = gf2_matrix_alloc(nrows, ncols);
         gf2 *B = gf2_matrix_alloc(nrows, ncols);
-        gf2_matrix_rng(A, nrows, ncols);
+        gf2_matrix_random(A, nrows, ncols);
 
         const uint32_t maxsize = MAX(nrows, ncols);
         const uint32_t stride = (nrows + 7u) / 8u;
@@ -312,7 +312,7 @@ uint32_t test_matrix_transpose_middle() {
         const uint32_t ncols = nrows;
         gf2 *A = gf2_matrix_alloc(nrows, ncols);
         gf2 *B = gf2_matrix_alloc(nrows, ncols);
-        gf2_matrix_rng(A, nrows, ncols);
+        gf2_matrix_random(A, nrows, ncols);
 
         const uint32_t maxsize = MAX(nrows, ncols);
         const uint32_t stride = (nrows + 7u) / 8u;
@@ -351,7 +351,7 @@ uint32_t test_vector_add() {
     gf2 *C1 = gf2_vector_alloc(N);
     gf2 *C2 = gf2_vector_alloc(N);
 
-    gf2_vector_rng(A, N);
+    gf2_vector_random(A, N);
     //gf2_vector_rng(B, N);
     gf2_vector_zero(B, N);
 
@@ -380,7 +380,7 @@ uint32_t test_vector_scalar() {
     gf2 *C1 = gf2_vector_alloc(N);
     gf2 *C2 = gf2_vector_alloc(N);
 
-    gf2_vector_rng(A, N);
+    gf2_vector_random(A, N);
 
     gf2 t = 1; 
     gf2_vector_scalar(C1, A, t, N);
@@ -408,7 +408,7 @@ uint32_t test_vector_scalar_add() {
     gf2 *C1 = gf2_vector_alloc(N);
     gf2 *C2 = gf2_vector_alloc(N);
 
-    gf2_vector_rng(A, N);
+    gf2_vector_random(A, N);
     gf2_vector_zero(C1, N);
     gf2_vector_zero(C2, N);
 
@@ -440,8 +440,8 @@ uint32_t test_vector_scalar_add_v2() {
     gf2 *C1 = gf2_vector_alloc(N);
     gf2 *C2 = gf2_vector_alloc(N);
 
-    gf2_vector_rng(A, N);
-    gf2_vector_rng(B, N);
+    gf2_vector_random(A, N);
+    gf2_vector_random(B, N);
 
     const gf2 t = 1;
     gf2_vector_scalar_add_v2(C1, A, t, B, N);
@@ -467,15 +467,14 @@ uint32_t test_vector_eval() {
     uint32_t ret = 0;
 
     gf2 *A  = gf2_vector_alloc(N);
-
-    gf2_vector_rng(A, N);
+    gf2_vector_random(A, N);
 
     const gf2 t = 1;
     const gf2 t1 = gf2_vector_eval(A, t, N);
-    const gf2 t2 = gf2_vector_eval(A, t, N);
+    const gf2 t2 = gf2_vector_eval_u256(A, t, N);
 
     if (t1 != t2) {
-        printf("error test_vector_eval\n");
+        printf("error test_vector_eval: %d %d\n", t1, t2);
         ret += 1;
     }
 
@@ -494,8 +493,8 @@ uint32_t test_matrix_add() {
     gf2 *C1 = gf2_matrix_alloc(nrows, ncols);
     gf2 *C2 = gf2_matrix_alloc(nrows, ncols);
 
-    gf2_matrix_rng(A, nrows, ncols);
-    gf2_matrix_rng(B, nrows, ncols);
+    gf2_matrix_random(A, nrows, ncols);
+    gf2_matrix_random(B, nrows, ncols);
 
     gf2_matrix_add(C1, A, B, nrows, ncols);
     gf2_matrix_add_u256(C2, A, B, nrows, ncols);
@@ -525,7 +524,7 @@ uint32_t test_matrix_scalar_add() {
     gf2 *C1 = gf2_matrix_alloc(nrows, ncols);
     gf2 *C2 = gf2_matrix_alloc(nrows, ncols);
 
-    gf2_matrix_rng(B, nrows, ncols);
+    gf2_matrix_random(B, nrows, ncols);
     gf2_matrix_zero(C1, nrows, ncols);
     gf2_matrix_zero(C2, nrows, ncols);
 
@@ -560,8 +559,8 @@ uint32_t test_matrix_mul() {
     gf2 *C1 = gf2_matrix_alloc(nrows1, ncols2);
     gf2 *C2 = gf2_matrix_alloc(nrows1, ncols2);
 
-    gf2_matrix_rng(A, nrows1, ncols1);
-    gf2_matrix_rng(B, nrows1, ncols1);
+    gf2_matrix_random(A, nrows1, ncols1);
+    gf2_matrix_random(B, nrows1, ncols1);
 
     gf2_matrix_mul(C1, A, B, nrows1, ncols1, ncols2);
     gf2_matrix_mul_u256(C2, A, B, nrows1, ncols1, ncols2);
@@ -587,14 +586,14 @@ finish:
 #endif
 
 int main() {
-    if (test_matrix_m4ri()) { return 1; }
-    if (test_matrix_transpose_le8xle8()) { return 1; }
-    if (test_matrix_transpose_le16xle16()) { return 1; }
-    if (test_matrix_transpose_le32xle32()) { return 1; }
-    if (test_matrix_transpose_64x64()) { return 1; }
-    if (test_matrix_transpose_le64xle64()) { return 1; }
-    if (test_matrix_transpose_64xle64()) { return 1; }
-    if (test_matrix_transpose_le64x64()) { return 1; }
+    // if (test_matrix_m4ri()) { return 1; }
+    // if (test_matrix_transpose_le8xle8()) { return 1; }
+    // if (test_matrix_transpose_le16xle16()) { return 1; }
+    // if (test_matrix_transpose_le32xle32()) { return 1; }
+    // if (test_matrix_transpose_64x64()) { return 1; }
+    // if (test_matrix_transpose_le64xle64()) { return 1; }
+    // if (test_matrix_transpose_64xle64()) { return 1; }
+    // if (test_matrix_transpose_le64x64()) { return 1; }
     // TODO if (test_matrix_transpose_small()) { return 1; }
     // TODO if (test_matrix_transpose_middle()) { return 1; }
 

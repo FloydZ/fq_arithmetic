@@ -271,6 +271,7 @@ static inline __m512i gf2to12v_mul_u512(const __m512i a,
     return r;
 }
 #endif
+
 ///
 static inline __m256i gf2to12v_mul_u256(const __m256i a,
                                         const __m256i b) {
@@ -415,9 +416,9 @@ static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
     return r;
 }
 
-/// @param a
-/// @param b in gf2, not compresses: a single bit in 
-/// @return
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
 static inline __m256i gf2to12v_mul_gf2_u256(const __m256i a,
                                             const __m256i b) {
     const __m256i m1 = _mm256_set1_epi16(-1);
@@ -425,9 +426,9 @@ static inline __m256i gf2to12v_mul_gf2_u256(const __m256i a,
     return a & t1;
 }
 
-/// @param a
-/// @param b in gf2, not compresses: a single bit in 
-/// @return
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
 static inline __m128i gf2to12v_mul_gf2_u128(const __m128i a,
                                             const __m128i b) {
     const __m128i m1 = _mm_set1_epi16(-1);
@@ -435,19 +436,17 @@ static inline __m128i gf2to12v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 
-///
-/// @param a
-/// @param b in gf2
-/// @return
+/// \param a
+/// \param b in gf2
+/// \return
 static inline __m256i gf2to12v_mul_gf2_u256_v2(const __m256i a,
                                                const __m256i b) {
     return a & b;
 }
 
-///
-/// @param a
-/// @param b in gf2
-/// @return
+/// \param a
+/// \param b in gf2
+/// \return
 static inline __m128i gf2to12v_mul_gf2_u128_v2(const __m128i a,
                                                const __m128i b) {
     return a & b;
@@ -458,6 +457,3 @@ static inline __m128i gf2to12v_mul_gf2_u128_v2(const __m128i a,
 #endif
 
 #endif //FQ_ARITHMETIC_ARITH_H
-
-#include "vector.h"
-#include "matrix.h"

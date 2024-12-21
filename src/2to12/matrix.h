@@ -364,7 +364,7 @@ static inline void gf2to12_matrix_add_scalar_u256_v2(gf2to12 *matrix1,
                                                      const gf2to12 *matrix3,
                                                      const uint32_t n_rows, 
                                                      const uint32_t n_cols) {
-    gf2to12_vector_scalar_add_u256_2(matrix1, matrix2, scalar, matrix3, n_rows*n_cols);
+    gf2to12_vector_scalar_add_u256_v2(matrix1, matrix2, scalar, matrix3, n_rows*n_cols);
 }
 
 /// \brief matrix1 += scalar * matrix2

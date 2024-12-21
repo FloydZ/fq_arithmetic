@@ -1,17 +1,18 @@
 #pragma once
+
 #include <string.h>
 
 #include "arith.h"
 #include "../2/vector.h"
 
-/// @param n size of the vector
-/// @return vector(n)
+/// \param n size of the vector
+/// \return vector(n)
 static inline gf2to12* gf2to12_vector_alloc(const uint32_t n) {
     return (gf2to12 *)malloc(n*sizeof(gf2to12));
 }
 
-/// @param v vector to print
-/// @param n size of the vector
+/// \param v vector to print
+/// \param n size of the vector
 static inline void gf2to12_vector_print(gf2to12 *v,
                                        const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -20,26 +21,26 @@ static inline void gf2to12_vector_print(gf2to12 *v,
     printf("\n");
 }
 
-/// @param v = 0
-/// @param n size of vector
+/// \param v = 0
+/// \param n size of vector
 static inline void gf2to12_vector_zero(gf2to12 *v,
                                        const uint32_t n) {
     memset(v, 0, n*sizeof(gf2to12));
 }
 
-/// @param v v[i] = rand()
-/// @param n size of vector
-static inline void gf2to12_vector_rand(gf2to12 *v,
-                                       const uint32_t n) {
+/// \param v v[i] = rand()
+/// \param n size of vector
+static inline void gf2to12_vector_random(gf2to12 *v,
+                                         const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         v[i] = rand() & 0x3FF;
     }
 }
 
 ///
-/// @param v1 = v2 
-/// @param v2
-/// @param n size of the two vectors
+/// \param v1 = v2
+/// \param v2
+/// \param n size of the two vectors
 static inline void gf2to12_vector_copy(gf2to12 *__restrict__ v1,
                                        const gf2to12 *__restrict__ v2,
                                        const uint32_t n) {
@@ -48,7 +49,6 @@ static inline void gf2to12_vector_copy(gf2to12 *__restrict__ v1,
     }
 }
 
-///
 /// a = b
 static inline void gf2to12_vector_set_to_gf2(gf2to12 *a,
                                              const gf2 *b,
@@ -59,10 +59,9 @@ static inline void gf2to12_vector_set_to_gf2(gf2to12 *a,
     }
 }
 
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out[in/out] += in
+/// \param in[in]
+/// \param n number of elements
 static inline void gf2to12_vector_add(gf2to12 *out,
                                       const gf2to12 *in,
                                       const uint32_t n) {
@@ -71,11 +70,9 @@ static inline void gf2to12_vector_add(gf2to12 *out,
     }
 }
 
-
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out[in/out] += in
+/// \param in[in]
+/// \param n number of elements
 static inline void gf2to12_vector_add_gf2(gf2to12 *__restrict__ out,
                                           const gf2 *__restrict__ in,
                                           const uint32_t n) {
@@ -85,10 +82,10 @@ static inline void gf2to12_vector_add_gf2(gf2to12 *__restrict__ out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf2to12_vector_scalar_add(gf2to12 *out,
                                              const gf2to12 c,
                                              const gf2to12 *in,
@@ -98,10 +95,10 @@ static inline void gf2to12_vector_scalar_add(gf2to12 *out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf2to12_vector_scalar_add_gf2(gf2to12 *__restrict__ out,
                                                   const gf2 c,
                                                   const gf2to12 *__restrict__ in,
@@ -112,9 +109,9 @@ static inline void gf2to12_vector_scalar_add_gf2(gf2to12 *__restrict__ out,
 }
 
 
-/// @param out += t*in
-/// @param in
-/// @param n length of the vectors
+/// \param out += t*in
+/// \param in
+/// \param n length of the vectors
 static inline void gf2to12_vector_scalar_add_gf2_v3(gf2to12 *__restrict__ out,
                                                     const gf2to12 t,
                                                     const gf2 *__restrict__ in,
@@ -145,8 +142,8 @@ static inline gf2to12 gf2to12_vector_mul_acc(const gf2to12 *a,
 
 
 /// out += in1
-/// \param out
-/// \param in1
+/// \param out[in/out]
+/// \param in1[in]
 /// \param d  number of elements NOT bytes
 static inline void gf2to12_vector_add_u256(gf2to12 *__restrict__ out,
                                            const gf2to12 *__restrict__ in1,
@@ -178,9 +175,10 @@ static inline void gf2to12_vector_add_u256(gf2to12 *__restrict__ out,
 }
 
 /// out = in1 + in2
-/// \param out
-/// \param in1
-/// \param d  number of elements NOT bytes
+/// \param out[out]
+/// \param in1[in]
+/// \param in2[in]
+/// \param d number of elements NOT bytes
 static inline void gf2to12_vector_add_u256_v2(gf2to12 *__restrict__ out,
                                               const gf2to12 *__restrict__ in1,
                                               const gf2to12 *__restrict__ in2,
@@ -193,6 +191,7 @@ static inline void gf2to12_vector_add_u256_v2(gf2to12 *__restrict__ out,
                             _mm256_loadu_si256((__m256i *)in2));
         i   -= 16u;
         in1 += 16u;
+        in2 += 16u;
         out += 16u;
     }
 
@@ -203,6 +202,7 @@ static inline void gf2to12_vector_add_u256_v2(gf2to12 *__restrict__ out,
                          _mm_loadu_si128((__m128i *)in2));
         i   -= 8u;
         in1 += 8u;
+        in2 += 8u;
         out += 8u;
     }
 
@@ -211,10 +211,9 @@ static inline void gf2to12_vector_add_u256_v2(gf2to12 *__restrict__ out,
     }
 }
 
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf2to12_vector_add_gf2_u256(gf2to12 *__restrict__ out,
                                                const gf2 *__restrict__ in,
                                                const uint32_t n) {
@@ -250,20 +249,25 @@ static inline void gf2to12_vector_add_gf2_u256(gf2to12 *__restrict__ out,
         out += 8u;
     }
 
-    // TODO maybe just write everything into a buffer and
-    // apply the avx2 code
-    for (; i > 0; --i) {
-        *out++ ^= -((*in) & 0xF);
-        i -= 1;
-        if (i) {
-            *out++ ^= -((*in) >> 4);
-            in++;
-        }
+    if (i) {
+        uint16_t tmp[8] __attribute__((aligned(16))) = {0};
+        for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
+        const __m128i m1 = _mm_loadu_si128((__m128i *)tmp);
+
+        uint64_t mask = (1ul << (i * 8)) - 1ul;
+        const uint32_t t11 = in[0];
+        const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101&mask);
+        const __m128i t1 = _mm_set_epi64x(0, t21);
+        const __m128i m2 = _mm_cvtepi8_epi16(t1);
+
+        _mm_storeu_si128((__m128i *)tmp, m2 ^ m1);
+
+        for (uint32_t j = 0; j < i; j++) { out[j] = tmp[j];}
     }
 }
 
 /// out = in1 + a*in2
-static inline void gf2to12_vector_scalar_add_u256_2(gf2to12 *__restrict__ out,
+static inline void gf2to12_vector_scalar_add_u256_v2(gf2to12 *__restrict__ out,
                                                     const gf2to12 *__restrict__ in1,
                                                     const gf2to12 a,
                                                     const gf2to12 *__restrict__ in2,

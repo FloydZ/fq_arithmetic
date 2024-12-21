@@ -5,25 +5,24 @@
 
 #define gf2_vector_size(N) ((N+7)/8)
 
-///
-/// @param n
-/// @return
+/// \param n
+/// \return
 static inline gf2* gf2_vector_alloc(const uint32_t n) {
     return (gf2 *)malloc(((n + 7)/8)*sizeof(gf2));
 }
 
-/// @param vector
-/// @param i
-/// @return vector[i]
+/// \param vector
+/// \param i
+/// \return vector[i]
 static inline gf2 gf2_vector_get(const gf2 *vector,
-                                  const uint32_t i) {
+                                 const uint32_t i) {
     return (vector[i / (8)] >> (i % 8)) & 0x01;
 }
 
 /// vector[i] = scalar
-/// @param vector
-/// @param i 
-/// @param scalar 
+/// \param vector
+/// \param i 
+/// \param scalar 
 static inline void gf2_vector_set(gf2 *vector,
                                   const uint32_t i,
                                   const gf2 scalar) {
@@ -32,8 +31,8 @@ static inline void gf2_vector_set(gf2 *vector,
 }
 
 /// \param[in/out] arg1 = random
-static inline void gf2_vector_rng(gf2 *arg1,
-                                  const uint32_t d) {
+static inline void gf2_vector_random(gf2 *arg1,
+                                     const uint32_t d) {
     for (uint32_t i = 0; i < (d+7)/8; i++) {
         arg1[i] = rand();
     }
@@ -48,10 +47,10 @@ static inline void gf2_vector_zero(gf2 *arg1,
 }
 
 /// arg1 = arg2 + arg3
-/// @param arg1
-/// @param arg2
-/// @param arg3
-/// @param d
+/// \param arg1
+/// \param arg2
+/// \param arg3
+/// \param d
 static inline void gf2_vector_add(gf2 *arg1,
                                   const gf2 *arg2,
                                   const gf2 *arg3,
@@ -63,10 +62,10 @@ static inline void gf2_vector_add(gf2 *arg1,
 
 
 /// arg1 = scalar*arg2
-/// @param arg1
-/// @param arg2
-/// @param value
-/// @param d
+/// \param arg1
+/// \param arg2
+/// \param value
+/// \param d
 static inline void gf2_vector_scalar(gf2 *arg1,
                                      const gf2 *arg2,
                                      const gf2 value,
@@ -77,10 +76,10 @@ static inline void gf2_vector_scalar(gf2 *arg1,
 }
 
 /// arg1 += scalar*arg2
-/// @param arg1
-/// @param arg2
-/// @param value
-/// @param d
+/// \param arg1
+/// \param arg2
+/// \param value
+/// \param d
 static inline void gf2_vector_scalar_add(gf2 *arg1,
                                          const gf2 *arg2,
                                          const gf2 value,
@@ -91,11 +90,11 @@ static inline void gf2_vector_scalar_add(gf2 *arg1,
 }
 
 /// arg1 = arg2 + scalar*arg3
-/// @param arg1
-/// @param arg2
-/// @param scalar
-/// @param arg3
-/// @param d
+/// \param arg1
+/// \param arg2
+/// \param scalar
+/// \param arg3
+/// \param d
 static inline void gf2_vector_scalar_add_v2(gf2 *arg1,
                                             const gf2 *arg2,
                                             const gf2 scalar,
@@ -111,7 +110,7 @@ static inline gf2 gf2_vector_eval(const gf2 *arg1,
                                   const gf2 value,
                                   const uint32_t d) {
 	gf2 ret = 0;
-	for (int i = d-1; i>=0; i--) {
+	for (int i = ((d+7)/8)-1; i>=0; i--) {
         const gf2 t = gf2_vector_get(arg1, i);
 		ret ^= gf2_mul(value, t);
 	}
@@ -122,10 +121,10 @@ static inline gf2 gf2_vector_eval(const gf2 *arg1,
 #ifdef USE_AVX2
 
 /// out = in1 + in2
-/// @param out
-/// @param in1
-/// @param in1
-/// @param d
+/// \param out[out]
+/// \param in1[in]
+/// \param in2[in]
+/// \param d number of
 static inline void gf2_vector_add_u256(gf2 *out,
                                        const gf2 *in1,
                                        const gf2 *in2,
@@ -155,15 +154,15 @@ static inline void gf2_vector_add_u256(gf2 *out,
     }
 
     for (; nbytes > 0; --nbytes) {
-        *out++ = *in1++;
+        *out++ = *in1++ ^ *in2++;
     }
 }
 
 /// out = scalar*in1
-/// @param out
-/// @param in1
-/// @param scalar
-/// @param d
+/// \param out
+/// \param in1
+/// \param scalar
+/// \param d
 static inline void gf2_vector_scalar_u256(gf2 *out,
                                           const gf2 *in1,
                                           const gf2 scalar,
@@ -201,10 +200,10 @@ static inline void gf2_vector_scalar_u256(gf2 *out,
 }
 
 /// out += scalar*in1
-/// @param out
-/// @param in1
-/// @param scalar
-/// @param d
+/// \param out
+/// \param in1
+/// \param scalar
+/// \param d
 static inline void gf2_vector_scalar_add_u256(gf2 *out,
                                               const gf2 *in1,
                                               const gf2 scalar,
@@ -245,11 +244,11 @@ static inline void gf2_vector_scalar_add_u256(gf2 *out,
 
 
 /// out = in1 + scalar*in2
-/// @param out
-/// @param in1
-/// @param scalar
-/// @param in2
-/// @param d
+/// \param out[out]
+/// \param in1
+/// \param scalar
+/// \param in2
+/// \param d
 static inline void gf2_vector_scalar_add_u256_v2(gf2 *out,
                                                  const gf2 *in1,
                                                  const gf2 scalar,

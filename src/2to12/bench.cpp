@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 #include "arith.h"
+#include "vector.h"
+#include "matrix.h"
 
 const uint32_t N = 200;
 
@@ -41,8 +43,8 @@ static void BM_gf2to12_mul_v2(benchmark::State& state) {
 static void BM_gf2to12_vector_add(benchmark::State& state) {
     gf2to12 *v1 = gf2to12_vector_alloc(N);
     gf2to12 *v2 = gf2to12_vector_alloc(N);
-    gf2to12_vector_rand(v1, N);
-    gf2to12_vector_rand(v2, N);
+    gf2to12_vector_random(v1, N);
+    gf2to12_vector_random(v2, N);
 
     uint64_t a = 1;
     for (auto _ : state) {
@@ -58,8 +60,8 @@ static void BM_gf2to12_vector_add(benchmark::State& state) {
 static void BM_gf2to12_vector_add_gf2(benchmark::State& state) {
     gf2to12 *v1 = gf2to12_vector_alloc(N);
     gf2to12 *v2 = gf2to12_vector_alloc(N);
-    gf2to12_vector_rand(v1, N);
-    gf2to12_vector_rand(v2, N);
+    gf2to12_vector_random(v1, N);
+    gf2to12_vector_random(v2, N);
 
     uint64_t a = 1;
     for (auto _ : state) {
@@ -113,8 +115,8 @@ static void BM_gf2to12v_mul_u256_v2(benchmark::State& state) {
 static void BM_gf2to12_vector_add_u256(benchmark::State& state) {
     gf2to12 *v1 = gf2to12_vector_alloc(N);
     gf2to12 *v2 = gf2to12_vector_alloc(N);
-    gf2to12_vector_rand(v1, N);
-    gf2to12_vector_rand(v2, N);
+    gf2to12_vector_random(v1, N);
+    gf2to12_vector_random(v2, N);
 
     uint64_t a = 1;
     for (auto _ : state) {
@@ -130,8 +132,8 @@ static void BM_gf2to12_vector_add_u256(benchmark::State& state) {
 static void BM_gf2to12_vector_add_gf2_u256(benchmark::State& state) {
     gf2to12 *v1 = gf2to12_vector_alloc(N);
     gf2to12 *v2 = gf2to12_vector_alloc(N);
-    gf2to12_vector_rand(v1, N);
-    gf2to12_vector_rand(v2, N);
+    gf2to12_vector_random(v1, N);
+    gf2to12_vector_random(v2, N);
 
     uint64_t a = 1;
     for (auto _ : state) {
