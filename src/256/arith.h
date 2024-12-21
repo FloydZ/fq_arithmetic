@@ -283,6 +283,17 @@ const gf256 __gf256_mul[8192] __attribute__((aligned(32))) = {
         0x00,0xff,0xe5,0x1a,0xd1,0x2e,0x34,0xcb, 0xb9,0x46,0x5c,0xa3,0x68,0x97,0x8d,0x72, 0x00,0x69,0xd2,0xbb,0xbf,0xd6,0x6d,0x04, 0x65,0x0c,0xb7,0xde,0xda,0xb3,0x08,0x61
 };
 
+const unsigned char __gf256_mulbase_v2[256] __attribute__((aligned(32))) = {
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0,
+        0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x10,0x12,0x14,0x16,0x18,0x1a,0x1c,0x1e, 0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb,
+        0x00,0x04,0x08,0x0c,0x10,0x14,0x18,0x1c, 0x20,0x24,0x28,0x2c,0x30,0x34,0x38,0x3c, 0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed,
+        0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38, 0x40,0x48,0x50,0x58,0x60,0x68,0x70,0x78, 0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1,
+        0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70, 0x80,0x90,0xa0,0xb0,0xc0,0xd0,0xe0,0xf0, 0x00,0x1b,0x36,0x2d,0x6c,0x77,0x5a,0x41, 0xd8,0xc3,0xee,0xf5,0xb4,0xaf,0x82,0x99,
+        0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0, 0x1b,0x3b,0x5b,0x7b,0x9b,0xbb,0xdb,0xfb, 0x00,0x36,0x6c,0x5a,0xd8,0xee,0xb4,0x82, 0xab,0x9d,0xc7,0xf1,0x73,0x45,0x1f,0x29,
+        0x00,0x40,0x80,0xc0,0x1b,0x5b,0x9b,0xdb, 0x36,0x76,0xb6,0xf6,0x2d,0x6d,0xad,0xed, 0x00,0x6c,0xd8,0xb4,0xab,0xc7,0x73,0x1f, 0x4d,0x21,0x95,0xf9,0xe6,0x8a,0x3e,0x52,
+        0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1, 0x00,0xd8,0xab,0x73,0x4d,0x95,0xe6,0x3e, 0x9a,0x42,0x31,0xe9,0xd7,0x0f,0x7c,0xa4
+};
+
 // this is based on the aes poly
 const gf256 __gf256_mulbase[8*256] = {
 		// row_nr**1, row_nr**2, ..., row_nr**8
@@ -765,6 +776,17 @@ const uint8_t __gf256_mulbase_avx2[256] __attribute__((aligned(32))) = {
         0x00,0x80,0x1b,0x9b,0x36,0xb6,0x2d,0xad, 0x6c,0xec,0x77,0xf7,0x5a,0xda,0x41,0xc1, 0x00,0xd8,0xab,0x73,0x4d,0x95,0xe6,0x3e, 0x9a,0x42,0x31,0xe9,0xd7,0x0f,0x7c,0xa4
 };
 
+/// horizontal xor, but not withing a single limb, but over the 8 -32bit limbs
+/// \param in
+/// \return
+static inline uint32_t gf256v_hadd_u32_u256(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return _mm256_extract_epi32(ret, 0);
+}
+
+
 /// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
 __m256i gf256v_squ_u256(const __m256i a) {
 #ifdef __AVX512VL__
@@ -986,7 +1008,7 @@ __m256i gf256v_mul_u256(const __m256i a,
 /// (8 limbs in 32bit in a) * 8 limbs multiplication
 /// this is the avx version of `gf256v_scalar_u64_v2`.
 /// memory is loaded depending on b. So unsafe if its secret
-__m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
+__m256i gf256v_mul_u32_u256(__m256i a, __m256i b) {
 #ifdef USE_AVX512
     return _mm256_gf2p8mul_epi8(a, b);
 #else
@@ -1025,39 +1047,42 @@ __m256i gf256v_mul_u256_v3(__m256i a, __m256i b) {
 
 // 6 instructions
 static inline
-__m256i gf256_linear_transform_8x8_256b (
-		__m256i tab_l, __m256i tab_h, __m256i v, __m256i mask_f){
-    return _mm256_shuffle_epi8(tab_l, v & mask_f) ^ 
-		   _mm256_shuffle_epi8(tab_h, _mm256_srli_epi16(v, 4) & mask_f);
+__m256i gf256_linear_transform_8x8_256b(__m256i tab_l,
+                                        __m256i tab_h,
+                                        __m256i v,
+                                        __m256i mask_f) {
+    return _mm256_shuffle_epi8(tab_l, v & mask_f) ^
+           _mm256_shuffle_epi8(tab_h, _mm256_srli_epi16(v, 4) & mask_f);
 }
 
-
-// load memory with address depended on the value of a. unsafe if a is a secret.
+/// TODO doc
+/// \param tab_l
+/// \param tab_h
+/// \param v
+/// \param mask_f
+/// \return
 static inline
-__m256i tbl32_gf256_mul_const(unsigned char a , __m256i b) {
-    const __m256i tab = _mm256_load_si256((__m256i const *)(__gf256_mul + ((unsigned)a)*32 ));
-    const __m256i tab_l = _mm256_permute2x128_si256( tab , tab , 0 );
-    const __m256i tab_h = _mm256_permute2x128_si256( tab , tab , 0x11 );
-
-    return gf256_linear_transform_8x8_256b(tab_l, tab_h, b, _mm256_set1_epi8(0xf));
+__m128i gf256_linear_transform_8x8_128b(__m128i tab_l,
+                                        __m128i tab_h,
+                                        __m128i v,
+                                        __m128i mask_f) {
+    return _mm_shuffle_epi8(tab_l, v & mask_f) ^
+		   _mm_shuffle_epi8(tab_h, _mm_srli_epi16(v, 4) & mask_f);
 }
 
-// generate multiplication table
 static inline
-__m256i tbl32_gf256_multab(uint8_t b) {
-#if 1
-// faster
-    __m256i bx = _mm256_set1_epi16( b );
-    __m256i b1 = _mm256_srli_epi16( bx , 1 );
+__m256i gf256v_generate_multab_16_single_element_u256(const uint8_t a) {
+    __m256i bx = _mm256_set1_epi16(a);
+    __m256i b1 = _mm256_srli_epi16(bx , 1 );
 
-    __m256i tab0 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*0));
-    __m256i tab1 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*1));
-    __m256i tab2 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*2));
-    __m256i tab3 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*3));
-    __m256i tab4 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*4));
-    __m256i tab5 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*5));
-    __m256i tab6 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*6));
-    __m256i tab7 = _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*7));
+    __m256i tab0 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*0));
+    __m256i tab1 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*1));
+    __m256i tab2 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*2));
+    __m256i tab3 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*3));
+    __m256i tab4 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*4));
+    __m256i tab5 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*5));
+    __m256i tab6 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*6));
+    __m256i tab7 = _mm256_load_si256((__m256i const *) (__gf256_mulbase_v2 + 32*7));
 
     __m256i mask_1  = _mm256_set1_epi16(1);
     __m256i mask_4  = _mm256_set1_epi16(4);
@@ -1073,29 +1098,66 @@ __m256i tbl32_gf256_multab(uint8_t b) {
            ^ ( tab5 & _mm256_cmpgt_epi16( b1&mask_16 , mask_0) )
            ^ ( tab6 & _mm256_cmpgt_epi16( bx&mask_64 , mask_0) )
            ^ ( tab7 & _mm256_cmpgt_epi16( b1&mask_64 , mask_0) );
-#else
-    __m256i bx = _mm256_set1_epi8( b );
-    __m256i mask = _mm256_set1_epi8(1);
-
-	return ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*0)) & _mm256_cmpeq_epi8(mask,bx&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*1)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,1)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*2)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,2)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*3)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,3)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*4)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,4)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*5)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,5)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*6)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,6)&mask) )
-		^ ( _mm256_load_si256((__m256i const *) (__gf256_mulbase + 32*7)) & _mm256_cmpeq_epi8(mask,_mm256_srli_epi16(bx,7)&mask) );
-#endif
 }
 
-__m256i gf256v_mul_scalar_u256(__m256i a, uint8_t _b) {
-    const __m256i m_tab = tbl32_gf256_multab(_b);
-    const __m256i ml = _mm256_permute2x128_si256(m_tab, m_tab, 0);
-    const __m256i mh = _mm256_permute2x128_si256(m_tab, m_tab, 0x11);
-    const __m256i mask = _mm256_set1_epi8(0xf);
+/// TODO doc
+static inline
+__m128i gf256v_generate_multab_16_single_element_u128(const uint8_t a) {
+    __m128i bx = _mm_set1_epi16(a);
+    __m128i b1 = _mm_srli_epi16(bx , 1 );
 
+    __m128i tab0 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*0));
+    __m128i tab1 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*1));
+    __m128i tab2 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*2));
+    __m128i tab3 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*3));
+    __m128i tab4 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*4));
+    __m128i tab5 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*5));
+    __m128i tab6 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*6));
+    __m128i tab7 = _mm_load_si128((__m128i const *) (__gf256_mulbase_v2 + 32*7));
+
+    __m128i mask_1  = _mm_set1_epi16(1);
+    __m128i mask_4  = _mm_set1_epi16(4);
+    __m128i mask_16 = _mm_set1_epi16(16);
+    __m128i mask_64 = _mm_set1_epi16(64);
+    __m128i mask_0  = _mm_setzero_si128();
+
+    return   (tab0 & _mm_cmpgt_epi16(bx&mask_1  , mask_0))
+           ^ (tab1 & _mm_cmpgt_epi16(b1&mask_1  , mask_0))
+           ^ (tab2 & _mm_cmpgt_epi16(bx&mask_4  , mask_0))
+           ^ (tab3 & _mm_cmpgt_epi16(b1&mask_4  , mask_0))
+           ^ (tab4 & _mm_cmpgt_epi16(bx&mask_16 , mask_0))
+           ^ (tab5 & _mm_cmpgt_epi16(b1&mask_16 , mask_0))
+           ^ (tab6 & _mm_cmpgt_epi16(bx&mask_64 , mask_0))
+           ^ (tab7 & _mm_cmpgt_epi16(b1&mask_64 , mask_0));
+}
+
+/// TODO doc
+/// \param a
+/// \param _b
+/// \return
+__m256i gf256v_mul_scalar_u256(__m256i a,
+                               uint8_t _b) {
+    const __m256i tab = gf256v_generate_multab_16_single_element_u256(_b);
+    const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
+    const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
+    const __m256i mask = _mm256_set1_epi8(0xf);
     return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
+
+/// TODO doc
+/// \param a
+/// \param _b
+/// \return
+__m256i gf256v_mul_scalar_u256_non_ct(__m256i a,
+                                     uint8_t _b) {
+    const __m256i tab = _mm256_load_si256((__m256i const *) (__gf256_mul + (_b*32)));
+    const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
+    const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
+    const __m256i mask = _mm256_set1_epi8(0xf);
+    return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
+}
+
+
 #endif /// end USE_AVX2
 #undef MODULUS
 

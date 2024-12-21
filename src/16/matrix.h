@@ -9,7 +9,7 @@
 #define gf16_matrix_bytes_per_column(n_rows) ((n_rows >> 1u) + (n_rows & 1u))
 #define gf16_matrix_bytes_size(n_rows, n_cols) ((gf16_matrix_bytes_per_column(n_rows)) * (n_cols))
 
-
+/// TODO doc
 /// \param m
 /// \param nrows
 /// \param i
@@ -54,7 +54,7 @@ ff_t gf16_matrix_get(const ff_t *matrix,
     }
 }
 
-///
+/// TODO doc
 /// \param matrix
 /// \param n_rows
 /// \param i
@@ -81,11 +81,11 @@ void gf16_matrix_set(ff_t *matrix,
 
 // A[row1] -= a*A[row2]
 void gf16_sub_row(uint8_t *A,
-             const uint32_t nrows,
-             const uint32_t ncols,
-             const uint32_t row1,
-             const uint32_t row2,
-             const uint8_t a) {
+                  const uint32_t nrows,
+                  const uint32_t ncols,
+                  const uint32_t row1,
+                  const uint32_t row2,
+                  const uint8_t a) {
     for (uint32_t i = 0; i < ncols; i++) {
         uint8_t d1 = gf16_matrix_get(A, nrows, row1, i);
         uint8_t d2 = gf16_matrix_get(A, nrows, row2, i);
@@ -182,9 +182,9 @@ void gf16_matrix_id(uint8_t *C,
 /// \param C
 /// \param nrows
 /// \param ncols
-void gf16_matrix_rng(uint8_t *C,
-				     const size_t nrows,
-				     const size_t ncols) {
+void gf16_matrix_random(uint8_t *C,
+				        const size_t nrows,
+				        const size_t ncols) {
 	for (uint32_t i = 0; i < nrows; i++) {
 		for (uint32_t j = 0; j < ncols; j++) {
 		    gf16_matrix_set(C, nrows, i, j, rand()&0xF);
