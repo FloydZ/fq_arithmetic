@@ -345,20 +345,20 @@ static inline void gf2to12_vector_scalar_add_gf2_u256(gf2to12 *__restrict__ out,
     }
 
     //// sse code
-    while(i >= 8u) {
-        const __m128i t1 = _mm_loadu_si128((__m128i *)out);
-        const __m128i t2 = _mm_loadu_si128((__m128i *)in1);
-        const __m128i t3 = gf2to12v_mul_u128(t2, a128);
-        const __m128i t = t1 ^ t3;
+    // while(i >= 8u) {
+    //     const __m128i t1 = _mm_loadu_si128((__m128i *)out);
+    //     const __m128i t2 = _mm_loadu_si128((__m128i *)in1);
+    //     const __m128i t3 = gf2to12v_mul_u128(t2, a128);
+    //     const __m128i t = t1 ^ t3;
 
-        _mm_storeu_si128((__m128i *)out, t);
-        i   -= 8u;
-        in1 += 8u;
-        out += 8u;
-    }
+    //     _mm_storeu_si128((__m128i *)out, t);
+    //     i   -= 8u;
+    //     in1 += 8u;
+    //     out += 8u;
+    // }
 
     for (; i > 0; --i) {
-        *out++ ^= *in1++ & a;
+        *out++ ^= *in1++ & aa;
     }
 }
 

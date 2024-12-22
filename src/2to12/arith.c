@@ -149,7 +149,7 @@ uint32_t test_vector_scalar_add_gf2_v3() {
     return 0;
 }
 
-uint32_t test_vector_mul_acc(void) {
+uint32_t test_vector_mul_acc() {
     const uint32_t N = 256;
 
     gf2to12 *v1 = gf2to12_vector_alloc(N);
