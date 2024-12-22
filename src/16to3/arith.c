@@ -2,8 +2,10 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "arith.h"
 #include "../16/vector.h"
+#include "arith.h"
+#include "vector.h"
+#include "matrix.h"
 
 bool test_add() {
     for (uint32_t i = 0; i < 1u << 12; ++i) {
@@ -148,7 +150,7 @@ uint32_t test_vector_add_gf16() {
     gf16to3 *m2 = gf16to3_vector_alloc(N);
     gf16to3 *m3 = gf16to3_vector_alloc(N);
 
-    gf16_vector_rand(m1, N);
+    gf16_vector_random(m1, N);
     gf16to3_vector_rand(m2, N);
     gf16to3_vector_copy(m3, m2, N);
 
@@ -224,7 +226,7 @@ uint32_t test_matrix_gf16_add() {
     gf16to3_matrix_zero(m3, nrows, ncols);
     gf16to3_matrix_zero(m4, nrows, ncols);
     gf16to3_matrix_rng(m1, nrows, ncols);
-    gf16_matrix_rng(m2, nrows, ncols);
+    gf16_matrix_random(m2, nrows, ncols);
     gf16to3_matrix_add_gf16(m3, m1, m2, nrows, ncols);
     // gf16to3_matrix_add_gf16_16x16(m4, m1, m2, ncols, ncols);
     // gf16to3_matrix_add_gf16_8x8(m4, m1, m2, ncols, ncols);
@@ -260,7 +262,7 @@ uint32_t test_matrix_gf16_map() {
 
     gf16to3_matrix_zero(m3, nrows, ncols);
     gf16to3_matrix_zero(m4, nrows, ncols);
-    gf16_matrix_rng(m2, nrows, ncols);
+    gf16_matrix_random(m2, nrows, ncols);
     gf16to3_matrix_map_gf16(m3, m2, nrows, ncols);
     gf16to3_matrix_map_gf16_XxX(m4, m2, nrows, ncols);
 
@@ -298,7 +300,7 @@ uint32_t test_matrix_gf16_add_mul() {
     gf16to3_matrix_zero(m3, nrows, ncols2);
     gf16to3_matrix_zero(m4, nrows, ncols2);
     gf16to3_matrix_rng(m1, nrows, ncols);
-    gf16_matrix_rng(m2, ncols, ncols2);
+    gf16_matrix_random(m2, ncols, ncols2);
     gf16to3_matrix_mul_gf16(m3, m1, m2, nrows, ncols, ncols2);
     gf16to3_matrix_mul_gf16_XxX(m4, m1, m2, nrows, ncols);
 

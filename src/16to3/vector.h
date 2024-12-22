@@ -1,16 +1,14 @@
 #pragma once
 #include "arith.h"
 
-/// 
-/// @param n 
-/// @return 
+/// \param n
+/// \return
 static inline gf16to3* gf16to3_vector_alloc(const uint32_t n) {
     return (gf16to3 *)malloc(n*sizeof(gf16to3));
 }
 
-///
-/// @param v
-/// @param n
+/// \param v
+/// \param n
 static inline void gf16to3_vector_print(gf16to3 *v,
                                        const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -19,17 +17,15 @@ static inline void gf16to3_vector_print(gf16to3 *v,
     printf("\n");
 }
 
-///
-/// @param v 
-/// @param n 
+/// \param v
+/// \param n
 static inline void gf16to3_vector_zero(gf16to3 *v,
                                        const uint32_t n) {
     memset(v, 0, n*sizeof(gf16to3));
 }
 
-/// 
-/// @param v 
-/// @param n 
+/// \param v
+/// \param n
 static inline void gf16to3_vector_rand(gf16to3 *v,
                                        const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -37,10 +33,9 @@ static inline void gf16to3_vector_rand(gf16to3 *v,
     }
 }
 
-/// 
-/// @param v1 
-/// @param v2 
-/// @param n 
+/// \param v1
+/// \param v2
+/// \param n
 static inline void gf16to3_vector_copy(gf16to3 *__restrict__ v1,
                                        const gf16to3 *__restrict__ v2,
                                        const uint32_t n) {
@@ -49,10 +44,9 @@ static inline void gf16to3_vector_copy(gf16to3 *__restrict__ v1,
     }
 }
 
-/// 
-/// @param out += in
-/// @param in 
-/// @param n 
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf16to3_vector_add(gf16to3 *out,
                                       const gf16to3 *in,
                                       const uint32_t n) {
@@ -61,11 +55,9 @@ static inline void gf16to3_vector_add(gf16to3 *out,
     }
 }
 
-
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf16to3_vector_add_gf16(gf16to3 *__restrict__ out,
                                            const gf16 *__restrict__ in,
                                            const uint32_t n) {
@@ -75,10 +67,10 @@ static inline void gf16to3_vector_add_gf16(gf16to3 *__restrict__ out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf16to3_vector_scalar_add(gf16to3 *out,
                                              const gf16to3 c,
                                              const gf16to3 *in,
@@ -88,10 +80,10 @@ static inline void gf16to3_vector_scalar_add(gf16to3 *out,
     }
 }
 
-/// @param out += c*in
-/// @param c
-/// @param in
-/// @param n
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n
 static inline void gf16to3_vector_scalar_add_gf16(gf16to3 *__restrict__ out,
                                                   const gf16 c,
                                                   const gf16to3 *__restrict__ in,
@@ -101,24 +93,57 @@ static inline void gf16to3_vector_scalar_add_gf16(gf16to3 *__restrict__ out,
     }
 }
 
+/// \brief vector1 = vector2 * scalar
+///
+/// \param[out] vector1 Vector over ff_mu
+/// \param[in] scalar Scalar over ff_mu
+/// \param[in] vector2 Vector over ff
+/// \param[in] ncols number of columns
+static inline void gf16to3_vector_scalar_multiple_gf16_v2(gf16to3 *vector1,
+                                                          const gf16to3 scalar,
+                                                          const gf16 *vector2,
+                                                          const uint32_t ncols) {
+    for (uint32_t i = 0; i < ncols; i++) {
+        const gf16to3 t = gf16_vector_get(vector2, i);
+        vector1[i] = gf16to3_mul(scalar, t);
+    }
+}
+
 #ifdef USE_AVX2
 
-///
-/// @param out += in
-/// @param in
-/// @param n
+/// loads 16 elements/ 8 bytes and extends them to gf256
+static inline __m256i gf16to3_vector_extend_gf16_x32(const gf16 *in) {
+    const uint32_t t11 = *((uint32_t *)(in + 0));
+    const uint32_t t12 = *((uint32_t *)(in + 4));
+    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+    const __m128i t1 = _mm_set_epi64x(t22, t21);
+    return _mm256_cvtepu8_epi16(t1);
+}
+
+static inline __m256i gf16to3_vector_extend_gf16_x32_v2(const gf16 *in) {
+    const uint16_t t11 = *((uint16_t *)(in + 0));
+    const uint16_t t12 = *((uint16_t *)(in + 2));
+    const uint16_t t13 = *((uint16_t *)(in + 4));
+    const uint16_t t14 = *((uint16_t *)(in + 6));
+
+    const uint64_t t21 = _pdep_u64(t11, 0x000F000F000F000F);
+    const uint64_t t22 = _pdep_u64(t12, 0x000F000F000F000F);
+    const uint64_t t23 = _pdep_u64(t13, 0x000F000F000F000F);
+    const uint64_t t24 = _pdep_u64(t14, 0x000F000F000F000F);
+    return _mm256_setr_epi64x(t21, t22, t23, t24);
+}
+
+/// \param out += in
+/// \param in
+/// \param n
 static inline void gf16to3_vector_add_gf16_u256(gf16to3 *__restrict__ out,
                                                 const gf16 *__restrict__ in,
                                                 const uint32_t n) {
     uint32_t i = n;
     // avx2 code
     while (i >= 16u) {
-        const uint32_t t11 = *((uint32_t *)(in + 0));
-        const uint32_t t12 = *((uint32_t *)(in + 4));
-        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-        const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
-        const __m128i t1 = _mm_set_epi64x(t22, t21);
-        const __m256i m2 = _mm256_cvtepu8_epi16(t1);
+        const __m256i m2 = gf16to3_vector_extend_gf16_x32(in);
         const __m256i m1 = _mm256_loadu_si256((const __m256i *)out);
 
         _mm256_storeu_si256((__m256i *)out, m1 ^ m2);
@@ -276,6 +301,23 @@ static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
 
     for (; i > 0; --i) {
         *out++ ^= gf16to3_mul_gf16(*in1++, a);
+    }
+}
+
+
+/// \brief vector1 = vector2 * scalar
+///
+/// \param[out] vector1 Vector over ff_mu
+/// \param[in] scalar Scalar over ff_mu
+/// \param[in] vector2 Vector over ff
+/// \param[in] ncols number of columns
+static inline void gf16to3_vector_scalar_multiple_gf16_v2_u256(gf16to3 *vector1,
+                                                               const gf16to3 scalar,
+                                                               const gf16 *vector2,
+                                                               const uint32_t ncols) {
+    for (uint32_t i = 0; i < ncols; i++) {
+        const gf16to3 t = gf16_vector_get(vector2, i);
+        vector1[i] = gf16to3_mul(scalar, t);
     }
 }
 #endif

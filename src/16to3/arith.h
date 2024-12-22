@@ -199,6 +199,3 @@ uint16x8_t gf16to3v_mul_u128(uint16x8_t a, uint16x8_t b) {
 }
 #endif
 #undef MODULUS
-
-#include "vector.h"
-#include "matrix.h"

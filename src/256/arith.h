@@ -713,6 +713,7 @@ uint64_t gf256v_scalar_u64(uint64_t a, uint8_t b) {
 
     return r64;
 }
+
 /// vector*constant multiplication using table lookup
 /// \param a vector: 8 GF(256) elements
 /// \param b constant: single GF(256) element
