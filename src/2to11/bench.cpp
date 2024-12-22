@@ -44,8 +44,26 @@ static void BM_gf2to11v_mul_u256(benchmark::State& state) {
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
 
+static void BM_gf2to11v_mul_u256_v2(benchmark::State& state) {
+    const __m256i acc = {783246, 872346, 876502, 236478234023948};
+    __m256i a = {23874687,905389,235645274,873465876},
+            b = {87326457823,234652734687,8723468726347,78234687236478};
+    uint64_t c = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        a = gf2to11v_mul_u256_v2(a, b);
+        c += cpucycles();
+        a ^= acc;
+        b ^= a;
+        benchmark::DoNotOptimize(a);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
 
 BENCHMARK(BM_gf2to11v_mul_u256);
+BENCHMARK(BM_gf2to11v_mul_u256_v2);
 #endif
 
 BENCHMARK(BM_gf2to11_mul);

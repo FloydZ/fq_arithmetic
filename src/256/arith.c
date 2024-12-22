@@ -414,6 +414,78 @@ uint32_t test_vector_set_to_gf16_u256() {
 }
 
 
+uint32_t test_vector_set_to_gf2_u256() {
+    uint32_t ret = 0;
+    const uint32_t N = 31;
+    gf2 *A = gf2_vector_alloc(N);
+    gf256 *B1 = gf256_vector_alloc(N);
+    gf256 *B2 = gf256_vector_alloc(N);
+
+    gf2_vector_random(A, N);
+    gf256_vector_set_to_gf2(B1, A, N);
+    gf256_vector_set_to_gf2_u256(B2, A, N);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (B1[i] != B2[i]) {
+            printf("test_vector_set_to_gf2_u256 error %d\n", i);
+            ret = 1;
+            break;
+        }
+    }
+
+    free(A); free(B1); free(B2);
+    return ret;
+}
+
+uint32_t test_vector_add_gf2_2_u256() {
+    uint32_t ret = 0;
+    const uint32_t N = 31;
+    gf2 *A = gf2_vector_alloc(N);
+    gf256 *B = gf256_vector_alloc(N);
+    gf256 *C1 = gf256_vector_alloc(N);
+    gf256 *C2 = gf256_vector_alloc(N);
+
+    gf2_vector_random(A, N);
+    gf256_vector_add_2_gf2(C1, B, A, N);
+    gf256_vector_add_2_gf2_u256(C2, B, A, N);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (C1[i] != C2[i]) {
+            printf("test_vector_add_2_gf2_u256 error %d\n", i);
+            ret = 1;
+            break;
+        }
+    }
+
+    free(A); free(B); free(C1); free(C2);
+    return ret;
+}
+
+uint32_t test_vector_scalar_gf2_u256() {
+    uint32_t ret = 0;
+    const uint32_t N = 31;
+    gf2 *A = gf2_vector_alloc(N);
+    gf256 *C1 = gf256_vector_alloc(N);
+    gf256 *C2 = gf256_vector_alloc(N);
+
+    gf256 B = 1;
+    gf2_vector_random(A, N);
+    gf256_vector_scalar_gf2(C1, B, A, N);
+    gf256_vector_scalar_gf2_u256(C2, B, A, N);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (C1[i] != C2[i]) {
+            gf256_vector_print(C1, N);
+            gf256_vector_print(C2, N);
+            printf("test_vector_scalar_2_gf2_u256 error %d\n", i);
+            ret = 1;
+            break;
+        }
+    }
+
+    free(A); free(C1); free(C2);
+    return ret;
+}
 
 
 int check_gf256v_mul_u256() {
@@ -496,8 +568,12 @@ int main() {
     if(test_matrix_product_le32xBxle16_u256()) { return 1; }
 
     if(test_vector_set_to_gf16_u256()) { return 1; }
-    // if(check_gf256v_mul_u256()) { return 1; }
+    if(test_vector_set_to_gf2_u256()) { return 1; }
+    if(test_vector_add_gf2_2_u256()) { return 1; }
+    if(test_vector_scalar_gf2_u256()) {}
+
     if(check_gf256v_mul_scalar_u256()) { return 1; }
+    // if(check_gf256v_mul_u256()) { return 1; }
 #endif
 
     printf("All good\n");

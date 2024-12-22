@@ -89,10 +89,6 @@ static inline __m256i gf2to11v_mul_u256(const __m256i a,
     ma = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(b, 5) & m1) ^ (_mm256_srli_epi16(b, 3)));
     r = ma & a;
 
-    // 10
-    // mr = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(r, 4) & m1) ^ (_mm256_srli_epi16(r, 4)));
-    // ma = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(b, 5) & m1) ^ (_mm256_srli_epi16(b, 3)));
-    // r =  (ma & a) ^ (mr & mod) ^ _mm256_add_epi16(r, r);
     // 9
     mr = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(r, 5) & m1) ^ (_mm256_srli_epi16(r, 3)));
     ma = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(b, 6) & m1) ^ (_mm256_srli_epi16(b, 2)));

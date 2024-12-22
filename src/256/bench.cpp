@@ -4,6 +4,8 @@
 #include "vector.h"
 #include "matrix.h"
 
+#define LIST_SIZE (1u << 10u)
+gf256 *A, *B, *C;
 gf256 *m1, *m2, *m3;
 const uint32_t nrows = 24;
 const uint32_t ncols = 15;
@@ -42,6 +44,16 @@ static void BM_gf256_scalar_u64_v2(benchmark::State& state) {
     }
 }
 
+
+static void BM_gf256v_vector_set_to_gf2(benchmark::State& state) {
+    for (auto _ : state) {
+        gf256_vector_set_to_gf2(A, B, sizeof(gf256) * state.range(0));
+        gf256_vector_set_to_gf2(B, A, sizeof(gf256) * state.range(0));
+        benchmark::ClobberMemory();
+    }
+}
+
+
 static void BM_gf256_matrix_add(benchmark::State& state) {
     for (auto _ : state) {
         gf256_matrix_add(m1, m2, m3, nrows, ncols);
@@ -50,7 +62,6 @@ static void BM_gf256_matrix_add(benchmark::State& state) {
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
-
 
 static void BM_gf256_matrix_add_gf16(benchmark::State& state) {
     for (auto _ : state) {
@@ -125,8 +136,6 @@ static void BM_gf256_matrix_product_gf16_2(benchmark::State& state) {
 }
 
 #ifdef USE_AVX2
-#define LIST_SIZE (1u << 10u)
-gf256 *A, *B, *C;
 
 static void BM_gf256_mul_u256(benchmark::State& state) {
     v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
@@ -157,6 +166,14 @@ static void BM_gf256v_mul_scalar_avx2(benchmark::State& state) {
     }
 }
 
+
+static void BM_gf256v_vector_set_to_gf2_u256(benchmark::State& state) {
+    for (auto _ : state) {
+        gf256_vector_set_to_gf2_u256(A, B, sizeof(gf256) * state.range(0));
+        gf256_vector_set_to_gf2_u256(B, A, sizeof(gf256) * state.range(0));
+        benchmark::ClobberMemory();
+    }
+}
 
 static void BM_gf256v_vector_set_to_gf16_u256(benchmark::State& state) {
     for (auto _ : state) {
@@ -261,7 +278,6 @@ static void BM_gf256_matrix_product_16x16xC_u256(benchmark::State& state) {
     }
 }
 
-
 static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
     for (auto _ : state) {
         gf256_matrix_product_le32xBxle16_u256(m1, m2, m3, nrows, ncols, ncols2);
@@ -275,6 +291,7 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 // BENCHMARK(BM_gf256_mul_u256_v2);
 // BENCHMARK(BM_gf256v_mul_scalar_avx2);
 // BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
+BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256   )->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256_v2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256_matrix_add_u256);
@@ -285,7 +302,7 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 // BENCHMARK(BM_gf256_matrix_product_gf16_2_u256);
 // BENCHMARK(BM_gf256_matrix_product_8x8xC_u256);
 // BENCHMARK(BM_gf256_matrix_product_16x16xC_u256);
-BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
+// BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
 #endif
 
 
@@ -311,13 +328,15 @@ BENCHMARK(BM_gf256v_vector_add_scalar_u512)->RangeMultiplier(2)->Range(32, LIST_
 //BENCHMARK(BM_gf256_scalar_u64);
 //BENCHMARK(BM_gf256_scalar_u64_v2);
 
+BENCHMARK(BM_gf256v_vector_set_to_gf2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
+
 // BENCHMARK(BM_gf256_matrix_add);
 // BENCHMARK(BM_gf256_matrix_add_gf16);
 // BENCHMARK(BM_gf256_matrix_add_multiple_gf16);
 // BENCHMARK(BM_gf256_matrix_add_multiple_2);
 // BENCHMARK(BM_gf256_matrix_product_gf16_1);
 // BENCHMARK(BM_gf256_matrix_product_gf16_2);
-BENCHMARK(BM_gf256_matrix_product);
+// BENCHMARK(BM_gf256_matrix_product);
 // BENCHMARK(BM_gf256_matrix_product_8x8xC);
 // BENCHMARK(BM_gf256_matrix_product_16x16xC);
 
