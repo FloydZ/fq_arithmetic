@@ -60,8 +60,8 @@ uint32_t test_vector_add() {
     gf16to3 *m2 = gf16to3_vector_alloc(N);
     gf16to3 *m3 = gf16to3_vector_alloc(N);
 
-    gf16to3_vector_rand(m1, N);
-    gf16to3_vector_rand(m2, N);
+    gf16to3_vector_random(m1, N);
+    gf16to3_vector_random(m2, N);
     gf16to3_vector_copy(m3, m2, N);
 
     gf16to3_vector_add(m2, m1, N);
@@ -89,8 +89,8 @@ uint32_t test_vector_scalar_add() {
     gf16to3 *m2 = gf16to3_vector_alloc(N);
     gf16to3 *m3 = gf16to3_vector_alloc(N);
 
-    gf16to3_vector_rand(m1, N);
-    gf16to3_vector_rand(m2, N);
+    gf16to3_vector_random(m1, N);
+    gf16to3_vector_random(m2, N);
     //gf16to3_vector_zero(m2, N);
     gf16to3_vector_copy(m3, m2, N);
 
@@ -120,8 +120,8 @@ uint32_t test_vector_scalar_add_gf16() {
     gf16to3 *m2 = gf16to3_vector_alloc(N);
     gf16to3 *m3 = gf16to3_vector_alloc(N);
 
-    gf16to3_vector_rand(m1, N);
-    gf16to3_vector_rand(m2, N);
+    gf16to3_vector_random(m1, N);
+    gf16to3_vector_random(m2, N);
     gf16to3_vector_copy(m3, m2, N);
 
     const gf16 scalar = 1;
@@ -145,13 +145,14 @@ uint32_t test_vector_scalar_add_gf16() {
 }
 
 uint32_t test_vector_add_gf16() {
-    const uint32_t N = 16;
+    const uint32_t N = 17;
     gf16 *m1 = gf16_vector_alloc(N);
     gf16to3 *m2 = gf16to3_vector_alloc(N);
     gf16to3 *m3 = gf16to3_vector_alloc(N);
 
     gf16_vector_random(m1, N);
-    gf16to3_vector_rand(m2, N);
+    gf16to3_vector_random(m2, N);
+    //gf16to3_vector_zero(m2, N);
     gf16to3_vector_copy(m3, m2, N);
 
     gf16to3_vector_add_gf16(m2, m1, N);
@@ -162,6 +163,9 @@ uint32_t test_vector_add_gf16() {
         const gf16to3 c = m2[j];
         const gf16to3 d = m3[j];
         if (d != c) {
+            gf16_vector_print(m1, N);
+            gf16to3_vector_print(m2, N);
+            gf16to3_vector_print(m3, N);
             printf("test vector add gf16\n");
             ret = 1;
             goto finish;
@@ -389,16 +393,19 @@ int main() {
     // if (test_mul()) { return 1; }
 #ifdef USE_AVX2
     // if (test_arith_vector_mul()) { return 1; }
-    if (test_vector_add_gf16()) { return 1; }
+    // if (test_vector_add_gf16()) { return 1; }
     // if (test_matrix_mul()) { return 1; }
     // if (test_matrix_gf16_add()) { return 1; }
     // if (test_matrix_gf16_map()) { return 1; }
     // if (test_matrix_gf16_add_mul()) { return 1; }
     // if (test_matrix_add_multiple()) { return 1; }
 
-    // if (test_vector_add()) { return 1; }
-    // if (test_vector_scalar_add()) { return 1; }
-    // if (test_vector_scalar_add_gf16()) { return 1; }
+    if (test_vector_add_gf16()) { return 1; }
+    if (test_vector_add()) { return 1; }
+    if (test_vector_scalar_add()) { return 1; }
+    if (test_vector_scalar_add_gf16()) { return 1; }
 #endif
+
+    printf("all good\n");
     return 0;
 }

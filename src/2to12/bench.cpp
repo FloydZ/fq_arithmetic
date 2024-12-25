@@ -4,6 +4,11 @@
 #include "matrix.h"
 
 const uint32_t N = 200;
+const uint32_t nrows1 = 56;
+const uint32_t ncols1 = 6;
+const uint32_t ncols2 = 50;
+
+gf2to12 *m1, *m2, *m3;
 
 static long long cpucycles(void) noexcept {
     unsigned long long result;
@@ -75,6 +80,31 @@ static void BM_gf2to12_vector_add_gf2(benchmark::State& state) {
 }
 
 
+static void BM_gf2to12_matrix_mul_gf2(benchmark::State& state) {
+    for (auto _ : state) {
+        gf2to12_matrix_mul_gf2(m1, (gf2 *)m2, m3, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_gf2(m2, (gf2 *)m3, m1, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_gf2(m3, (gf2 *)m1, m2, nrows1, ncols1, ncols2);
+
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+}
+
+static void BM_gf2to12_matrix_mul(benchmark::State& state) {
+    uint64_t c = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf2to12_matrix_mul(m1, m2, m3, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul(m2, m3, m1, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul(m3, m1, m2, nrows1, ncols1, ncols2);
+        c += cpucycles();
+
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 
@@ -145,10 +175,42 @@ static void BM_gf2to12_vector_add_gf2_u256(benchmark::State& state) {
 
     free(v1); free(v2);
 }
+
+
+static void BM_gf2to12_matrix_mul_gf2_u256(benchmark::State& state) {
+    for (auto _ : state) {
+        gf2to12_matrix_mul_gf2_u256(m1, (gf2 *)m2, m3, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_gf2_u256(m2, (gf2 *)m3, m1, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_gf2_u256(m3, (gf2 *)m1, m2, nrows1, ncols1, ncols2);
+
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+}
+
+static void BM_gf2to12_matrix_mul_u256(benchmark::State& state) {
+    uint64_t c = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf2to12_matrix_mul_u256(m1, m2, m3, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_u256(m2, m3, m1, nrows1, ncols1, ncols2);
+        gf2to12_matrix_mul_u256(m3, m1, m2, nrows1, ncols1, ncols2);
+        c += cpucycles();
+
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
 BENCHMARK(BM_gf2to12v_mul_u256);
 BENCHMARK(BM_gf2to12v_mul_u256_v2);
-BENCHMARK(BM_gf2to12_vector_add_u256);
-BENCHMARK(BM_gf2to12_vector_add_gf2_u256);
+
+//BENCHMARK(BM_gf2to12_vector_add_u256);
+//BENCHMARK(BM_gf2to12_vector_add_gf2_u256);
+
+BENCHMARK(BM_gf2to12_matrix_mul_gf2_u256);
+BENCHMARK(BM_gf2to12_matrix_mul_u256);
+
 #endif
 
 #ifdef USE_AVX512
@@ -192,6 +254,25 @@ BENCHMARK(BM_gf2to12v_mul_u512);
 
 BENCHMARK(BM_gf2to12_mul);
 BENCHMARK(BM_gf2to12_mul_v2);
-BENCHMARK(BM_gf2to12_vector_add);
-BENCHMARK(BM_gf2to12_vector_add_gf2);
-BENCHMARK_MAIN();
+// BENCHMARK(BM_gf2to12_vector_add);
+// BENCHMARK(BM_gf2to12_vector_add_gf2);
+
+BENCHMARK(BM_gf2to12_matrix_mul_gf2);
+BENCHMARK(BM_gf2to12_matrix_mul);
+
+int main(int argc, char** argv) {
+    m1 = gf2to12_matrix_alloc(nrows1, ncols2);
+    m2 = gf2to12_matrix_alloc(nrows1, ncols2);
+    m3 = gf2to12_matrix_alloc(nrows1, ncols2);
+    gf2to12_matrix_random(m1, nrows1, ncols2);
+    gf2to12_matrix_random(m2, nrows1, ncols2);
+    gf2to12_matrix_random(m3, nrows1, ncols2);
+
+    ::benchmark::Initialize(&argc, argv);
+    if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+    ::benchmark::RunSpecifiedBenchmarks();
+    ::benchmark::Shutdown();
+
+    free(m1); free(m2); free(m3);
+    return 0;
+}

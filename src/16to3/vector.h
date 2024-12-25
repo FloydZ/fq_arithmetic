@@ -26,8 +26,8 @@ static inline void gf16to3_vector_zero(gf16to3 *v,
 
 /// \param v
 /// \param n
-static inline void gf16to3_vector_rand(gf16to3 *v,
-                                       const uint32_t n) {
+static inline void gf16to3_vector_random(gf16to3 *v,
+                                         const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         v[i] = rand() & 0xFFF;
     }
@@ -62,7 +62,7 @@ static inline void gf16to3_vector_add_gf16(gf16to3 *__restrict__ out,
                                            const gf16 *__restrict__ in,
                                            const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
-        const ff_t t = gf16_matrix_get(in, 1, i, 0);
+        const ff_t t = gf16_vector_get(in, i);
         out[i] ^= t;
     }
 }
@@ -152,29 +152,44 @@ static inline void gf16to3_vector_add_gf16_u256(gf16to3 *__restrict__ out,
         out += 16u;
     }
 
-    while (i >= 8u) {
-        const uint32_t t11 = *((uint32_t *)(in + 0));
-        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-        const __m128i t1 = _mm_set_epi64x(0, t21);
-        const __m128i m2 = _mm_cvtepi8_epi16(t1);
-        const __m128i m1 = _mm_loadu_si128((__m128i *)out);
+    if (i) {
+        uint8_t tmp[32] __attribute__((aligned(32)));
+        uint16_t *tmp2 = (uint16_t *)tmp;
+        for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = in[j]; }
 
-        _mm_storeu_si128((__m128i *)out, m1 ^ m2);
-        i   -= 8u;
-        in  += 4u;
-        out += 8u;
+        const __m256i t1 = gf16to3_vector_extend_gf16_x32(tmp);
+
+        for (uint32_t j = 0; j < i; ++j) { tmp2[j] = out[j]; }
+        const __m256i m1 = _mm256_load_si256((const __m256i *)tmp2);
+
+        _mm256_store_si256((__m256i *)tmp, t1^m1);
+
+        for (uint32_t j = 0; j < i; ++j) { out[j] = tmp2[j]; }
     }
 
-    // TODO maybe just write everything into a buffer and
-    // apply the avx2 code
-    for (; i > 0; --i) {
-        *out++ ^= (*in) & 0xF;
-        i -= 1;
-        if (i) {
-            *out++ ^= (*in) >> 4;
-            in++;
-        }
-    }
+    // while (i >= 8u) {
+    //     const uint32_t t11 = *((uint32_t *)(in + 0));
+    //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    //     const __m128i t1 = _mm_set_epi64x(0, t21);
+    //     const __m128i m2 = _mm_cvtepi8_epi16(t1);
+    //     const __m128i m1 = _mm_loadu_si128((__m128i *)out);
+
+    //     _mm_storeu_si128((__m128i *)out, m1 ^ m2);
+    //     i   -= 8u;
+    //     in  += 4u;
+    //     out += 8u;
+    // }
+
+    // // TODO maybe just write everything into a buffer and
+    // // apply the avx2 code
+    // for (; i > 0; --i) {
+    //     *out++ ^= (*in) & 0xF;
+    //     i -= 1;
+    //     if (i) {
+    //         *out++ ^= (*in) >> 4;
+    //         in++;
+    //     }
+    // }
 }
 
 /// out += in1

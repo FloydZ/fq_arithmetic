@@ -272,8 +272,26 @@ static inline __m512i gf2to12v_mul_u512(const __m512i a,
 }
 #endif
 
-///
-static inline __m256i gf2to12v_mul_u256(const __m256i a,
+static inline __m256i gf2to12v_expand_gf2_x16_u256(const uint8_t *in) {
+    const uint8_t t11 = *(in + 0);
+    const uint8_t t12 = *(in + 1);
+
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+
+    const __m128i t1 = _mm_set_epi64x(t22, t21);
+    return _mm256_cvtepu8_epi16(t1);
+}
+
+static inline __m128i gf2to12v_expand_gf2_x8_u256(const uint8_t *in) {
+    const uint32_t t11 = *in;
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const __m128i t1 = _mm_set_epi64x(0, t21);
+    return _mm_cvtepi8_epi16(t1);
+}
+
+/// slower
+static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
                                         const __m256i b) {
     const __m256i mod  = _mm256_set1_epi16((short)MODULUS);
     const __m256i one  = _mm256_set1_epi8(-1);
@@ -333,9 +351,9 @@ static inline __m256i gf2to12v_mul_u256(const __m256i a,
     return r;
 }
 
-
-static inline __m256i gf2to12v_mul_u256_v2(const __m256i a,
-                                           const __m256i b) {
+// faster
+static inline __m256i gf2to12v_mul_u256(const __m256i a,
+                                        const __m256i b) {
     const __m256i mod  = _mm256_set1_epi16((short)MODULUS);
     const __m256i one  = _mm256_set1_epi8(-1);
     const __m256i zero = _mm256_set1_epi8(0);

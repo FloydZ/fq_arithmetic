@@ -31,6 +31,17 @@ void gf16_vector_set(uint8_t *v,
     }
 }
 
+/// \param v
+/// \param n
+static inline void gf16_vector_print(gf16 *v,
+                                     const uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        const gf16 t = gf16_vector_get(v, i);
+        printf("%2d ", (uint32_t )t);
+    }
+    printf("\n");
+}
+
 /// \param n
 /// \return
 static inline gf16* gf16_vector_alloc(const uint32_t n) {
@@ -49,7 +60,7 @@ static inline void gf16_vector_zero(gf16 *v,
 static inline void gf16_vector_random(gf16 *v,
                                       const uint32_t n) {
     for (uint32_t i = 0; i < (n+1)/2; i++) {
-        v[i] = rand() & 0xFFF;
+        v[i] = rand() & 0xFF;
     }
 }
 

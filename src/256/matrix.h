@@ -705,7 +705,7 @@ static inline void gf256_matrix_product_gf16_2_u256(gf256 *result,
             for (uint32_t k = 0; k < tb; ++k) {
                 tmp[k] = matrix1[j*n_rows1 + nr256*32 + k];
             }
-            A[nr256] = _mm256_loadu_si256((const __m256i *)tmp);
+            A[nr256] = _mm256_load_si256((const __m256i *)tmp);
         }
 
         // iterate over one row in matrix2

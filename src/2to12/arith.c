@@ -4,10 +4,13 @@
 
 #include "arith.h"
 #include "vector.h"
-#include "arith.h"
+#include "matrix.h"
+
+#include "../2/matrix.h"
 
 
 #ifdef USE_AVX2
+
 uint32_t test_arith_vector_mul() {
     uint16_t tmp[32];
     for (int i = 0; i < 1u << 11; ++i) {
@@ -120,7 +123,6 @@ uint32_t test_vector_add_gf2() {
     return 0;
 }
 
-
 uint32_t test_vector_scalar_add_gf2_v3() {
     const uint32_t N = 256;
 
@@ -149,6 +151,32 @@ uint32_t test_vector_scalar_add_gf2_v3() {
     return 0;
 }
 
+uint32_t test_vector_set_to_gf2() {
+    const uint32_t N = 27;
+
+    gf2 *v1     = gf2_vector_alloc(N);
+    gf2to12 *v2 = gf2to12_vector_alloc(N);
+    gf2to12 *v3 = gf2to12_vector_alloc(N);
+
+    gf2_vector_random(v1, N);
+
+    gf2to12 t = 1;
+    gf2to12_vector_set_to_gf2(v2, v1, N);
+    gf2to12_vector_set_to_gf2_u256(v3, v1, N);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (v2[i] != v3[i]) {
+            printf("error test_vector_scalar_add_gf2_v3\n");
+            gf2to12_vector_print(v2, N);
+            gf2to12_vector_print(v3, N);
+            return 1;
+        }
+    }
+
+    free(v1); free(v2); free(v3);
+    return 0;
+}
+
 uint32_t test_vector_mul_acc() {
     const uint32_t N = 256;
 
@@ -169,6 +197,139 @@ uint32_t test_vector_mul_acc() {
     free(v1); free(v2);
     return 0;
 }
+
+
+
+uint32_t test_matrix_add_gf2() {
+    const uint32_t nrows = 17;
+    const uint32_t ncols = 17;
+
+    gf2 *v1     = gf2_matrix_alloc(nrows, ncols);
+    gf2to12 *v2 = gf2to12_matrix_alloc(nrows, ncols);
+    gf2to12 *C1 = gf2to12_matrix_alloc(nrows, ncols);
+    gf2to12 *C2 = gf2to12_matrix_alloc(nrows, ncols);
+
+    gf2_matrix_random(v1, nrows, ncols);
+    gf2to12_matrix_random(v2, nrows, ncols);
+
+    gf2to12_matrix_add_gf2(C1, v1, v2, nrows, ncols);
+    gf2to12_matrix_add_gf2_u256(C2, v1, v2, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const gf2to12 t1 = gf2to12_matrix_get(C1, nrows, i, j);
+            const gf2to12 t2 = gf2to12_matrix_get(C2, nrows, i, j);
+            if (t1 != t2) {
+                printf("error test_matrix_add_gf2");
+                gf2to12_matrix_print(C1, nrows, ncols);
+                gf2to12_matrix_print(C2, nrows, ncols);
+                return 1;
+            }
+        }
+    }
+
+    free(v1); free(v2); free(C1); free(C2);
+    return 0;
+}
+
+uint32_t test_matrix_add_scalar_gf2() {
+    const uint32_t nrows = 11;
+    const uint32_t ncols = 11;
+
+    gf2 *v1     = gf2_matrix_alloc(nrows, ncols);
+    gf2to12 *C1 = gf2to12_matrix_alloc(nrows, ncols);
+    gf2to12 *C2 = gf2to12_matrix_alloc(nrows, ncols);
+
+    gf2_matrix_random(v1, nrows, ncols);
+
+    const gf2to12 v2 = 1;
+    gf2to12_matrix_add_scalar_gf2(C1, v2, v1, nrows, ncols);
+    gf2to12_matrix_add_scalar_gf2_u256(C2, v2, v1, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const gf2to12 t1 = gf2to12_matrix_get(C1, nrows, i, j);
+            const gf2to12 t2 = gf2to12_matrix_get(C2, nrows, i, j);
+            if (t1 != t2) {
+                printf("error test_matrix_add_scalar_gf2");
+                gf2to12_matrix_print(C1, nrows, ncols);
+                gf2to12_matrix_print(C2, nrows, ncols);
+                return 1;
+            }
+        }
+    }
+
+    free(v1); free(C1); free(C2);
+    return 0;
+}
+
+uint32_t test_matrix_mul_gf2() {
+    const uint32_t nrows1 = 32;
+    const uint32_t ncols1 = 2;
+    const uint32_t ncols2 = 1;
+
+    gf2 *v1     =     gf2_matrix_alloc(nrows1, ncols1);
+    gf2to12 *v2 = gf2to12_matrix_alloc(ncols1, ncols2);
+    gf2to12 *C1 = gf2to12_matrix_alloc(nrows1, ncols2);
+    gf2to12 *C2 = gf2to12_matrix_alloc(nrows1, ncols2);
+
+    gf2_matrix_random(v1, nrows1, ncols1);
+    gf2to12_matrix_random(v2, ncols1, ncols2);
+
+    gf2to12_matrix_mul_gf2(C1, v1, v2, nrows1, ncols1, ncols2);
+    gf2to12_matrix_mul_gf2_u256(C2, v1, v2, nrows1, ncols1, ncols2);
+
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const gf2to12 t1 = gf2to12_matrix_get(C1, nrows1, i, j);
+            const gf2to12 t2 = gf2to12_matrix_get(C2, nrows1, i, j);
+            if (t1 != t2) {
+                printf("error test_matrix_mul_gf2\n");
+                gf2to12_matrix_print(C1, nrows1, ncols2);
+                gf2to12_matrix_print(C2, nrows1, ncols2);
+                return 1;
+            }
+        }
+    }
+
+    free(v1); free(v2); free(C1); free(C2);
+    return 0;
+}
+
+uint32_t test_matrix_mul() {
+    const uint32_t nrows1 = 22;
+    const uint32_t ncols1 = 671;
+    const uint32_t ncols2 = 1;
+
+    gf2to12 *v1 = gf2to12_matrix_alloc(nrows1, ncols1);
+    gf2to12 *v2 = gf2to12_matrix_alloc(ncols1, ncols2);
+    gf2to12 *C1 = gf2to12_matrix_alloc(nrows1, ncols2);
+    gf2to12 *C2 = gf2to12_matrix_alloc(nrows1, ncols2);
+
+    gf2to12_matrix_random(v1, nrows1, ncols1);
+    gf2to12_matrix_random(v2, ncols1, ncols2);
+
+    gf2to12_matrix_mul(C1, v1, v2, nrows1, ncols1, ncols2);
+    gf2to12_matrix_mul_u256(C2, v1, v2, nrows1, ncols1, ncols2);
+
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const gf2to12 t1 = gf2to12_matrix_get(C1, nrows1, i, j);
+            const gf2to12 t2 = gf2to12_matrix_get(C2, nrows1, i, j);
+            if (t1 != t2) {
+                printf("error test_matrix_mul\n");
+                gf2to12_matrix_print(C1, nrows1, ncols2);
+                gf2to12_matrix_print(C2, nrows1, ncols2);
+                return 1;
+            }
+        }
+    }
+
+    free(v1); free(v2); free(C1); free(C2);
+    return 0;
+}
+
+
 #endif
 
 
@@ -176,11 +337,16 @@ int main() {
 #ifdef USE_AVX2
     // if (test_arith_vector_mul()) { return 1; }
 
-
     if (test_vector_add()) { return 1; }
     if (test_vector_add_gf2()) { return 1; }
     if (test_vector_scalar_add_gf2_v3()) { return 1; }
     if (test_vector_mul_acc()) { return 1; }
+    if (test_vector_set_to_gf2()) { return 1; }
+
+    if (test_matrix_add_gf2()) { return 1; }
+    if (test_matrix_add_scalar_gf2()) { return 1; }
+    if (test_matrix_mul_gf2()) { return 1; }
+    if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all good\n");
