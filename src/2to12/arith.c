@@ -152,7 +152,7 @@ uint32_t test_vector_scalar_add_gf2_v3() {
 }
 
 uint32_t test_vector_set_to_gf2() {
-    const uint32_t N = 27;
+    const uint32_t N = 321;
 
     gf2 *v1     = gf2_vector_alloc(N);
     gf2to12 *v2 = gf2to12_vector_alloc(N);
@@ -298,7 +298,7 @@ uint32_t test_matrix_mul_gf2() {
 
 uint32_t test_matrix_mul() {
     const uint32_t nrows1 = 22;
-    const uint32_t ncols1 = 671;
+    const uint32_t ncols1 = 637;
     const uint32_t ncols2 = 1;
 
     gf2to12 *v1 = gf2to12_matrix_alloc(nrows1, ncols1);

@@ -231,6 +231,39 @@ static inline __m256i gf256_vector_extend_gf16_x32(const gf16 *in) {
     return _mm256_unpacklo_epi8(tl, th);
 }
 
+/// \param in 4 bytes
+/// \return
+static inline __m256i gf2to12v_expand_gf2_x32_u256(const uint8_t *in) {
+    const uint8_t t11 = *(in + 0);
+    const uint8_t t12 = *(in + 1);
+    const uint8_t t13 = *(in + 2);
+    const uint8_t t14 = *(in + 3);
+
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+    const uint64_t t23 = _pdep_u64(t13, 0x0101010101010101);
+    const uint64_t t24 = _pdep_u64(t14, 0x0101010101010101);
+    return _mm256_setr_epi64x(t21, t22, t23, t24);
+}
+
+/// \param in 2 bytes
+/// \return
+static inline __m128i gf2to12v_expand_gf2_x16_u256(const uint8_t *in) {
+    const uint32_t t11 = *(in + 0);
+    const uint32_t t12 = *(in + 1);
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+    return _mm_set_epi64x(t22, t21);
+}
+
+/// \param in 1 byte
+/// \return
+static inline uint64_t gf2to12v_expand_gf2_x8_u256(const uint8_t *in) {
+    const uint32_t t11 = *(in + 0);
+    return _pdep_u64(t11, 0x0101010101010101);
+}
+
+
 /// out = in1 ^ in2
 static inline void gf256_vector_add_u256(gf256 *out,
                                          const gf256 *in1,

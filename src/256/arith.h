@@ -1158,7 +1158,25 @@ __m256i gf256v_mul_scalar_u256_non_ct(__m256i a,
     return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
 
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
+static inline __m256i gf256v_mul_gf2_u256(const __m256i a,
+                                          const __m256i b) {
+    const __m256i m1 = _mm256_set1_epi8(-1);
+    const __m256i t1 = _mm256_sign_epi8(b, m1);
+    return a & t1;
+}
 
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
+static inline __m128i gf256v_mul_gf2_u128(const __m128i a,
+                                          const __m128i b) {
+    const __m128i m1 = _mm_set1_epi8(-1);
+    const __m128i t1 = _mm_sign_epi8(b, m1);
+    return a & t1;
+}
 #endif /// end USE_AVX2
 #undef MODULUS
 

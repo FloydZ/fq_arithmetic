@@ -8,6 +8,7 @@
 #include "bitslice.h"
 
 #include "../16/vector.h"
+#include "../2/matrix.h"
 
 #ifdef USE_AVX2
 
@@ -97,6 +98,37 @@ uint32_t test_matrix_add_gf16_u256() {
                 gf256_matrix_print(C1, nrows, ncols);
                 gf256_matrix_print(C2, nrows, ncols);
                 printf("test_matrix_add_gf16_u256 error: %d %d\n", i, j);
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+    finish:
+    free(A); free(B); free(C1); free(C2);
+    return ret;
+}
+
+uint32_t test_matrix_add_gf2_u256() {
+    uint32_t ret = 0;
+    const uint32_t nrows = 50;
+    const uint32_t ncols = 5;
+    gf256 *A  = gf256_matrix_alloc(nrows, ncols);
+    gf2   *B  = gf2_matrix_alloc(nrows, ncols);
+    gf256 *C1 = gf256_matrix_alloc(nrows, ncols);
+    gf256 *C2 = gf256_matrix_alloc(nrows, ncols);
+
+    gf2_matrix_random(B, nrows, ncols);
+    gf256_matrix_add_gf2(C1, A, B, nrows, ncols);
+    gf256_matrix_add_gf2_u256(C2, A, B, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const gf256 t1 = gf256_matrix_get_entry(C1, nrows, i, j);
+            const gf256 t2 = gf256_matrix_get_entry(C2, nrows, i, j);
+            if (t1 != t2) {
+                gf256_matrix_print(C1, nrows, ncols);
+                gf256_matrix_print(C2, nrows, ncols);
+                printf("test_matrix_add_gf2_u256 error: %d %d\n", i, j);
                 ret = 1;
                 goto finish;
             }
@@ -608,6 +640,7 @@ int main() {
 #ifdef USE_AVX2
     if(test_matrix_map_gf16_to_gf256_u256()) { return 1; }
     if(test_matrix_add_u256()) { return 1; }
+    if(test_matrix_add_gf2_u256()) { return 1; }
     if(test_matrix_add_gf16_u256()) { return 1; }
     if(test_matrix_add_multiple_gf16_u256()) { return 1; }
     if(test_matrix_add_multiple_2_u256()) { return 1; }
