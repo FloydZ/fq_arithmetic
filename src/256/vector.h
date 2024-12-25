@@ -233,7 +233,7 @@ static inline __m256i gf256_vector_extend_gf16_x32(const gf16 *in) {
 
 /// \param in 4 bytes
 /// \return
-static inline __m256i gf2to12v_expand_gf2_x32_u256(const uint8_t *in) {
+static inline __m256i gf256v_expand_gf2_x32_u256(const uint8_t *in) {
     const uint8_t t11 = *(in + 0);
     const uint8_t t12 = *(in + 1);
     const uint8_t t13 = *(in + 2);
@@ -248,7 +248,7 @@ static inline __m256i gf2to12v_expand_gf2_x32_u256(const uint8_t *in) {
 
 /// \param in 2 bytes
 /// \return
-static inline __m128i gf2to12v_expand_gf2_x16_u256(const uint8_t *in) {
+static inline __m128i gf256_expand_gf2_x16_u256(const uint8_t *in) {
     const uint32_t t11 = *(in + 0);
     const uint32_t t12 = *(in + 1);
     const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);

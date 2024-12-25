@@ -303,6 +303,76 @@ uint32_t test_matrix_product_gf16_2_u256() {
     return ret;
 }
 
+uint32_t test_matrix_product_gf2_1_u256() {
+    uint32_t ret = 0;
+    const uint32_t nrows1 = 476;
+    const uint32_t ncols1 = 2024;
+    const uint32_t ncols2 = 1;
+
+    gf2 *a    = gf2_matrix_alloc(nrows1, ncols1);
+    gf256 *b  = gf256_matrix_alloc(ncols1, ncols2);
+    gf256 *c1 = gf256_matrix_alloc(nrows1, ncols2);
+    gf256 *c2 = gf256_matrix_alloc(nrows1, ncols2);
+
+    gf2_matrix_random(a, ncols1, ncols2);
+    gf256_matrix_random(b, ncols1, ncols2);
+    gf256_matrix_product_gf2_1(c1, a, b, nrows1, ncols1, ncols2);
+    gf256_matrix_product_gf2_1_u256(c2, a, b, nrows1, ncols1, ncols2);
+
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const gf256 t1 = gf256_matrix_get_entry(c1, nrows1, i, j);
+            const gf256 t2 = gf256_matrix_get_entry(c2, nrows1, i, j);
+            if (t1 != t2) {
+                gf256_matrix_print(c1, nrows1, ncols2);
+                gf256_matrix_print(c2, nrows1, ncols2);
+                printf("test_matrix_product_gf2_1_u256 error: %d %d\n", i, j);
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+    finish:
+    free(a); free(b); free(c1); free(c2);
+    return ret;
+}
+
+uint32_t test_matrix_product_gf2_2_u256() {
+    uint32_t ret = 0;
+    const uint32_t nrows1 = 11;
+    const uint32_t ncols1 = 11;
+    const uint32_t ncols2 = 1;
+
+    gf2 *a    = gf2_matrix_alloc (ncols1, ncols2);
+    gf256 *b  = gf256_matrix_alloc(nrows1, ncols1);
+    gf256 *c1 = gf256_matrix_alloc(nrows1, ncols2);
+    gf256 *c2 = gf256_matrix_alloc(nrows1, ncols2);
+
+    gf2_matrix_random(a, ncols1, ncols2);
+    gf256_matrix_random(b, ncols1, ncols2);
+    gf256_matrix_product_gf2_2(c1, b, a, nrows1, ncols1, ncols2);
+    gf256_matrix_product_gf2_2_u256(c2, b, a, nrows1, ncols1, ncols2);
+
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const gf256 t1 = gf256_matrix_get_entry(c1, nrows1, i, j);
+            const gf256 t2 = gf256_matrix_get_entry(c2, nrows1, i, j);
+            if (t1 != t2) {
+                gf256_matrix_print(c1, nrows1, ncols2);
+                gf256_matrix_print(c2, nrows1, ncols2);
+                printf("test_matrix_product_gf2_2_u256 error: %d %d\n", i, j);
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+    finish:
+    free(a); free(b); free(c1); free(c2);
+    return ret;
+}
+
 uint32_t test_matrix_product_8x8xC_u256() {
     uint32_t ret = 0;
     // NOTE hardcoded
@@ -414,6 +484,44 @@ uint32_t test_matrix_product_le32xBxle16_u256() {
     return ret;
 }
 
+uint32_t test_matrix_product_u256() {
+    uint32_t ret = 0;
+    // const uint32_t nrows1 = 33;
+    // const uint32_t ncols1 = 16;
+    // const uint32_t ncols2 = 1;
+
+    const uint32_t nrows1 = 50;
+    const uint32_t ncols1 = 5;
+    const uint32_t ncols2 = 45;
+
+    gf256 *b  = gf256_matrix_alloc(ncols1, ncols2);
+    gf256 *a  = gf256_matrix_alloc(nrows1, ncols1);
+    gf256 *c1 = gf256_matrix_alloc(nrows1, ncols2);
+    gf256 *c2 = gf256_matrix_alloc(nrows1, ncols2);
+
+    gf256_matrix_random(a, nrows1, ncols1);
+    gf256_matrix_random(b, ncols1, ncols2);
+    gf256_matrix_product(c1, a, b, nrows1, ncols1, ncols2);
+    gf256_matrix_product_u256(c2, a, b, nrows1, ncols1, ncols2);
+
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const gf256 t1 = gf256_matrix_get_entry(c1, nrows1, i, j);
+            const gf256 t2 = gf256_matrix_get_entry(c2, nrows1, i, j);
+            if (t1 != t2) {
+                gf256_matrix_print(c1, nrows1, ncols2);
+                gf256_matrix_print(c2, nrows1, ncols2);
+                printf("test_matrix_product_u256 error: %d %d\n", i, j);
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+    finish:
+    free(a); free(b); free(c1); free(c2);
+    return ret;
+}
 
 uint32_t test_vector_set_to_gf16_u256() {
     uint32_t ret = 0;
@@ -645,11 +753,14 @@ int main() {
     if(test_matrix_add_multiple_gf16_u256()) { return 1; }
     if(test_matrix_add_multiple_2_u256()) { return 1; }
     if(test_matrix_add_multiple_3_u256()) { return 1; }
+    if(test_matrix_product_gf2_1_u256()) { return 1; }
     if(test_matrix_product_gf16_1_u256()) { return 1; }
     if(test_matrix_product_gf16_2_u256()) { return 1; }
     if(test_matrix_product_8x8xC_u256()) { return 1; }
     if(test_matrix_product_16x16xC_u256()) { return 1; }
     if(test_matrix_product_le32xBxle16_u256()) { return 1; }
+    if(test_matrix_product_u256()) { return 1; }
+
 
     if(test_vector_set_to_gf16_u256()) { return 1; }
     if(test_vector_set_to_gf2_u256()) { return 1; }
