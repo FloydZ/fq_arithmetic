@@ -216,8 +216,8 @@ uint32_t test_matrix_mul() {
 }
 
 uint32_t test_matrix_mul_vector() {
-    const uint32_t nrows = 16;
-    const uint32_t ncols = 17;
+    const uint32_t nrows = 22;
+    const uint32_t ncols = 229;
 
     // hardcoded
     const uint32_t ncols2 = 1;
@@ -230,7 +230,6 @@ uint32_t test_matrix_mul_vector() {
     gf16to3_matrix_random(m2, ncols, ncols2);
     gf16to3_matrix_mul(m3, m1, m2, nrows, ncols, ncols2);
     gf16to3_matrix_mul_vector(m4, m1, m2, nrows, ncols);
-
 
     uint32_t ret = 0;
     for (uint32_t i = 0; i < nrows; ++i) {

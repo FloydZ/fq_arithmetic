@@ -263,7 +263,6 @@ static inline void gf16to3_matrix_mul_16xX(gf16to3 *result,
                                            const uint32_t nrows_B,
                                            const uint32_t ncols_B) {
     const uint32_t nrows = 16;
-    gf16to3_matrix_zero(result, nrows, ncols_B);
 
     for (uint32_t j = 0; j < nrows_B; ++j) {
         const __m256i a = _mm256_loadu_si256((const __m256i *)(A + j*nrows));
@@ -287,8 +286,6 @@ static inline void gf16to3_matrix_mul_le32xCxC(gf16to3 *result,
                                            const uint16_t nrows,
                                            const uint32_t nrows_B,
                                            const uint32_t ncols_B) {
-    gf16to3_matrix_zero(result, nrows, ncols_B);
-
     const uint32_t tail = nrows % 16;
     for (uint32_t j = 0; j < nrows_B; ++j) {
         const __m256i a1 = _mm256_loadu_si256((const __m256i *)(A + j*nrows));
@@ -308,7 +305,6 @@ static inline void gf16to3_matrix_mul_le32xCxC(gf16to3 *result,
             gf16to3_matrix_write16(result + i*nrows + 16, t2, tail);
         }
     }
-
 }
 
 /// assumes 8 rows in A

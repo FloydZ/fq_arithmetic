@@ -7,8 +7,8 @@
 #define LIST_SIZE (1u << 10u)
 gf256 *A, *B, *C;
 gf256 *m1, *m2, *m3;
-const uint32_t nrows = 24;
-const uint32_t ncols = 15;
+const uint32_t nrows = 22;
+const uint32_t ncols = 6;
 const uint32_t ncols2= 16;
 
 static void BM_gf256_mul_u64(benchmark::State& state) {
@@ -291,7 +291,7 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 // BENCHMARK(BM_gf256_mul_u256_v2);
 // BENCHMARK(BM_gf256v_mul_scalar_avx2);
 // BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
-BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
+// BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256   )->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256_v2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256_matrix_add_u256);
@@ -302,7 +302,7 @@ BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_
 // BENCHMARK(BM_gf256_matrix_product_gf16_2_u256);
 // BENCHMARK(BM_gf256_matrix_product_8x8xC_u256);
 // BENCHMARK(BM_gf256_matrix_product_16x16xC_u256);
-// BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
+BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
 #endif
 
 
@@ -327,7 +327,6 @@ BENCHMARK(BM_gf256v_vector_add_scalar_u512)->RangeMultiplier(2)->Range(32, LIST_
 //BENCHMARK(BM_gf256_mul_u64);
 //BENCHMARK(BM_gf256_scalar_u64);
 //BENCHMARK(BM_gf256_scalar_u64_v2);
-
 BENCHMARK(BM_gf256v_vector_set_to_gf2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 
 // BENCHMARK(BM_gf256_matrix_add);
@@ -336,7 +335,7 @@ BENCHMARK(BM_gf256v_vector_set_to_gf2)->RangeMultiplier(2)->Range(15, LIST_SIZE)
 // BENCHMARK(BM_gf256_matrix_add_multiple_2);
 // BENCHMARK(BM_gf256_matrix_product_gf16_1);
 // BENCHMARK(BM_gf256_matrix_product_gf16_2);
-// BENCHMARK(BM_gf256_matrix_product);
+BENCHMARK(BM_gf256_matrix_product);
 // BENCHMARK(BM_gf256_matrix_product_8x8xC);
 // BENCHMARK(BM_gf256_matrix_product_16x16xC);
 
@@ -345,9 +344,9 @@ int main(int argc, char** argv) {
     B = (gf256 *)malloc(sizeof(gf256) * LIST_SIZE);
     C = (gf256 *)malloc(sizeof(gf256) * LIST_SIZE);
 
-    m1 = gf256_matrix_alloc(nrows, ncols);
-    m2 = gf256_matrix_alloc(nrows, ncols);
-    m3 = gf256_matrix_alloc(nrows, ncols);
+    m1 = gf256_matrix_alloc(32, 32);
+    m2 = gf256_matrix_alloc(32, 32);
+    m3 = gf256_matrix_alloc(32, 32);
     gf256_matrix_random(m1, nrows, ncols);
     gf256_matrix_random(m2, nrows, ncols);
     gf256_matrix_random(m3, nrows, ncols);
