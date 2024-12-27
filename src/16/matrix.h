@@ -1428,7 +1428,7 @@ void gf16_matrix_add_u256(ff_t *matrix1,
 
 // matrix1 += scalar *matrix2
 static inline
-void _matrix_add_multiple(ff_t *matrix1, ff_t scalar, const ff_t *matrix2,
+void _matrix_add_multiple(ff_t *matrix1, const ff_t scalar, const ff_t *matrix2,
     const uint32_t n_rows, const uint32_t n_cols) {
     const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
     gf16v_madd_avx2(matrix1, matrix2, scalar, n_bytes);

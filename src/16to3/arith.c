@@ -179,35 +179,68 @@ uint32_t test_vector_add_gf16() {
 
 
 uint32_t test_matrix_mul() {
-    const uint32_t nrows = 8;
-    const uint32_t ncols = 8;
-    const uint32_t ncols2 = 8;
+    const uint32_t nrows = 24;
+    const uint32_t ncols = 6;
+    const uint32_t ncols2 = 16;
     gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
-    gf16to3 *m2 = gf16to3_matrix_alloc(nrows, ncols2);
+    gf16to3 *m2 = gf16to3_matrix_alloc(ncols, ncols2);
     gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols2);
     gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols2);
 
-    gf16to3_matrix_id(m1, nrows, ncols);
-    gf16to3_matrix_id(m2, nrows, ncols);
-    gf16to3_matrix_mul(m3, m1, m2, nrows, ncols, ncols);
-    gf16to3_matrix_mul_8xX(m4, m1, m2, ncols, ncols2);
+    gf16to3_matrix_random(m1, nrows, ncols);
+    gf16to3_matrix_random(m2, ncols, ncols2);
+    gf16to3_matrix_mul(m3, m1, m2, nrows, ncols, ncols2);
+    // gf16to3_matrix_mul_8xX(m4, m1, m2, ncols, ncols2);
+    // gf16to3_matrix_mul_16xX(m4, m1, m2, ncols, ncols2);
+    gf16to3_matrix_mul_le32xCxC(m4, m1, m2, nrows, ncols, ncols2);
 
-    gf16to3_matrix_print(m3, ncols, ncols2);
-    gf16to3_matrix_print(m4, ncols, ncols2);
 
     uint32_t ret = 0;
-    for (int i = 0; i < ncols; ++i) {
-        for (int j = 0; j < ncols2; ++j) {
+    for (uint32_t i = 0; i < nrows; ++i) {
+        for (uint32_t j = 0; j < ncols2; ++j) {
             gf16to3 c = gf16to3_matrix_get(m3, ncols, i, j);
             gf16to3 d = gf16to3_matrix_get(m4, ncols, i, j);
-            if (c != (i == j)) {
+            if (c != d) {
                 printf("test matrix mul\n");
+                gf16to3_matrix_print(m3, nrows, ncols2);
+                gf16to3_matrix_print(m4, nrows, ncols2);
                 ret = 1;
                 goto finish;
             }
+        }
+    }
 
-            if (d != (i == j)) {
-                printf("test matrix mul v2\n");
+    finish:
+    free(m1); free(m2); free(m3); free(m4);
+    return ret;
+}
+
+uint32_t test_matrix_mul_vector() {
+    const uint32_t nrows = 16;
+    const uint32_t ncols = 17;
+
+    // hardcoded
+    const uint32_t ncols2 = 1;
+    gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
+    gf16to3 *m2 = gf16to3_matrix_alloc(ncols, ncols2);
+    gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols2);
+    gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols2);
+
+    gf16to3_matrix_random(m1, nrows, ncols);
+    gf16to3_matrix_random(m2, ncols, ncols2);
+    gf16to3_matrix_mul(m3, m1, m2, nrows, ncols, ncols2);
+    gf16to3_matrix_mul_vector(m4, m1, m2, nrows, ncols);
+
+
+    uint32_t ret = 0;
+    for (uint32_t i = 0; i < nrows; ++i) {
+        for (uint32_t j = 0; j < ncols2; ++j) {
+            gf16to3 c = gf16to3_matrix_get(m3, nrows, i, j);
+            gf16to3 d = gf16to3_matrix_get(m4, nrows, i, j);
+            if (c != d) {
+                printf("test matrix mul vector\n");
+                gf16to3_matrix_print(m3, nrows, ncols2);
+                gf16to3_matrix_print(m4, nrows, ncols2);
                 ret = 1;
                 goto finish;
             }
@@ -229,15 +262,12 @@ uint32_t test_matrix_gf16_add() {
 
     gf16to3_matrix_zero(m3, nrows, ncols);
     gf16to3_matrix_zero(m4, nrows, ncols);
-    gf16to3_matrix_rng(m1, nrows, ncols);
+    gf16to3_matrix_random(m1, nrows, ncols);
     gf16_matrix_random(m2, nrows, ncols);
     gf16to3_matrix_add_gf16(m3, m1, m2, nrows, ncols);
     // gf16to3_matrix_add_gf16_16x16(m4, m1, m2, ncols, ncols);
     // gf16to3_matrix_add_gf16_8x8(m4, m1, m2, ncols, ncols);
     gf16to3_matrix_add_gf16_XxX(m4, m1, m2, nrows, ncols);
-
-    gf16to3_matrix_print(m3, nrows, ncols);
-    gf16to3_matrix_print(m4, nrows, ncols);
 
     uint32_t ret = 0;
     for (int i = 0; i < nrows; ++i) {
@@ -246,6 +276,8 @@ uint32_t test_matrix_gf16_add() {
             gf16to3 d = gf16to3_matrix_get(m4, ncols, i, j);
             if (c != d) {
                 printf("test matrix gf16 add\n");
+                gf16to3_matrix_print(m3, nrows, ncols);
+                gf16to3_matrix_print(m4, nrows, ncols);
                 ret = 1;
                 goto finish;
             }
@@ -268,10 +300,7 @@ uint32_t test_matrix_gf16_map() {
     gf16to3_matrix_zero(m4, nrows, ncols);
     gf16_matrix_random(m2, nrows, ncols);
     gf16to3_matrix_map_gf16(m3, m2, nrows, ncols);
-    gf16to3_matrix_map_gf16_XxX(m4, m2, nrows, ncols);
-
-    gf16to3_matrix_print(m3, nrows, ncols);
-    gf16to3_matrix_print(m4, nrows, ncols);
+    gf16to3_matrix_map_gf16_u256(m4, m2, nrows, ncols);
 
     uint32_t ret = 0;
     for (int i = 0; i < nrows; ++i) {
@@ -279,7 +308,9 @@ uint32_t test_matrix_gf16_map() {
             gf16to3 c = gf16to3_matrix_get(m3, ncols, i, j);
             gf16to3 d = gf16to3_matrix_get(m4, ncols, i, j);
             if (c != d) {
-                printf("test matrix gf16 add\n");
+                printf("test matrix gf16 map\n");
+                gf16to3_matrix_print(m3, nrows, ncols);
+                gf16to3_matrix_print(m4, nrows, ncols);
                 ret = 1;
                 goto finish;
             }
@@ -291,7 +322,6 @@ uint32_t test_matrix_gf16_map() {
     return ret;
 }
 
-
 uint32_t test_matrix_gf16_add_mul() {
     const uint32_t nrows = 16;
     const uint32_t ncols = 16;
@@ -300,16 +330,15 @@ uint32_t test_matrix_gf16_add_mul() {
     gf16 *m2 = gf16_matrix_alloc(ncols, ncols2);
     gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols2);
     gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols2);
+    gf16to3 *m5 = gf16to3_matrix_alloc(nrows, ncols2);
 
     gf16to3_matrix_zero(m3, nrows, ncols2);
     gf16to3_matrix_zero(m4, nrows, ncols2);
-    gf16to3_matrix_rng(m1, nrows, ncols);
+    gf16to3_matrix_random(m1, nrows, ncols);
     gf16_matrix_random(m2, ncols, ncols2);
     gf16to3_matrix_mul_gf16(m3, m1, m2, nrows, ncols, ncols2);
     gf16to3_matrix_mul_gf16_XxX(m4, m1, m2, nrows, ncols);
-
-    gf16to3_matrix_print(m3, nrows, ncols);
-    gf16to3_matrix_print(m4, nrows, ncols);
+    // gf16to3_matrix_mul_gf16_XxX_v2(m4, m2, m1, nrows, ncols, ncols2);
 
     uint32_t ret = 0;
     for (int i = 0; i < nrows; ++i) {
@@ -318,34 +347,25 @@ uint32_t test_matrix_gf16_add_mul() {
             gf16to3 d = gf16to3_matrix_get(m4, nrows, i, j);
             if (c != d) {
                 printf("test matrix gf16 add mul\n");
+                gf16to3_matrix_print(m3, nrows, ncols);
+                gf16to3_matrix_print(m4, nrows, ncols);
                 ret = 1;
                 goto finish;
             }
-        }
-    }
 
-    gf16to3_matrix_zero(m3, nrows, ncols2);
-    gf16to3_matrix_zero(m4, nrows, ncols2);
-    gf16to3_matrix_gf16_mul(m3, m2, m1, nrows, ncols, ncols2);
-    gf16to3_matrix_gf16_mul_XxX(m4, m2, m1, nrows, ncols, ncols2);
-
-    gf16to3_matrix_print(m3, nrows, ncols);
-    gf16to3_matrix_print(m4, nrows, ncols);
-
-    for (int i = 0; i < nrows; ++i) {
-        for (int j = 0; j < ncols2; ++j) {
-            gf16to3 c = gf16to3_matrix_get(m3, nrows, i, j);
-            gf16to3 d = gf16to3_matrix_get(m4, nrows, i, j);
-            if (c != d) {
-                printf("test matrix gf16 add mul v2\n");
-                ret = 1;
-                goto finish;
-            }
+            // gf16to3 e = gf16to3_matrix_get(m5, nrows, i, j);
+            // if (c != d) {
+            //     printf("test matrix gf16 add mul v2\n");
+            //     gf16to3_matrix_print(m3, nrows, ncols);
+            //     gf16to3_matrix_print(m5, nrows, ncols);
+            //     ret = 1;
+            //     goto finish;
+            // }
         }
     }
 
     finish:
-    free(m1); free(m2); free(m3); free(m4);
+    free(m1); free(m2); free(m3); free(m4); free(m5);
     return ret;
 }
 
@@ -356,13 +376,10 @@ uint32_t test_matrix_add_multiple() {
     gf16to3 *m3 = gf16to3_matrix_alloc(nrows, ncols);
     gf16to3 *m4 = gf16to3_matrix_alloc(nrows, ncols);
 
-    gf16to3_matrix_rng(m1, nrows, ncols);
+    gf16to3_matrix_random(m1, nrows, ncols);
     gf16to3 scalar = 1;
     gf16to3_matrix_add_multiple_2(m3, scalar,m1, nrows, ncols);
     gf16to3_matrix_add_multiple_2_XxX(m4, scalar, m1, nrows, ncols);
-
-    gf16to3_matrix_print(m3, nrows, ncols);
-    gf16to3_matrix_print(m4, nrows, ncols);
 
     uint32_t ret = 0;
     for (int i = 0; i < nrows; ++i) {
@@ -371,6 +388,8 @@ uint32_t test_matrix_add_multiple() {
             const gf16to3 d = gf16to3_matrix_get(m4, ncols, i, j);
             if (c != d) {
                 printf("test matrix add multiple\n");
+                gf16to3_matrix_print(m3, nrows, ncols);
+                gf16to3_matrix_print(m4, nrows, ncols);
                 ret = 1;
                 goto finish;
             }
@@ -384,21 +403,16 @@ finish:
 #endif
 
 
-
 int main() {
-    uint16_t a = 0x010;
-    uint16_t b = 0x100;
-    uint16_t c = gf16to3_mul(b, a);
-    // if (test_add()) { return 1; }
-    // if (test_mul()) { return 1; }
 #ifdef USE_AVX2
     // if (test_arith_vector_mul()) { return 1; }
-    // if (test_vector_add_gf16()) { return 1; }
-    // if (test_matrix_mul()) { return 1; }
-    // if (test_matrix_gf16_add()) { return 1; }
-    // if (test_matrix_gf16_map()) { return 1; }
-    // if (test_matrix_gf16_add_mul()) { return 1; }
-    // if (test_matrix_add_multiple()) { return 1; }
+
+    if (test_matrix_mul()) { return 1; }
+    if (test_matrix_mul_vector()) { return 1; }
+    if (test_matrix_gf16_add()) { return 1; }
+    if (test_matrix_gf16_map()) { return 1; }
+    if (test_matrix_gf16_add_mul()) { return 1; }
+    if (test_matrix_add_multiple()) { return 1; }
 
     if (test_vector_add_gf16()) { return 1; }
     if (test_vector_add()) { return 1; }

@@ -172,6 +172,14 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
     return r&m;
 }
 
+// parallel hadd of 2 gf16to3 elements
+static inline uint32_t gf16to3_hadd_x2_x32_u256(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return _mm256_extract_epi32(ret, 0);
+}
+
 #endif
 
 #ifdef USE_NEON
