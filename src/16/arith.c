@@ -1,4 +1,6 @@
 #include "arith.h"
+#include "vector.h"
+#include "matrix.h"
 
 #include <string.h>
 

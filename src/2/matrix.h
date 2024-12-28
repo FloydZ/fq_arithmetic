@@ -703,7 +703,7 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
                                   int n, 
                                   int m,
                                   int maxsize) {
-    int end                      = maxsize * 7;
+    int end                      = maxsize;
     uint8_t const *__restrict__ wks  = src;
     uint64_t w                   = *wks;
     int shift                    = 0;

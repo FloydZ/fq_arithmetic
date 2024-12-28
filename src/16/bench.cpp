@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 #include "arith.h"
+#include "vector.h"
+#include "matrix.h"
 
 static long long cpucycles(void) noexcept {
     unsigned long long result;
@@ -68,7 +70,7 @@ static void BM_gf16_solve(benchmark::State& state) {
     auto *A = (uint8_t *)calloc(1, 2048*2);
     auto *b = (uint8_t *)calloc(1,  128*2);
 
-    gf16_matrix_rng(A, 78, 78);
+    gf16_matrix_random(A, 78, 78);
     uint8_t a = 1;
     uint64_t c = 0;
     for (auto _ : state) {
@@ -156,7 +158,7 @@ static void BM_gf16_solve_transpose(benchmark::State& state) {
     auto *A = (uint8_t *)calloc(1, 2048*2);
     auto *AT = (uint8_t *)calloc(1, 2048*2);
     auto *b = (uint8_t *)calloc(1,  128*2);
-    gf16_matrix_rng(A, 78, 78);
+    gf16_matrix_random(A, 78, 78);
     uint8_t a = 1;
     uint64_t c = 0;
     for (auto _ : state) {
