@@ -861,3 +861,28 @@ static inline void gf127_matrix_transpose8xN(uint8_t *dst,
         }
     }
 }
+
+/// assumes max 8 cols in the input matrix
+/// assumes that the output matrix has n columns
+/// \param dst
+/// \param src
+/// \param n   number of columns
+static inline void gf127_matrix_transposeNx8(uint8_t *dst, 
+                                             const uint8_t *src,
+                                             const uint32_t n) {
+    const uint32_t bsize = 8;
+    uint64_t cb = 0;
+    for (; cb < n / bsize; cb++) {
+            const uint8_t *srcb_origin = src + (cb * n +  0) * bsize;
+                  uint8_t *dstb_origin = dst + ( 0 * n + cb) * bsize;
+        gf127_matrix_transpose8x8(dstb_origin, srcb_origin, n, n);
+    }
+
+    cb *= bsize;
+    for (; cb < n; cb++) {
+        for (uint32_t j = 0; j < 8; j++) {
+            const uint8_t t = src[cb*n + j];
+            dst[j*n + cb] = t;
+        }
+    }
+}
