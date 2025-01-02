@@ -127,7 +127,7 @@ static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
 /// NOTE there are multiple ways to implement this:
 ///     - assumes that each 1.5byte element is stored in 2 bytes,
 ///         thus there are 16 elements in a register
-///     - or that that the elements are compressed together, meaning
+///     - or that the elements are compressed together, meaning
 ///         we have 21 elements in a register
 /// NOTE: this implementation follows the first approach
 static inline __m256i gf16to3v_mul_u256(const __m256i a,

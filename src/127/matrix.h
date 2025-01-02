@@ -24,12 +24,11 @@ gf127 gf127_matrix_get(const gf127 *m,
     return m[j*nrows + i];
 }
 
-///
-/// @param m
-/// @param nrows
-/// @param i
-/// @param j
-/// @param a
+/// \param m
+/// \param nrows
+/// \param i
+/// \param j
+/// \param a
 static inline
 void gf127_matrix_set(gf127 *m,
                       const uint32_t nrows,
@@ -39,10 +38,9 @@ void gf127_matrix_set(gf127 *m,
     m[j*nrows + i] = a;
 }
 
-///
-/// @param m
-/// @param nrows
-/// @param ncols
+/// \param m
+/// \param nrows
+/// \param ncols
 static inline
 void gf127_matrix_zero(gf127 *m,
                        const uint32_t nrows,
@@ -50,10 +48,9 @@ void gf127_matrix_zero(gf127 *m,
     memset(m, 0, sizeof(gf127)*nrows*ncols);
 }
 
-///
-/// @param m
-/// @param nrows
-/// @param ncols
+/// \param m
+/// \param nrows
+/// \param ncols
 static inline
 void gf127_matrix_rng(gf127 *m,
                       const uint32_t nrows,
@@ -65,10 +62,9 @@ void gf127_matrix_rng(gf127 *m,
     }
 }
 
-///
-/// @param m
-/// @param nrows
-/// @param ncols
+/// \param m
+/// \param nrows
+/// \param ncols
 static inline
 void gf127_matrix_id(gf127 *m,
                const uint32_t nrows,
@@ -79,16 +75,15 @@ void gf127_matrix_id(gf127 *m,
     }
 }
 
-///
-/// @param in
-/// @param nrows
-/// @param ncols
+/// \param in
+/// \param nrows
+/// \param ncols
 static inline void gf127_matrix_print(const uint8_t *in,
                                       const uint32_t nrows,
                                       const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for(uint32_t j = 0; j < ncols; j++) {
-            printf("%01d ", in[i*ncols + j]);
+            printf("%03d ", in[i*ncols + j]);
         }
         printf("\n");
     }
@@ -102,7 +97,7 @@ static inline void gf127_matrix_transpose(uint8_t *out,
                                           const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for(uint32_t j = 0; j < ncols; j++) {
-            out[j*ncols + i] = in[i*ncols + j];
+            out[j*nrows + i] = in[i*ncols + j];
         }
     }
 }
@@ -142,44 +137,44 @@ void gf127_matrix_transpose8x8(uint8_t* dst,
                                const size_t src_stride,
                                const size_t dst_stride) {
     // load rows of src matrix
-    uint64_t a0 = *((uint64_t*)(src+0*src_stride));
-    uint64_t a1 = *((uint64_t*)(src+1*src_stride));
-    uint64_t a2 = *((uint64_t*)(src+2*src_stride));
-    uint64_t a3 = *((uint64_t*)(src+3*src_stride));
-    uint64_t a4 = *((uint64_t*)(src+4*src_stride));
-    uint64_t a5 = *((uint64_t*)(src+5*src_stride));
-    uint64_t a6 = *((uint64_t*)(src+6*src_stride));
-    uint64_t a7 = *((uint64_t*)(src+7*src_stride));
+    const uint64_t a0 = *((uint64_t*)(src+0*src_stride));
+    const uint64_t a1 = *((uint64_t*)(src+1*src_stride));
+    const uint64_t a2 = *((uint64_t*)(src+2*src_stride));
+    const uint64_t a3 = *((uint64_t*)(src+3*src_stride));
+    const uint64_t a4 = *((uint64_t*)(src+4*src_stride));
+    const uint64_t a5 = *((uint64_t*)(src+5*src_stride));
+    const uint64_t a6 = *((uint64_t*)(src+6*src_stride));
+    const uint64_t a7 = *((uint64_t*)(src+7*src_stride));
     
     // 2x2 block matrices
-    uint64_t b0 = (a0 & 0x00ff00ff00ff00ffULL) | ((a1 << 8) & 0xff00ff00ff00ff00ULL);
-    uint64_t b1 = (a1 & 0xff00ff00ff00ff00ULL) | ((a0 >> 8) & 0x00ff00ff00ff00ffULL);
-    uint64_t b2 = (a2 & 0x00ff00ff00ff00ffULL) | ((a3 << 8) & 0xff00ff00ff00ff00ULL);
-    uint64_t b3 = (a3 & 0xff00ff00ff00ff00ULL) | ((a2 >> 8) & 0x00ff00ff00ff00ffULL);
-    uint64_t b4 = (a4 & 0x00ff00ff00ff00ffULL) | ((a5 << 8) & 0xff00ff00ff00ff00ULL);
-    uint64_t b5 = (a5 & 0xff00ff00ff00ff00ULL) | ((a4 >> 8) & 0x00ff00ff00ff00ffULL);
-    uint64_t b6 = (a6 & 0x00ff00ff00ff00ffULL) | ((a7 << 8) & 0xff00ff00ff00ff00ULL);
-    uint64_t b7 = (a7 & 0xff00ff00ff00ff00ULL) | ((a6 >> 8) & 0x00ff00ff00ff00ffULL);
+    const uint64_t b0 = (a0 & 0x00ff00ff00ff00ffULL) | ((a1 << 8) & 0xff00ff00ff00ff00ULL);
+    const uint64_t b1 = (a1 & 0xff00ff00ff00ff00ULL) | ((a0 >> 8) & 0x00ff00ff00ff00ffULL);
+    const uint64_t b2 = (a2 & 0x00ff00ff00ff00ffULL) | ((a3 << 8) & 0xff00ff00ff00ff00ULL);
+    const uint64_t b3 = (a3 & 0xff00ff00ff00ff00ULL) | ((a2 >> 8) & 0x00ff00ff00ff00ffULL);
+    const uint64_t b4 = (a4 & 0x00ff00ff00ff00ffULL) | ((a5 << 8) & 0xff00ff00ff00ff00ULL);
+    const uint64_t b5 = (a5 & 0xff00ff00ff00ff00ULL) | ((a4 >> 8) & 0x00ff00ff00ff00ffULL);
+    const uint64_t b6 = (a6 & 0x00ff00ff00ff00ffULL) | ((a7 << 8) & 0xff00ff00ff00ff00ULL);
+    const uint64_t b7 = (a7 & 0xff00ff00ff00ff00ULL) | ((a6 >> 8) & 0x00ff00ff00ff00ffULL);
     
     // 4x4 block matrices
-    uint64_t c0 = (b0 & 0x0000ffff0000ffffULL) | ((b2 << 16) & 0xffff0000ffff0000ULL);
-    uint64_t c1 = (b1 & 0x0000ffff0000ffffULL) | ((b3 << 16) & 0xffff0000ffff0000ULL);
-    uint64_t c2 = (b2 & 0xffff0000ffff0000ULL) | ((b0 >> 16) & 0x0000ffff0000ffffULL);
-    uint64_t c3 = (b3 & 0xffff0000ffff0000ULL) | ((b1 >> 16) & 0x0000ffff0000ffffULL);
-    uint64_t c4 = (b4 & 0x0000ffff0000ffffULL) | ((b6 << 16) & 0xffff0000ffff0000ULL);
-    uint64_t c5 = (b5 & 0x0000ffff0000ffffULL) | ((b7 << 16) & 0xffff0000ffff0000ULL);
-    uint64_t c6 = (b6 & 0xffff0000ffff0000ULL) | ((b4 >> 16) & 0x0000ffff0000ffffULL);
-    uint64_t c7 = (b7 & 0xffff0000ffff0000ULL) | ((b5 >> 16) & 0x0000ffff0000ffffULL);
+    const uint64_t c0 = (b0 & 0x0000ffff0000ffffULL) | ((b2 << 16) & 0xffff0000ffff0000ULL);
+    const uint64_t c1 = (b1 & 0x0000ffff0000ffffULL) | ((b3 << 16) & 0xffff0000ffff0000ULL);
+    const uint64_t c2 = (b2 & 0xffff0000ffff0000ULL) | ((b0 >> 16) & 0x0000ffff0000ffffULL);
+    const uint64_t c3 = (b3 & 0xffff0000ffff0000ULL) | ((b1 >> 16) & 0x0000ffff0000ffffULL);
+    const uint64_t c4 = (b4 & 0x0000ffff0000ffffULL) | ((b6 << 16) & 0xffff0000ffff0000ULL);
+    const uint64_t c5 = (b5 & 0x0000ffff0000ffffULL) | ((b7 << 16) & 0xffff0000ffff0000ULL);
+    const uint64_t c6 = (b6 & 0xffff0000ffff0000ULL) | ((b4 >> 16) & 0x0000ffff0000ffffULL);
+    const uint64_t c7 = (b7 & 0xffff0000ffff0000ULL) | ((b5 >> 16) & 0x0000ffff0000ffffULL);
     
     // 8x8 block matrix
-    uint64_t d0 = (c0 & 0x00000000ffffffffULL) | ((c4 << 32) & 0xffffffff00000000ULL);
-    uint64_t d1 = (c1 & 0x00000000ffffffffULL) | ((c5 << 32) & 0xffffffff00000000ULL);
-    uint64_t d2 = (c2 & 0x00000000ffffffffULL) | ((c6 << 32) & 0xffffffff00000000ULL);
-    uint64_t d3 = (c3 & 0x00000000ffffffffULL) | ((c7 << 32) & 0xffffffff00000000ULL);
-    uint64_t d4 = (c4 & 0xffffffff00000000ULL) | ((c0 >> 32) & 0x00000000ffffffffULL);
-    uint64_t d5 = (c5 & 0xffffffff00000000ULL) | ((c1 >> 32) & 0x00000000ffffffffULL);
-    uint64_t d6 = (c6 & 0xffffffff00000000ULL) | ((c2 >> 32) & 0x00000000ffffffffULL);
-    uint64_t d7 = (c7 & 0xffffffff00000000ULL) | ((c3 >> 32) & 0x00000000ffffffffULL);
+    const uint64_t d0 = (c0 & 0x00000000ffffffffULL) | ((c4 << 32) & 0xffffffff00000000ULL);
+    const uint64_t d1 = (c1 & 0x00000000ffffffffULL) | ((c5 << 32) & 0xffffffff00000000ULL);
+    const uint64_t d2 = (c2 & 0x00000000ffffffffULL) | ((c6 << 32) & 0xffffffff00000000ULL);
+    const uint64_t d3 = (c3 & 0x00000000ffffffffULL) | ((c7 << 32) & 0xffffffff00000000ULL);
+    const uint64_t d4 = (c4 & 0xffffffff00000000ULL) | ((c0 >> 32) & 0x00000000ffffffffULL);
+    const uint64_t d5 = (c5 & 0xffffffff00000000ULL) | ((c1 >> 32) & 0x00000000ffffffffULL);
+    const uint64_t d6 = (c6 & 0xffffffff00000000ULL) | ((c2 >> 32) & 0x00000000ffffffffULL);
+    const uint64_t d7 = (c7 & 0xffffffff00000000ULL) | ((c3 >> 32) & 0x00000000ffffffffULL);
     
     // write to dst matrix
     *(uint64_t*)(dst + 0*dst_stride) = d0;
@@ -193,7 +188,6 @@ void gf127_matrix_transpose8x8(uint8_t* dst,
 }
 
 /// Compute origin of the 64-block next to (rb, cb) in row-major order
-///
 static inline
 const uint8_t* gf127_next_block(const uint8_t *src,
                           const uint64_t rb,
@@ -209,10 +203,9 @@ const uint8_t* gf127_next_block(const uint8_t *src,
     return src + (rb1*n + cb1) * 64;
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n
 static inline
 void gf127_matrix_transpose_opt(uint8_t *dst,
                                 const uint8_t *src,
@@ -250,6 +243,7 @@ void gf127_matrix_transpose_opt(uint8_t *dst,
 #ifdef USE_AVX2 
 #include <immintrin.h>
 
+/// needed for gf127_matrix_transpose_64x64_avx2
 static const uint8_t BLENDV_MASK[5][32] __attribute__((aligned(32)))= {
     { 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff },
     { 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff },
@@ -258,6 +252,7 @@ static const uint8_t BLENDV_MASK[5][32] __attribute__((aligned(32)))= {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
 };
 
+// needed for gf127_matrix_transpose_64x64_avx2
 static const uint8_t SHUFFLE_MASK[4][32] __attribute__((aligned(32))) = {
     { 1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22, 25, 24, 27, 26, 29, 28, 31, 30 },
     { 2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13, 18, 19, 16, 17, 22, 23, 20, 21, 26, 27, 24, 25, 30, 31, 28, 29 },
@@ -270,11 +265,11 @@ typedef __m256i_u LOAD_TYPE;
 typedef __m256i_u STORE_TYPE;
 
 /// TODO: org code from
-/// @param dst_origin
-/// @param src_origin
-/// @param prf_origin
-/// @param src_stride
-/// @param dst_stride
+/// \param dst_origin
+/// \param src_origin
+/// \param prf_origin
+/// \param src_stride
+/// \param dst_stride
 void gf127_matrix_transpose_64x64_avx2(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const uint8_t* prf_origin,
@@ -691,10 +686,9 @@ void gf127_matrix_transpose_64x64_avx2(uint8_t* dst_origin,
   *(STORE_TYPE*)(dst_origin + 31*dst_stride) = rnd_5_31;
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n must be divisable by 64
 void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
                                      const uint8_t *src,
                                      const size_t n) {
@@ -712,10 +706,9 @@ void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
     }
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n must be divisable by 64
 void gf127_matrix_transpose_opt_avx2_buffered(uint8_t *dst,
                                               const uint8_t *src,
                                               const size_t n) {
@@ -751,7 +744,10 @@ void gf127_matrix_transpose_opt_avx2_buffered(uint8_t *dst,
 ///
 /// output:
 /// 0  4  8  12 
-inline __m128i gf127_transpose_4x4 (__m128i m) {
+/// 1  4  9  13
+/// 2  6 10  14 
+/// 3  7 11  15 
+static inline __m128i gf127_transpose_4x4 (const __m128i m) {
     return _mm_shuffle_epi8 (m, _mm_setr_epi8 (0, 4, 8, 12,
                                                1, 5, 9, 13,
                                                2, 6, 10, 14,
@@ -760,12 +756,13 @@ inline __m128i gf127_transpose_4x4 (__m128i m) {
 
 #endif
 
+///
 static inline
 void gf127_matrix_transpose_opt2(uint8_t *dst,
                                 const uint8_t *src,
                                 const size_t n) {
     /// NOTE: possible values for `bsize = 8,16,32,64`
-    /// NOTE: this transpose is not completly random choose.
+    /// NOTE: this transpose is not completly randomly choosen.
     /// Floyd: did some benchmarks, see `src/127/README.md`
     const size_t bsize = 32;
     uint64_t rb = 0;
@@ -840,3 +837,27 @@ void gf127_matrix_transpose_opt2(uint8_t *dst,
     }
 }
 
+/// assumes max 8 rows
+/// assumes that the output matrix has n columns
+/// \param dst
+/// \param src
+/// \param n   number of columns
+static inline void gf127_matrix_transpose8xN(uint8_t *dst, 
+                                             const uint8_t *src,
+                                             const uint32_t n) {
+    const uint32_t bsize = 8;
+    uint64_t rb = 0;
+    for (; rb < n / bsize; rb++) {
+            const uint8_t *srcb_origin = src + ( 0 * n + rb) * bsize;
+                  uint8_t *dstb_origin = dst + (rb * n +  0) * bsize;
+        gf127_matrix_transpose8x8(dstb_origin, srcb_origin, n, n);
+    }
+
+    rb *= bsize;
+    for (; rb < n; rb++) {
+        for (uint32_t j = 0; j < 8; j++) {
+            const uint8_t t = src[j*n + rb];
+            dst[rb*n + j] = t;
+        }
+    }
+}

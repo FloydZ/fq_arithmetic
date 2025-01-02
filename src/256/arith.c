@@ -79,19 +79,20 @@ uint32_t test_matrix_add_u256() {
 
 uint32_t test_matrix_add_gf16_u256() {
     uint32_t ret = 0;
-    const uint32_t nrows = 15;
-    const uint32_t ncols = 15;
+    const uint32_t nrows = 19;
+    const uint32_t ncols = 14;
     gf256 *A  = gf256_matrix_alloc(nrows, ncols);
     gf16 *B   = gf16_matrix_alloc(nrows, ncols);
     gf256 *C1 = gf256_matrix_alloc(nrows, ncols);
     gf256 *C2 = gf256_matrix_alloc(nrows, ncols);
 
     gf16_matrix_random(B, nrows, ncols);
+    gf256_matrix_random(A, nrows, ncols);
     gf256_matrix_add_gf16(C1, A, B, nrows, ncols);
     gf256_matrix_add_gf16_u256(C2, A, B, nrows, ncols);
 
     for (uint32_t i = 0; i < nrows; i++) {
-        for (uint32_t j = 0; j < nrows; j++) {
+        for (uint32_t j = 0; j < ncols; j++) {
             const gf256 t1 = gf256_matrix_get_entry(C1, nrows, i, j);
             const gf256 t2 = gf256_matrix_get_entry(C2, nrows, i, j);
             if (t1 != t2) {
@@ -141,8 +142,8 @@ finish:
 
 uint32_t test_matrix_add_multiple_gf16_u256() {
     uint32_t ret = 0;
-    const uint32_t nrows = 16;
-    const uint32_t ncols = 16;
+    const uint32_t nrows = 5;
+    const uint32_t ncols = 14;
     gf16 *B   = gf16_matrix_alloc(nrows, ncols);
     gf256 *C1 = gf256_matrix_alloc(nrows, ncols);
     gf256 *C2 = gf256_matrix_alloc(nrows, ncols);
@@ -153,7 +154,7 @@ uint32_t test_matrix_add_multiple_gf16_u256() {
     gf256_matrix_add_multiple_gf16_u256(C2, scalar, B, nrows, ncols);
 
     for (uint32_t i = 0; i < nrows; i++) {
-        for (uint32_t j = 0; j < nrows; j++) {
+        for (uint32_t j = 0; j < ncols; j++) {
             const gf256 t1 = gf256_matrix_get_entry(C1, nrows, i, j);
             const gf256 t2 = gf256_matrix_get_entry(C2, nrows, i, j);
             if (t1 != t2) {
@@ -235,16 +236,16 @@ uint32_t test_matrix_add_multiple_3_u256() {
 
 uint32_t test_matrix_product_gf16_1_u256() {
     uint32_t ret = 0;
-    const uint32_t nrows1 = 15;
-    const uint32_t ncols1 = 15;
-    const uint32_t ncols2 = 15;
+    const uint32_t nrows1 = 166;
+    const uint32_t ncols1 = 195;
+    const uint32_t ncols2 = 1;
 
-    gf16 *A   = gf16_matrix_alloc (ncols1, ncols2);
-    gf256 *B  = gf256_matrix_alloc(nrows1, ncols1);
+    gf16 *A   = gf16_matrix_alloc (nrows1, ncols1);
+    gf256 *B  = gf256_matrix_alloc(ncols1, ncols2);
     gf256 *C1 = gf256_matrix_alloc(nrows1, ncols2);
     gf256 *C2 = gf256_matrix_alloc(nrows1, ncols2);
 
-    gf16_matrix_random(A, ncols1, ncols2);
+    gf16_matrix_random(A, nrows1, ncols1);
     gf256_matrix_random(B, ncols1, ncols2);
     gf256_matrix_product_gf16_1(C1, A, B, nrows1, ncols1, ncols2);
     gf256_matrix_product_gf16_1_u256(C2, A, B, nrows1, ncols1, ncols2);
