@@ -341,25 +341,27 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
     for (uint32_t i = 0; i < 64; i++) {
         M[i] = _mm256_loadu_si256((__m256i *)(A+i*32));
     }
+
     for (uint32_t i = 0; i < 64; i+=2) {
-        __m256i t = (_mm256_srli_epi64(M[i], 4) ^ M[i+1]) & mask1;
+        const __m256i t = (_mm256_srli_epi64(M[i], 4) ^ M[i+1]) & mask1;
         M[i+0] ^= _mm256_slli_epi64(t, 4);
         M[i+1] ^= t;
     }
 
     for (uint32_t i = 0; i < 64; i+=4) {
-        __m256i t0 = (_mm256_srli_epi64(M[i+0], 8) ^ M[i+2]) & mask2;
-        __m256i t1 = (_mm256_srli_epi64(M[i+1], 8) ^ M[i+3]) & mask2;
+        const __m256i t0 = (_mm256_srli_epi64(M[i+0], 8) ^ M[i+2]) & mask2;
+        const __m256i t1 = (_mm256_srli_epi64(M[i+1], 8) ^ M[i+3]) & mask2;
         M[i+0] ^= _mm256_slli_epi64(t0, 8);
         M[i+1] ^= _mm256_slli_epi64(t1, 8);
         M[i+2] ^= t0;
         M[i+3] ^= t1;
     }
+
     for (uint32_t i = 0; i < 64; i+=8) {
-        __m256i t0 = (_mm256_srli_epi64(M[i+0], 16) ^ M[i+4]) & mask3;
-        __m256i t1 = (_mm256_srli_epi64(M[i+1], 16) ^ M[i+5]) & mask3;
-        __m256i t2 = (_mm256_srli_epi64(M[i+2], 16) ^ M[i+6]) & mask3;
-        __m256i t3 = (_mm256_srli_epi64(M[i+3], 16) ^ M[i+7]) & mask3;
+        const __m256i t0 = (_mm256_srli_epi64(M[i+0], 16) ^ M[i+4]) & mask3;
+        const __m256i t1 = (_mm256_srli_epi64(M[i+1], 16) ^ M[i+5]) & mask3;
+        const __m256i t2 = (_mm256_srli_epi64(M[i+2], 16) ^ M[i+6]) & mask3;
+        const __m256i t3 = (_mm256_srli_epi64(M[i+3], 16) ^ M[i+7]) & mask3;
         M[i+0] ^= _mm256_slli_epi64(t0, 16);
         M[i+1] ^= _mm256_slli_epi64(t1, 16);
         M[i+2] ^= _mm256_slli_epi64(t2, 16);
@@ -369,6 +371,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+6] ^= t2;
         M[i+7] ^= t3;
     }
+
     for (uint32_t i = 0; i < 64; i+=16) {
         const __m256i t0 = (_mm256_srli_epi64(M[i+0], 32) ^ M[i+ 8]) & mask4;
         const __m256i t1 = (_mm256_srli_epi64(M[i+1], 32) ^ M[i+ 9]) & mask4;
@@ -395,6 +398,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+14] ^= t6;
         M[i+15] ^= t7;
     }
+
     for (uint32_t i = 0; i < 16; i++) {
         const __m256i t0 = (_mm256_srli_si256(M[i+ 0], 8) ^ M[i+16]) & mask5;
         const __m256i t1 = (_mm256_srli_si256(M[i+32], 8) ^ M[i+48]) & mask5;
@@ -403,12 +407,14 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+16] ^= t0;
         M[i+48] ^= t1;
     }
+
     for (uint32_t i = 0; i < 32; i++) {
         const __m256i t = (_mm256_permute2x128_si256(M[i+0], M[i+0], 0b10000001) ^ M[i+32]) & mask6;
         M[i   ] ^= _mm256_permute2x128_si256(t, t, 0b01000); //
         M[i+32] ^= t;
     }
-   // write out
+
+    // write out
     for (uint32_t i = 0; i < 64; i++) {
         _mm256_storeu_si256((__m256i *)(B + i*stride), M[i]);
     }

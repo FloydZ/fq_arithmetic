@@ -270,7 +270,7 @@ typedef __m256i_u STORE_TYPE;
 /// \param prf_origin
 /// \param src_stride
 /// \param dst_stride
-void gf127_matrix_transpose_64x64_avx2(uint8_t* dst_origin,
+void gf127_matrix_transpose_32x32_avx2(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const uint8_t* prf_origin,
                                        const size_t src_stride,
@@ -698,10 +698,10 @@ void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
             const uint8_t* prf_origin = gf127_next_block(src, rb, cb, n);
                   uint8_t* dst_origin = dst + (cb*n+rb)*64;
 
-            gf127_matrix_transpose_64x64_avx2(dst_origin,         src_origin,         prf_origin,      n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32,      src_origin+32*n,    prf_origin+n*16, n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32*n,    src_origin+32,      prf_origin+n*32, n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32*n+32, src_origin+32*n+32, prf_origin+n*48, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin,         src_origin,         prf_origin,      n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32,      src_origin+32*n,    prf_origin+n*16, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32*n,    src_origin+32,      prf_origin+n*32, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32*n+32, src_origin+32*n+32, prf_origin+n*48, n, n);
         }
     }
 }
@@ -720,10 +720,10 @@ void gf127_matrix_transpose_opt_avx2_buffered(uint8_t *dst,
             const uint8_t* prf_origin = gf127_next_block(src, rb, cb, n);
                   uint8_t* dst_origin = dst + (cb*n+rb)*64;
             
-            gf127_matrix_transpose_64x64_avx2(buf,          src_origin,         prf_origin,      n, 64);
-            gf127_matrix_transpose_64x64_avx2(buf+32,       src_origin+32*n,    prf_origin+n*16, n, 64);
-            gf127_matrix_transpose_64x64_avx2(buf+32*64,    src_origin+32,      prf_origin+n*32, n, 64);
-            gf127_matrix_transpose_64x64_avx2(buf+32*64+32, src_origin+32*n+32, prf_origin+n*48, n, 64);
+            gf127_matrix_transpose_32x32_avx2(buf,          src_origin,         prf_origin,      n, 64);
+            gf127_matrix_transpose_32x32_avx2(buf+32,       src_origin+32*n,    prf_origin+n*16, n, 64);
+            gf127_matrix_transpose_32x32_avx2(buf+32*64,    src_origin+32,      prf_origin+n*32, n, 64);
+            gf127_matrix_transpose_32x32_avx2(buf+32*64+32, src_origin+32*n+32, prf_origin+n*48, n, 64);
             
             for (int row = 0; row < 64; row++) {
                 __m256i lane0 = *(const __m256i*)(buf + 64*row);
@@ -774,10 +774,10 @@ void gf127_matrix_transpose_opt2(uint8_t *dst,
             const uint8_t* prf_origin = gf127_next_block(src, rb, cb, n);
                   uint8_t* dst_origin = dst + (cb*n+rb)*64;
 
-            gf127_matrix_transpose_64x64_avx2(dst_origin,         src_origin,         prf_origin,      n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32,      src_origin+32*n,    prf_origin+n*16, n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32*n,    src_origin+32,      prf_origin+n*32, n, n);
-            gf127_matrix_transpose_64x64_avx2(dst_origin+32*n+32, src_origin+32*n+32, prf_origin+n*48, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin,         src_origin,         prf_origin,      n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32,      src_origin+32*n,    prf_origin+n*16, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32*n,    src_origin+32,      prf_origin+n*32, n, n);
+            gf127_matrix_transpose_32x32_avx2(dst_origin+32*n+32, src_origin+32*n+32, prf_origin+n*48, n, n);
         }
     }
 
