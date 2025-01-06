@@ -410,10 +410,12 @@ static void gf16_transpose_32x32_avx2(uint8_t *B,
         _mm_storeu_si128((__m128i *)(B + i*stride), M[i]);
     }
 }
+
 // NOTE: stride in bytes
 static void gf16_transpose_64x64_avx2(uint8_t *B,
                                       const uint8_t *const A,
-                                      const uint32_t stride) {
+                                      const uint32_t src_stride,
+                                      const uint32_t dst_stride) {
     __m256i M[64];
     const __m256i mask1 = _mm256_set1_epi8  (0x0F),
                   mask2 = _mm256_set1_epi16 (0x00FF),
@@ -422,7 +424,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
                   mask5 = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFF, 0),
                   mask6 = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0);
     for (uint32_t i = 0; i < 64; i++) {
-        M[i] = _mm256_loadu_si256((__m256i *)(A+i*32));
+        M[i] = _mm256_loadu_si256((__m256i *)(A+i*src_stride));
     }
 
     for (uint32_t i = 0; i < 64; i+=2) {
@@ -499,7 +501,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
 
     // write out
     for (uint32_t i = 0; i < 64; i++) {
-        _mm256_storeu_si256((__m256i *)(B + i*stride), M[i]);
+        _mm256_storeu_si256((__m256i *)(B + i*dst_stride), M[i]);
     }
 }
 #endif
@@ -507,9 +509,8 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
 /// B = A^T
 void gf16_matrix_tranpose_opt(uint8_t *B,
                               const uint8_t *const A,
-				              const size_t nrows,
-				              const size_t ncols) {
-    
+				              const uint32_t nrows,
+				              const uint32_t ncols) {
     const size_t bsize1 = 64u;
     const size_t bsize2 = bsize1 >> 1u;
     
@@ -517,10 +518,10 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
     uint64_t rb = 0;
     for (; rb < nrows / bsize1; rb++) {
         for (uint64_t cb = 0; cb < ncols / bsize1; cb++) {
-            const uint8_t *src_origin = A + (rb*nrows/2 + cb);// * bsize2;
-                  uint8_t *dst_origin = B + (cb*ncols/2 + rb);// * bsize2;
+            const uint8_t *src_origin = A + (rb*nrows + cb) * bsize2;
+                  uint8_t *dst_origin = B + (cb*ncols + rb) * bsize2;
             
-            gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2);
+            gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2, ncols/2);
         }
     }
 
@@ -531,15 +532,14 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
             for(uint32_t j = 0; j < nrows; j++) {
                 const ff_t a = gf16_matrix_get(A, nrows, i, j);
                 gf16_matrix_set(B, ncols, j, i, a);
-                // B[j*ncols + i] = A[i*nrows + j];
             }
         }
+
         // solve the last rows
         for (uint32_t i = 0; i < nrows; i++) {
             for(uint32_t j = rb; j < ncols; j++) {
                 const ff_t a = gf16_matrix_get(A, nrows, i, j);
                 gf16_matrix_set(B, ncols, j, i, a);
-                //B[j*ncols + i] = A[i*nrows + j];
             }
         }
     }
@@ -753,6 +753,12 @@ static inline void row_echelon_form_compressed(unsigned char *A,
                                                const int _ncols) {
     (void) _nrows;
     (void) _ncols;
+#ifndef NROWS
+#define NROWS 32
+#endif
+#ifndef NCOLS
+#define NCOLS 32
+#endif
 
 #define AVX_REGS_PER_ROW ((NCOLS + 63) / 64)
 #define MAX_COLS (AVX_REGS_PER_ROW * 64)

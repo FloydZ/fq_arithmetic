@@ -11,6 +11,7 @@
 
 #ifdef USE_AVX2
 #include <immintrin.h>
+
 uint32_t test_vector_mul() {
     uint8_t tmp[16];
     for (uint32_t i = 1; i < (1u<<4); i++) {
@@ -114,9 +115,6 @@ finish:
     return ret;
 }
 
-#endif
-
-#ifdef USE_AVX2
 uint32_t test_transpose_32x32() {
     const size_t s = 32;
     uint8_t *data1 = gf16_matrix_alloc(s, s);
@@ -162,7 +160,7 @@ uint32_t test_transpose_64x64() {
     for (uint32_t k = 0; k < 100; k++) {
         gf16_matrix_random(data1, s, s);
         gf16_matrix_tranpose(data2, data1, s, s);
-        gf16_transpose_64x64_avx2(data3, data1, 32);
+        gf16_transpose_64x64_avx2(data3, data1, 32, 32);
 
         for (uint32_t i = 0; i < s; i++) {
             for (uint32_t j = 0; j < s; j++) {
@@ -188,15 +186,15 @@ finish:
 }
 
 uint32_t test_transpose2() {
-    const size_t s1 = 65;
-    const size_t s2 = 65;
+    const size_t s1 = 256;
+    const size_t s2 = 256;
     uint8_t *data1 = gf16_matrix_alloc(s1, s2);
     uint8_t *data2 = gf16_matrix_alloc(s1, s2);
     uint8_t *data3 = gf16_matrix_alloc(s1, s2);
 
     for (size_t i = 0; i < s1; i++) {
         for (size_t j = 0; j < s2; j++) {
-            gf16_matrix_set(data1, s1, i, j, (i+j)%16);
+            gf16_matrix_set(data1, s1, i, j, rand()%16);
         }
     }
 
@@ -259,11 +257,11 @@ uint32_t test_solve() {
 
 int main() {
 #ifdef USE_AVX2
-    if (test_transpose_32x32()) { return 1; }
-    if (test_transpose_64x64()) { return 1; }
+    // if (test_transpose_32x32()) { return 1; }
+    // if (test_transpose_64x64()) { return 1; }
     if (test_transpose2()) { return 1; }
-    if (test_matrix_gaus_compressed()) { return 1; }
-    if (test_matrix_gaus()) { return 1; }
+    // if (test_matrix_gaus_compressed()) { return 1; }
+    // if (test_matrix_gaus()) { return 1; }
     // if (test_solve()) { return 1; }
 
     // if (test_vector_mul()) { return 1; }

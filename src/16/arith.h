@@ -546,8 +546,8 @@ void linearmap_8x8_accu_sse(uint8_t *accu_c,
         _store_xmm( accu_c , rem , r0 );
     }
 }
-//
-// SOURCE: https://github.com/pqov/pqov-paper/blob/main/src/avx2/gf16_avx2.h
+
+/// SOURCE: https://github.com/pqov/pqov-paper/blob/main/src/avx2/gf16_avx2.h
 static inline __m256i linear_transform_8x8_256b(__m256i tab_l,
                                                 __m256i tab_h,
                                                 __m256i v,
