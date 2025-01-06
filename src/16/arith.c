@@ -1,10 +1,13 @@
+// NOTE: currently the row echelon form need this
+#define NROWS 127
+#define NCOLS 128
+
 #include "arith.h"
 #include "vector.h"
 #include "matrix.h"
 
 #include <string.h>
 
-#define TS 512
 
 #ifdef USE_AVX2
 #include <immintrin.h>
@@ -43,91 +46,183 @@ uint32_t test_vector_mul() {
     return 0;
 }
 
-
-// TODO add transpose and reading the solutinn
-// todo the same for the compressed versiton: additional write an `expanding` transpose
-
-#define nrows 32
-#define ncols 32
-
 /// tests the mayo code
-uint32_t test_matrix_gaus() {
+uint32_t test_matrix_gaus_compressed() {
     uint8_t ret = 0;
-    uint8_t A[nrows*(ncols/2)];
-    for (uint32_t i = 0; i < nrows * (ncols/2); i++) { A[i] = rand();  }
+    uint8_t *A = gf16_matrix_alloc(NROWS, NCOLS);
+    gf16_matrix_rng_full_rank(A, NROWS, NCOLS);
 
-    row_echelon_form(A, nrows, ncols);
-    gf16_matrix_print(A, 32, 64);
-    for (uint32_t i = 0; i < nrows; i++) {
-        for (uint32_t j = 0; j < ncols; j++) {
-            const gf16 t = gf16_matrix_get(A, ncols, j, i);
+    row_echelon_form_compressed(A, NROWS, NCOLS);
+    //gf16_matrix_print(A, NCOLS, NROWS);
+    for (uint32_t i = 0; i < NROWS; i++) {
+        for (uint32_t j = 0; j < NCOLS; j++) {
+            const gf16 t = gf16_matrix_get(A, NCOLS, j, i);
             if ((i==j) && (t != 1)) {
+                gf16_matrix_print(A, NROWS, NCOLS);
+                printf("error: test_matrix_gaus_compressed\n");
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish:
+    return ret;
+}
+
+uint32_t test_matrix_gaus() {
+    // NOTE: this tests the expanded version
+    uint8_t ret = 0;
+    uint8_t *A = calloc(1, NCOLS*NROWS);
+
+    // gf16_matrix_random(A, nrows, ncols);
+    for (uint32_t i = 0; i < NROWS * NCOLS; i++) { A[i] = rand() & 0xF;  }
+    for (uint32_t i1 = 0; i1 < NROWS; i1++) {
+        for (uint32_t j1 = 0; j1 < NROWS; j1++) {
+            if ((rand() & 1u) && (i1 != j1)) {
+                for (uint32_t k1 = 0; k1 < NCOLS; k1++) {
+                    A[i1*NCOLS + k1] ^= A[j1*NCOLS + k1];
+                }
+            }
+        }
+    }
+
+    row_echelon_form(A, NROWS, NCOLS);
+
+    // for (uint32_t i1 = 0; i1 < NROWS; i1++) {
+    //     for (uint32_t j1 = 0; j1 < NCOLS; j1++) {
+    //         printf("%2d", A[i1*NCOLS + j1]);
+    //         if (j1 != (NCOLS - 1)) {
+    //             printf(",");
+    //         }
+    //     }
+    //     printf("\n");
+    // }
+    for (uint32_t i = 0; i < NROWS; i++) {
+        for (uint32_t j = 0; j < NCOLS; j++) {
+            const gf16 t = A[i*NCOLS + i]; //gf16_matrix_get(A, NCOLS, j, i);
+            if ((i==j) && (t != 1)) {
+                printf("\n");
                 printf("error: test_matrix_gaus\n");
                 ret = 1;
                 goto finish;
             }
         }
     }
-    finish:
+
+finish:
     return ret;
 }
 
 #endif
 
-uint32_t test_transpose() {
-    //uint8_t d[TS]={0}, out[TS]={0};
-    //for (uint32_t i = 0; i < TS/4; i++ ) {
-    //    d[i] = i%16;
-    //}
-
-    //// gf16_matrix_print(d, 16, 32);
-    //gf16_transpose_16x16(out +  0, d +   0, 16);
-    //gf16_transpose_16x16(out +  8, d + 128, 16);
-    //// gf16_matrix_print(out, 32, 16);
-
-
 #ifdef USE_AVX2
-    uint8_t *data1 = calloc(1, 2048);
-    uint8_t *data2 = calloc(1, 2048);
+uint32_t test_transpose_32x32() {
+    const size_t s = 32;
+    uint8_t *data1 = gf16_matrix_alloc(s, s);
+    uint8_t *data2 = gf16_matrix_alloc(s, s);
+    uint8_t *data3 = gf16_matrix_alloc(s, s);
 
-    for (uint32_t i = 0; i < 32; i++ ) {
-        data1[i] = i%16;
+    uint32_t ret = 0;
+    for (uint32_t k = 0; k < 100; k++) {
+        gf16_matrix_random(data1, s, s);
+        gf16_matrix_tranpose(data2, data1, s, s);
+        gf16_transpose_32x32_avx2(data3, data1, 16);
+
+        for (uint32_t i = 0; i < s; i++) {
+            for (uint32_t j = 0; j < s; j++) {
+                const gf16 t1 = gf16_matrix_get(data2, s, i, j);
+                const gf16 t2 = gf16_matrix_get(data3, s, i, j);
+                if (t1 != t2) {
+                    gf16_matrix_print(data2, s, s);
+                    printf("\n");
+                    gf16_matrix_print(data3, s, s);
+                    printf("error test_transpose_32x32: %d %d\n", i, j);
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+
     }
 
-    // gf16_matrix_print(data1, 64, 64);
-    gf16_transpose_64x64_avx2(data2, data1, 32);
-    // gf16_matrix_print(data2, 64, 64);
-    free(data1); free(data2);
-#endif
-    return 0;
+finish:
+    free(data1); free(data2); free(data3);
+    return ret;
+
+}
+
+uint32_t test_transpose_64x64() {
+    const size_t s = 64;
+    uint8_t *data1 = gf16_matrix_alloc(s, s);
+    uint8_t *data2 = gf16_matrix_alloc(s, s);
+    uint8_t *data3 = gf16_matrix_alloc(s, s);
+
+    uint32_t ret = 0;
+    for (uint32_t k = 0; k < 100; k++) {
+        gf16_matrix_random(data1, s, s);
+        gf16_matrix_tranpose(data2, data1, s, s);
+        gf16_transpose_64x64_avx2(data3, data1, 32);
+
+        for (uint32_t i = 0; i < s; i++) {
+            for (uint32_t j = 0; j < s; j++) {
+                const gf16 t1 = gf16_matrix_get(data2, s, i, j);
+                const gf16 t2 = gf16_matrix_get(data3, s, i, j);
+                if (t1 != t2) {
+                    gf16_matrix_print(data2, s, s);
+                    printf("\n");
+                    gf16_matrix_print(data3, s, s);
+                    printf("error test_transpose_64x64: %d %d\n", i, j);
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+
+    }
+
+finish:
+    free(data1); free(data2); free(data3);
+    return ret;
+
 }
 
 uint32_t test_transpose2() {
-    const size_t s = 64;
-    uint8_t *data1 = calloc(1, s*s/2);
-    uint8_t *data2 = calloc(1, s*s/2);
-    uint8_t *data3 = calloc(1, s*s/2);
+    const size_t s1 = 65;
+    const size_t s2 = 65;
+    uint8_t *data1 = gf16_matrix_alloc(s1, s2);
+    uint8_t *data2 = gf16_matrix_alloc(s1, s2);
+    uint8_t *data3 = gf16_matrix_alloc(s1, s2);
 
-    for (size_t i = 0; i < s; i++) {
-        for (size_t j = 0; j < s; j++) {
-            gf16_matrix_set(data1, s, i, j, (i+j)%16);
+    for (size_t i = 0; i < s1; i++) {
+        for (size_t j = 0; j < s2; j++) {
+            gf16_matrix_set(data1, s1, i, j, (i+j)%16);
         }
     }
 
-    gf16_matrix_tranpose(data2, data1, s, s);
-    gf16_matrix_tranpose_opt(data3, data1, s, s);
+    gf16_matrix_tranpose(data2, data1, s1, s1);
+    gf16_matrix_tranpose_opt(data3, data1, s1, s2);
 
-    // gf16_matrix_print(data1, s, s);
-    // gf16_matrix_print(data2, s, s);
-    // gf16_matrix_print(data3, s, s);
 
-    if (memcmp(data2, data3, s*s/2) != 0) {
-        printf("kek\n");
-        return 1;
+    uint32_t ret = 0;
+    for (uint32_t i = 0; i < s1; i++) {
+        for (uint32_t j = 0; j < s2; j++) {
+            const gf16 t1 = gf16_matrix_get(data2, s1, i, j);
+            const gf16 t2 = gf16_matrix_get(data3, s2, i, j);
+            if (t1 != t2) {
+                gf16_matrix_print(data2, s1, s2);
+                printf("\n");
+                gf16_matrix_print(data3, s1, s2);
+                printf("error test_transpose2: %d %d\n", i, j);
+                ret = 1;
+                goto finish;
+            }
+        }
     }
 
+finish:
     free(data1); free(data2); free(data3);
-    return 0;
+    return ret;
 }
 
 uint32_t test_solve() {
@@ -160,16 +255,23 @@ uint32_t test_solve() {
     free(A); free(b); free(AT);
     return 0;
 }
+#endif
 
 int main() {
-    // if (test_transpose()) { return 1; }
-    // if (test_transpose2()) { return 1; }
+#ifdef USE_AVX2
+    if (test_transpose_32x32()) { return 1; }
+    if (test_transpose_64x64()) { return 1; }
+    if (test_transpose2()) { return 1; }
+    if (test_matrix_gaus_compressed()) { return 1; }
+    if (test_matrix_gaus()) { return 1; }
     // if (test_solve()) { return 1; }
 
-#ifdef USE_AVX2
-    if (test_matrix_gaus()) { return 1; }
     // if (test_vector_mul()) { return 1; }
 #endif
 
+    printf("all good\n");
     return 0;
 }
+
+#undef ncols
+#undef nrows

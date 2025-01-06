@@ -36,7 +36,7 @@ const uint8_t gf16_mult_table[256] = {
 };
 
 /// NOTE: normally 16 elements would be sufficient, but for easy use in avx
-/// its extended to 32 elements
+/// it's extended to 32 elements
 /// table[i] = i^{-1} mod GF(16)
 const uint8_t gf16_inverse_tab[32] __attribute__((aligned(32)))= {
     0, 1, 9, 14, 13, 11, 7, 6, 15, 2, 12, 5, 10, 4, 3, 8,
