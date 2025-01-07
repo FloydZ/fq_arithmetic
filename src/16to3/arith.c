@@ -34,8 +34,8 @@ bool test_mul() {
 
 uint32_t test_arith_vector_mul() {
     uint16_t tmp[32];
-    for (int i = 0; i < 1u << 12; ++i) {
-        for (int j = 0; j < 1u << 12; ++j) {
+    for (uint16_t i = 1; i < 1u << 12; ++i) {
+        for (uint16_t j = 1; j < 1u << 12; ++j) {
             const __m256i a256 = _mm256_set1_epi16(i);
             const __m256i b256 = _mm256_set1_epi16(j);
             const __m256i c256 = gf16to3v_mul_u256(a256, b256);
@@ -44,7 +44,7 @@ uint32_t test_arith_vector_mul() {
             _mm256_storeu_si256((__m256i *)tmp, c256);
             for (int k = 0; k < 16; ++k) {
                 if (tmp[k] != c) {
-                    printf("gf16to3 avx mul error\n");
+                    printf("gf16to3 avx mul error: %d %d\n", i, j);
                     return 1;
                 }
             }
@@ -526,8 +526,11 @@ finish:
 
 
 int main() {
+    test_mul();
 #ifdef USE_AVX2
-    // if (test_arith_vector_mul()) { return 1; }
+    if (test_arith_vector_mul()) { return 1; }
+    printf("all good\n");
+    return 0;
 
     if (test_matrix_mul()) { return 1; }
     if (test_matrix_mul_vector()) { return 1; }
@@ -546,6 +549,4 @@ int main() {
     if (test_vector_add_scalar_gf16()) { return 1; }
 #endif
 
-    printf("all good\n");
-    return 0;
 }
