@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-int pivot_col_rounded = pivot_col/32;
+int pivot_col_rounded = pivot_col/64;
 
-int pivot_row_lower_bound = MAX(0, pivot_col + nrows - MAX_COLS);
-int pivot_row_upper_bound = MIN(nrows - 1, pivot_col - MAX_COLS + ncols);
+int pivot_row_lower_bound = MAX(0, pivot_col + NROWS - MAX_COLS);
+int pivot_row_upper_bound = MIN(NROWS - 1, pivot_col - MAX_COLS + NCOLS);
 /* the pivot row is guaranteed to be between these lower and upper bounds if A has full rank*/
 
 /* zero out pivot row */
@@ -15,14 +15,13 @@ for (int i = pivot_col_rounded; i < AVX_REGS_PER_ROW; i++) {
 unsigned char pivot = 0;
 uint32_t pivot_is_zero = -1;
 for (int row = pivot_row_lower_bound;
-        row <= MIN(nrows - 1, pivot_row_upper_bound + 32); row++) {
+        row <= MIN(NROWS - 1, pivot_row_upper_bound + 32); row++) {
     uint32_t is_pivot_row = ~ct_compare_32(row, pivot_row);
     uint32_t below_pivot_row = ct_is_greater_than(row, pivot_row);
     __m256i mask = _mm256_set1_epi32( is_pivot_row | (below_pivot_row & pivot_is_zero) );
     for (int j = pivot_col_rounded; j < AVX_REGS_PER_ROW; j++) {
         _pivot_row[j] ^= mask & A_avx[row * AVX_REGS_PER_ROW + j];
     }
-    // TODO not constant time
     if (pivot_col & 1) {
         pivot = pivot_row_bytes[pivot_col/2] >> 4;
     } else {
@@ -43,9 +42,17 @@ for (int j = pivot_col_rounded; j < AVX_REGS_PER_ROW; j++) {
 
 /* conditionally write pivot row to the correct row, if there is a nonzero pivot */
 /* eliminate entries below pivot */
-for (int row = pivot_row_lower_bound; row < nrows; row++) {
+for (int row = pivot_row_lower_bound; row < NROWS; row++) {
     unsigned char below_pivot =  (unsigned char) (ct_is_greater_than(row, pivot_row));
-    unsigned char elt_to_elim = A_bytes[row*AVX_REGS_PER_ROW*32 + pivot_col];
+
+    // unsigned char elt_to_elim = A_bytes[row*AVX_REGS_PER_ROW*32 + pivot_col];
+    unsigned char elt_to_elim;
+    const uint32_t tcol = pivot_col;
+    if (tcol & 1) {
+        elt_to_elim = A_bytes[row*AVX_REGS_PER_ROW*32 + tcol/2] >> 4;
+    } else {
+        elt_to_elim = A_bytes[row*AVX_REGS_PER_ROW*32 + tcol/2] & 0xf;
+    }
 
     const __m256i multab_l = gf16v_tbl32_multab(below_pivot & elt_to_elim);
     const __m256i multab_h = _mm256_slli_epi16(multab_l, 4);

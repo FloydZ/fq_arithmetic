@@ -484,7 +484,6 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
                                               const gf16 *matrix3,
                                               const uint32_t n_rows,
                                               const uint32_t n_cols) {
-
     const __m128i perm128 = _mm_load_si128((const __m128i *)gf256_expand_tab);
     const __m128i mask  = _mm_set1_epi8(0x0F);
 
@@ -508,6 +507,7 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
             _mm256_storeu_si256((__m256i *)out, t5);
             in  += 16u;
             out += 32u;
+            in2 += 32u;
             i   -= 32u;
         }
 
@@ -525,6 +525,7 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
             _mm_storeu_si128((__m128i *)out, t5);
             in  += 8u;
             out += 16u;
+            in2 += 16u;
             i   -= 16u;
         }
 
@@ -614,7 +615,7 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
 /// 
 /// \param[out] matrix1 Matrix over gf256
 /// \param[in] scalar scalar over gf256
-/// \param[in] matrix2 Matrix over gf16
+/// \param[in] matrix3 Matrix over gf16
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
 static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
@@ -623,7 +624,6 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
                                                        const uint32_t n_rows,
                                                        const uint32_t n_cols) {
 
-    const __m256i perm256 = _mm256_load_si256((const __m256i *)gf256_expand_tab);
     const __m128i perm128 = _mm_load_si128((const __m128i *)gf256_expand_tab);
     const __m256i tab = gf256v_generate_multab_16_single_element_u256(scalar);
     const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
@@ -634,46 +634,46 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
     const __m128i mh128 = _mm256_extracti128_si256(mh, 0);
     const __m128i mask128 = _mm_set1_epi8(0xF);
 
+    const uint32_t limit = n_rows % 16;
 
     for (uint32_t j = 0; j < n_cols; j++) {
         uint32_t i = n_rows;
-        gf16 *in   = (gf16  *)matrix3 + (j*n_rows + 1)/2;
-        gf256 *in2 = (gf256 *)matrix1 + j*n_rows;
+        gf16 *in   = (gf16  *)matrix3 + j*((n_rows + 1)/2);
         gf256 *out = matrix1 + j*n_rows;
-        while (i >= 32u) {
-            const __m256i m2 = _mm256_loadu_si256((const __m256i *)in2);
+        // while (i >= 32u) {
+        //     const __m256i m2 = _mm256_loadu_si256((const __m256i *)in2);
 
-            // slower
-            // const uint32_t t11 = *(uint32_t *)(in +  0);
-            // const uint32_t t12 = *(uint32_t *)(in +  4);
-            // const uint32_t t13 = *(uint32_t *)(in +  8);
-            // const uint32_t t14 = *(uint32_t *)(in + 12);
+        //     // slower
+        //     // const uint32_t t11 = *(uint32_t *)(in +  0);
+        //     // const uint32_t t12 = *(uint32_t *)(in +  4);
+        //     // const uint32_t t13 = *(uint32_t *)(in +  8);
+        //     // const uint32_t t14 = *(uint32_t *)(in + 12);
 
-            // const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-            // const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
-            // const uint64_t t23 = _pdep_u64(t13, 0x0F0F0F0F0F0F0F0F);
-            // const uint64_t t24 = _pdep_u64(t14, 0x0F0F0F0F0F0F0F0F);
+        //     // const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     // const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     // const uint64_t t23 = _pdep_u64(t13, 0x0F0F0F0F0F0F0F0F);
+        //     // const uint64_t t24 = _pdep_u64(t14, 0x0F0F0F0F0F0F0F0F);
 
-            // const __m256i t3 = _mm256_setr_epi64x(t21, t22, t23, t24);
-            // const __m256i t4 = _mm256_shuffle_epi8(perm256, t3);
+        //     // const __m256i t3 = _mm256_setr_epi64x(t21, t22, t23, t24);
+        //     // const __m256i t4 = _mm256_shuffle_epi8(perm256, t3);
 
-            // faster
-            const __m128i load = _mm_loadu_si128((__m128i *)in);
-            const __m128i ll = _mm_shuffle_epi8(perm128, load & mask128);
-            const __m128i lh = _mm_shuffle_epi8(perm128, _mm_srli_epi16(load, 4) & mask128);
-            const __m256i tl = _mm256_setr_m128i(ll, _mm_bsrli_si128(ll, 8));
-            const __m256i th = _mm256_setr_m128i(lh, _mm_bsrli_si128(lh, 8));
-            const __m256i t4 = _mm256_unpacklo_epi8(tl, th);
-            const __m256i t5 = gf256_linear_transform_8x8_256b(ml, mh, t4, mask);
-            const __m256i t6 = t5 ^ m2;
-            _mm256_storeu_si256((__m256i *)out, t6);
-            in  += 16u;
-            out += 32u;
-            i   -= 32u;
-        }
+        //     // faster
+        //     const __m128i load = _mm_loadu_si128((__m128i *)in);
+        //     const __m128i ll = _mm_shuffle_epi8(perm128, load & mask128);
+        //     const __m128i lh = _mm_shuffle_epi8(perm128, _mm_srli_epi16(load, 4) & mask128);
+        //     const __m256i tl = _mm256_setr_m128i(ll, _mm_bsrli_si128(ll, 8));
+        //     const __m256i th = _mm256_setr_m128i(lh, _mm_bsrli_si128(lh, 8));
+        //     const __m256i t4 = _mm256_unpacklo_epi8(tl, th);
+        //     const __m256i t5 = gf256_linear_transform_8x8_256b(ml, mh, t4, mask);
+        //     const __m256i t6 = t5 ^ m2;
+        //     _mm256_storeu_si256((__m256i *)out, t6);
+        //     in  += 16u;
+        //     out += 32u;
+        //     i   -= 32u;
+        // }
 
         while (i >= 16u) {
-            const __m128i m2 = _mm_loadu_si128((const __m128i *)in2);
+            const __m128i m2 = _mm_loadu_si128((const __m128i *)out);
             const uint32_t t11 = *(uint32_t *)(in +  0);
             const uint32_t t12 = *(uint32_t *)(in +  4);
 
@@ -690,12 +690,12 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
             i   -= 16u;
         }
 
-        if (i) {
+        if (limit) {
             uint8_t tmp[16] __attribute__((aligned(32)));
-            for (uint32_t k = 0; k < i; k++) { tmp[k] = in2[k]; }
+            for (uint32_t k = 0; k < limit; k++) { tmp[k] = out[k]; }
             const __m128i m2 = _mm_load_si128((const __m128i *) tmp);
 
-            for (uint32_t k = 0; k < (i + 1) / 2; k++) { tmp[k] = in[k]; }
+            for (uint32_t k = 0; k < (limit + 1) / 2; k++) { tmp[k] = in[k]; }
             const __m64 t21 = (__m64) _pdep_u64(*(uint32_t *) (tmp + 0), 0x0F0F0F0F0F0F0F0F);
             const __m64 t22 = (__m64) _pdep_u64(*(uint32_t *) (tmp + 4), 0x0F0F0F0F0F0F0F0F);
 
@@ -704,7 +704,7 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
             const __m128i t5 = gf256_linear_transform_8x8_128b(ml128, mh128, t4, mask128);
             const __m128i t6 = t5 ^ m2;
             _mm_store_si128((__m128i *) tmp, t6);
-            for (uint32_t k = 0; k < i; k++) { out[k] = tmp[k]; }
+            for (uint32_t k = 0; k < limit; k++) { out[k] = tmp[k]; }
         }
     }
 }
@@ -871,6 +871,52 @@ static inline void gf256_matrix_product_gf2_2_u256(gf256 *result,
 }
 
 /// \brief result = matrix1 * matrix2
+/// `n_cols2` == 1
+///
+/// \param[out] result Matrix over gf256
+/// \param[in] matrix1 Matrix over gf16
+/// \param[in] matrix2 Matrix over gf256
+/// \param[in] n_rows1 number of rows in matrix1
+/// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
+static inline void gf256_matrix_product_gf16_1_vector_u256(gf256 *result,
+                                                        const gf16 *matrix1,
+                                                        const gf256 *matrix2,
+                                                        const uint32_t n_rows1,
+                                                        const uint32_t n_cols1) {
+    uint8_t tmp[32] __attribute__((aligned(32)));
+
+    const uint32_t limit = n_rows1 % 32;
+    const uint32_t bytes_per_col = gf16_matrix_bytes_per_column(n_rows1);
+
+    for (uint32_t col = 0; col < n_cols1; ++col) {
+        uint32_t i = 0;
+        const uint8_t *m1 = matrix1 + col * bytes_per_col;
+        const __m256i b = _mm256_set1_epi8(*(matrix2 + col));
+        gf256 *r = result;
+
+        while ((i + 32) <= n_rows1) {
+            const __m256i a = gf256_vector_extend_gf16_x32(m1);
+            __m256i t = gf256v_mul_u256(b, a);
+            t ^= _mm256_loadu_si256((__m256i *)(r));
+            _mm256_storeu_si256((__m256i *)(r), t);
+
+            m1 += 16;
+            r  += 32;
+            i  += 32;
+        }
+
+        if (limit) {
+            for (uint32_t j = 0; j < (limit+1)/2; ++j) { tmp[j] = m1[j]; }
+            const __m256i a = gf256_vector_extend_gf16_x32(tmp);
+            __m256i t = gf256v_mul_u256(b, a);
+            _mm256_store_si256((__m256i *)tmp, t);
+            for (uint32_t j = 0; j < limit; ++j) { r[j] ^= tmp[j]; }
+        }
+    }
+}
+
+
+/// \brief result = matrix1 * matrix2
 /// 
 /// \param[out] result Matrix over gf256
 /// \param[in] matrix1 Matrix over gf16
@@ -884,6 +930,10 @@ static inline void gf256_matrix_product_gf16_1_u256(gf256 *result,
                                                     const uint32_t n_rows1,
                                                     const uint32_t n_cols1,
                                                     const uint32_t n_cols2) {
+    if (n_cols2 == 1) {
+        return gf256_matrix_product_gf16_1_vector_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+    }
+
     const uint32_t nr256= n_rows1 >> 5u;
     const uint32_t tb   = n_rows1 - (nr256 * 32);
     const uint8_t tail  = (nr256 == 0) || (tb != n_rows1);

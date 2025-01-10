@@ -33,10 +33,10 @@ uint32_t gf16_matrix_load4(const ff_t *m,
 /// \param n_cols
 ff_t* gf16_matrix_alloc(const uint32_t n_rows,
                         const uint32_t n_cols) {
-    return (ff_t*)malloc(gf16_matrix_bytes_size(n_rows, n_cols));
+    return (ff_t*)calloc(1, gf16_matrix_bytes_size(n_rows, n_cols));
 }
 
-/// \param m
+/// \param matrix
 /// \param n_rows
 /// \param i
 /// \param j
@@ -328,9 +328,94 @@ static void gf16_transpose_64x64(uint8_t *B,
 
 #ifdef USE_AVX2
 // NOTE: stride in bytes
-static void gf16_transpose_64x64_avx2(uint8_t *B,
+static void gf16_transpose_32x32_avx2(uint8_t *B,
                                       const uint8_t *const A,
                                       const uint32_t stride) {
+    __m128i M[32];
+    const __m128i mask1 = _mm_set1_epi8  (0x0F),
+                  mask2 = _mm_set1_epi16 (0x00FF),
+                  mask3 = _mm_set1_epi32 (0x0000FFFF),
+                  mask4 = _mm_set1_epi64x(0x00000000FFFFFFFF),
+                  mask5 = _mm_setr_epi64((__m64)0xFFFFFFFFFFFFFFFF, (__m64)0ul);
+
+    for (uint32_t i = 0; i < 32; i++) {
+        M[i] = _mm_loadu_si128((__m128i *)(A+i*16));
+    }
+
+    for (uint32_t i = 0; i < 32; i+=2) {
+        const __m128i t = (_mm_srli_epi64(M[i], 4) ^ M[i+1]) & mask1;
+        M[i+0] ^= _mm_slli_epi64(t, 4);
+        M[i+1] ^= t;
+    }
+
+    for (uint32_t i = 0; i < 32; i+=4) {
+        const __m128i t0 = (_mm_srli_epi64(M[i+0], 8) ^ M[i+2]) & mask2;
+        const __m128i t1 = (_mm_srli_epi64(M[i+1], 8) ^ M[i+3]) & mask2;
+        M[i+0] ^= _mm_slli_epi64(t0, 8);
+        M[i+1] ^= _mm_slli_epi64(t1, 8);
+        M[i+2] ^= t0;
+        M[i+3] ^= t1;
+    }
+
+    for (uint32_t i = 0; i < 32; i+=8) {
+        const __m128i t0 = (_mm_srli_epi64(M[i+0], 16) ^ M[i+4]) & mask3;
+        const __m128i t1 = (_mm_srli_epi64(M[i+1], 16) ^ M[i+5]) & mask3;
+        const __m128i t2 = (_mm_srli_epi64(M[i+2], 16) ^ M[i+6]) & mask3;
+        const __m128i t3 = (_mm_srli_epi64(M[i+3], 16) ^ M[i+7]) & mask3;
+        M[i+0] ^= _mm_slli_epi64(t0, 16);
+        M[i+1] ^= _mm_slli_epi64(t1, 16);
+        M[i+2] ^= _mm_slli_epi64(t2, 16);
+        M[i+3] ^= _mm_slli_epi64(t3, 16);
+        M[i+4] ^= t0;
+        M[i+5] ^= t1;
+        M[i+6] ^= t2;
+        M[i+7] ^= t3;
+    }
+
+    for (uint32_t i = 0; i < 32; i+=16) {
+        const __m128i t0 = (_mm_srli_epi64(M[i+0], 32) ^ M[i+ 8]) & mask4;
+        const __m128i t1 = (_mm_srli_epi64(M[i+1], 32) ^ M[i+ 9]) & mask4;
+        const __m128i t2 = (_mm_srli_epi64(M[i+2], 32) ^ M[i+10]) & mask4;
+        const __m128i t3 = (_mm_srli_epi64(M[i+3], 32) ^ M[i+11]) & mask4;
+        const __m128i t4 = (_mm_srli_epi64(M[i+4], 32) ^ M[i+12]) & mask4;
+        const __m128i t5 = (_mm_srli_epi64(M[i+5], 32) ^ M[i+13]) & mask4;
+        const __m128i t6 = (_mm_srli_epi64(M[i+6], 32) ^ M[i+14]) & mask4;
+        const __m128i t7 = (_mm_srli_epi64(M[i+7], 32) ^ M[i+15]) & mask4;
+        M[i+ 0] ^= _mm_slli_epi64(t0, 32);
+        M[i+ 1] ^= _mm_slli_epi64(t1, 32);
+        M[i+ 2] ^= _mm_slli_epi64(t2, 32);
+        M[i+ 3] ^= _mm_slli_epi64(t3, 32);
+        M[i+ 4] ^= _mm_slli_epi64(t4, 32);
+        M[i+ 5] ^= _mm_slli_epi64(t5, 32);
+        M[i+ 6] ^= _mm_slli_epi64(t6, 32);
+        M[i+ 7] ^= _mm_slli_epi64(t7, 32);
+        M[i+ 8] ^= t0;
+        M[i+ 9] ^= t1;
+        M[i+10] ^= t2;
+        M[i+11] ^= t3;
+        M[i+12] ^= t4;
+        M[i+13] ^= t5;
+        M[i+14] ^= t6;
+        M[i+15] ^= t7;
+    }
+
+    for (uint32_t i = 0; i < 16; i++) {
+        const __m128i t0 = (_mm_srli_si128(M[i+ 0], 8) ^ M[i+16]) & mask5;
+        M[i   ] ^= _mm_slli_si128(t0, 8);
+        M[i+16] ^= t0;
+    }
+
+    // write out
+    for (uint32_t i = 0; i < 32; i++) {
+        _mm_storeu_si128((__m128i *)(B + i*stride), M[i]);
+    }
+}
+
+// NOTE: stride in bytes
+static void gf16_transpose_64x64_avx2(uint8_t *B,
+                                      const uint8_t *const A,
+                                      const uint32_t src_stride,
+                                      const uint32_t dst_stride) {
     __m256i M[64];
     const __m256i mask1 = _mm256_set1_epi8  (0x0F),
                   mask2 = _mm256_set1_epi16 (0x00FF),
@@ -339,27 +424,29 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
                   mask5 = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFF, 0),
                   mask6 = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0);
     for (uint32_t i = 0; i < 64; i++) {
-        M[i] = _mm256_loadu_si256((__m256i *)(A+i*32));
+        M[i] = _mm256_loadu_si256((__m256i *)(A+i*src_stride));
     }
+
     for (uint32_t i = 0; i < 64; i+=2) {
-        __m256i t = (_mm256_srli_epi64(M[i], 4) ^ M[i+1]) & mask1;
+        const __m256i t = (_mm256_srli_epi64(M[i], 4) ^ M[i+1]) & mask1;
         M[i+0] ^= _mm256_slli_epi64(t, 4);
         M[i+1] ^= t;
     }
 
     for (uint32_t i = 0; i < 64; i+=4) {
-        __m256i t0 = (_mm256_srli_epi64(M[i+0], 8) ^ M[i+2]) & mask2;
-        __m256i t1 = (_mm256_srli_epi64(M[i+1], 8) ^ M[i+3]) & mask2;
+        const __m256i t0 = (_mm256_srli_epi64(M[i+0], 8) ^ M[i+2]) & mask2;
+        const __m256i t1 = (_mm256_srli_epi64(M[i+1], 8) ^ M[i+3]) & mask2;
         M[i+0] ^= _mm256_slli_epi64(t0, 8);
         M[i+1] ^= _mm256_slli_epi64(t1, 8);
         M[i+2] ^= t0;
         M[i+3] ^= t1;
     }
+
     for (uint32_t i = 0; i < 64; i+=8) {
-        __m256i t0 = (_mm256_srli_epi64(M[i+0], 16) ^ M[i+4]) & mask3;
-        __m256i t1 = (_mm256_srli_epi64(M[i+1], 16) ^ M[i+5]) & mask3;
-        __m256i t2 = (_mm256_srli_epi64(M[i+2], 16) ^ M[i+6]) & mask3;
-        __m256i t3 = (_mm256_srli_epi64(M[i+3], 16) ^ M[i+7]) & mask3;
+        const __m256i t0 = (_mm256_srli_epi64(M[i+0], 16) ^ M[i+4]) & mask3;
+        const __m256i t1 = (_mm256_srli_epi64(M[i+1], 16) ^ M[i+5]) & mask3;
+        const __m256i t2 = (_mm256_srli_epi64(M[i+2], 16) ^ M[i+6]) & mask3;
+        const __m256i t3 = (_mm256_srli_epi64(M[i+3], 16) ^ M[i+7]) & mask3;
         M[i+0] ^= _mm256_slli_epi64(t0, 16);
         M[i+1] ^= _mm256_slli_epi64(t1, 16);
         M[i+2] ^= _mm256_slli_epi64(t2, 16);
@@ -369,6 +456,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+6] ^= t2;
         M[i+7] ^= t3;
     }
+
     for (uint32_t i = 0; i < 64; i+=16) {
         const __m256i t0 = (_mm256_srli_epi64(M[i+0], 32) ^ M[i+ 8]) & mask4;
         const __m256i t1 = (_mm256_srli_epi64(M[i+1], 32) ^ M[i+ 9]) & mask4;
@@ -395,6 +483,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+14] ^= t6;
         M[i+15] ^= t7;
     }
+
     for (uint32_t i = 0; i < 16; i++) {
         const __m256i t0 = (_mm256_srli_si256(M[i+ 0], 8) ^ M[i+16]) & mask5;
         const __m256i t1 = (_mm256_srli_si256(M[i+32], 8) ^ M[i+48]) & mask5;
@@ -403,14 +492,16 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         M[i+16] ^= t0;
         M[i+48] ^= t1;
     }
+
     for (uint32_t i = 0; i < 32; i++) {
         const __m256i t = (_mm256_permute2x128_si256(M[i+0], M[i+0], 0b10000001) ^ M[i+32]) & mask6;
         M[i   ] ^= _mm256_permute2x128_si256(t, t, 0b01000); //
         M[i+32] ^= t;
     }
-   // write out
+
+    // write out
     for (uint32_t i = 0; i < 64; i++) {
-        _mm256_storeu_si256((__m256i *)(B + i*stride), M[i]);
+        _mm256_storeu_si256((__m256i *)(B + i*dst_stride), M[i]);
     }
 }
 #endif
@@ -418,22 +509,38 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
 /// B = A^T
 void gf16_matrix_tranpose_opt(uint8_t *B,
                               const uint8_t *const A,
-				              const size_t nrows,
-				              const size_t ncols) {
-    if (nrows >= 64 && ncols >= 64) {
-        gf16_transpose_64x64_avx2(B, A, nrows/2);
-    }
-
-    for (size_t i = 0; i < nrows; i++) {
-        for (size_t j = 64; j < ncols; j++) {
-            const ff_t a = gf16_matrix_get(A, nrows, i, j);
-            gf16_matrix_set(B, ncols, j, i, a);
+				              const uint32_t nrows,
+				              const uint32_t ncols) {
+    const size_t bsize1 = 64u;
+    const size_t bsize2 = bsize1 >> 1u;
+    
+    // iterate over 64x64 block matrices
+    uint64_t rb = 0;
+    for (; rb < nrows / bsize1; rb++) {
+        for (uint64_t cb = 0; cb < ncols / bsize1; cb++) {
+            const uint8_t *src_origin = A + (rb*nrows + cb) * bsize2;
+                  uint8_t *dst_origin = B + (cb*ncols + rb) * bsize2;
+            
+            gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2, ncols/2);
         }
     }
-    for (size_t i = 64; i < nrows; i++) {
-        for (size_t j = 0; j < 64; j++) {
-            const ff_t a = gf16_matrix_get(A, nrows, i, j);
-            gf16_matrix_set(B, ncols, j, i, a);
+
+    const uint32_t rem = ncols % bsize1;
+    if (rem) {
+        // solve the last columns
+        for (uint32_t i = rb; i < ncols; i++) {
+            for(uint32_t j = 0; j < nrows; j++) {
+                const ff_t a = gf16_matrix_get(A, nrows, i, j);
+                gf16_matrix_set(B, ncols, j, i, a);
+            }
+        }
+
+        // solve the last rows
+        for (uint32_t i = 0; i < nrows; i++) {
+            for(uint32_t j = rb; j < ncols; j++) {
+                const ff_t a = gf16_matrix_get(A, nrows, i, j);
+                gf16_matrix_set(B, ncols, j, i, a);
+            }
         }
     }
 }
@@ -475,7 +582,7 @@ void gf16_swap_rows(uint8_t *A,
     }
 }
 
-// assumes that A is transpose
+// assumes that A is transposed
 void gf16_swap_rows_transpose(uint8_t *A,
                                const uint32_t nrows,
                                const uint32_t ncols,
@@ -637,32 +744,35 @@ uint32_t gf16_solve_transpose(uint8_t *B,
 }
 
 #ifdef USE_AVX2
-// org code from:https://github.com/PQCMayo/MAYO-C/blob/nibbling-mayo/src/AVX2/echelon_form.h
-// put matrix in row echelon form with ones on first nonzero entries in constant time
-static inline void row_echelon_form_compressed(unsigned char *A, int _nrows, int _ncols) {
-
+/// org code from:https://github.com/PQCMayo/MAYO-C/blob/nibbling-mayo/src/AVX2/echelon_form.h
+/// put matrix in row echelon form with ones on first nonzero entries in constant time
+/// NOTE: assumes the input matrix in row major form
+/// NOTE:
+static inline void row_echelon_form_compressed(unsigned char *A,
+                                               const int _nrows,
+                                               const int _ncols) {
     (void) _nrows;
     (void) _ncols;
+#ifndef NROWS
+#define NROWS 32
+#endif
+#ifndef NCOLS
+#define NCOLS 32
+#endif
 
-#define nrows 32
-#define ncols 64
-
-
-
-#define AVX_REGS_PER_ROW ((ncols + 63) / 64)
+#define AVX_REGS_PER_ROW ((NCOLS + 63) / 64)
 #define MAX_COLS (AVX_REGS_PER_ROW * 64)
 
     __m256i _pivot_row[AVX_REGS_PER_ROW];
-    __m256i A_avx     [AVX_REGS_PER_ROW * nrows];
+    __m256i A_avx     [AVX_REGS_PER_ROW * NROWS];
 
-    // TODO transpose and stuff
     unsigned char* pivot_row_bytes = (unsigned char*) _pivot_row;
     unsigned char* A_bytes = (unsigned char*) A_avx;
 
     // load A in the tail of AVX2 registers
-    for (uint32_t i = 0; i < nrows; i++) {
-        for (uint32_t j = 0; j < (ncols/2); j++) {
-            A_bytes[i*(MAX_COLS/2) + ((MAX_COLS/2) - (ncols/2)) + j] = A[i*(ncols/2) + j ];
+    for (uint32_t i = 0; i < NROWS; i++) {
+        for (uint32_t j = 0; j < (NCOLS/2); j++) {
+            A_bytes[i*(MAX_COLS/2) + ((MAX_COLS/2) - (NCOLS/2)) + j] = A[i*(NCOLS/2) + j ];
         }
     }
     const __m256i xf = _mm256_set1_epi8(0xf);
@@ -670,17 +780,17 @@ static inline void row_echelon_form_compressed(unsigned char *A, int _nrows, int
     // pivot row is secret, pivot col is not
     unsigned char inverse;
     int pivot_row = 0;
-    int pivot_col = MAX(MAX_COLS - ncols, 0);
+    int pivot_col = MAX(MAX_COLS - NCOLS, 0);
+    for (; pivot_col < MAX_COLS-256; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
+    for (; pivot_col < MAX_COLS-192; pivot_col++) {
+#include "echelon_form_loop_compressed.h"
+    }
     for (; pivot_col < MAX_COLS-128; pivot_col++) {
 #include "echelon_form_loop_compressed.h"
     }
-    for (; pivot_col < MAX_COLS-96; pivot_col++) {
-#include "echelon_form_loop_compressed.h"
-    }
     for (; pivot_col < MAX_COLS-64; pivot_col++) {
-#include "echelon_form_loop_compressed.h"
-    }
-    for (; pivot_col < MAX_COLS-32; pivot_col++) {
 #include "echelon_form_loop_compressed.h"
     }
     for (; pivot_col < MAX_COLS; pivot_col++) {
@@ -688,69 +798,67 @@ static inline void row_echelon_form_compressed(unsigned char *A, int _nrows, int
     }
 
     // write the matrix A back
-    for (int i = 0; i < nrows; i++) {
-        for (int j = 0; j < (ncols/2); j++) {
-            A[i * (ncols/2) + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + ((MAX_COLS/2) - (ncols/2)) + j];
+    for (uint32_t i = 0; i < NROWS; i++) {
+        for (uint32_t j = 0; j < (NCOLS/2); j++) {
+            A[i * (NCOLS/2) + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + ((MAX_COLS/2) - (NCOLS/2)) + j];
         }
     }
-#undef ncols
-#undef nrows
 #undef AVX_REGS_PER_ROW
 #undef MAX_COLS
 }
 
-static inline void row_echelon_form(unsigned char *A, int _nrows, int _ncols) {
-
+/// org code from:https://github.com/PQCMayo/MAYO-C/blob/nibbling-mayo/src/AVX2/echelon_form.h
+/// put matrix in row echelon form with ones on first nonzero entries in constant time
+/// NOTE: assumes the input matrix in row major form
+/// NOTE:
+static inline void row_echelon_form(unsigned char *A,
+                                    const uint32_t _nrows,
+                                    const uint32_t _ncols) {
     (void) _nrows;
     (void) _ncols;
-
-#define nrows 32
-#define ncols 32
-#define AVX_REGS_PER_ROW ((ncols + 31) / 32)
+#define AVX_REGS_PER_ROW ((NCOLS + 31) / 32)
 #define MAX_COLS (AVX_REGS_PER_ROW * 32)
 
     __m256i _pivot_row[AVX_REGS_PER_ROW];
-    __m256i A_avx     [AVX_REGS_PER_ROW * nrows];
+    __m256i A_avx[AVX_REGS_PER_ROW* NROWS];
 
     unsigned char* pivot_row_bytes = (unsigned char*) _pivot_row;
     unsigned char* A_bytes = (unsigned char*) A_avx;
 
     // load A in the tail of AVX2 registers
-    for (uint32_t i = 0; i < nrows; i++) {
-        for (uint32_t j = 0; j < ncols; j++) {
-            A_bytes[i*MAX_COLS + (MAX_COLS - ncols) + j] = A[i*ncols + j ];
+    for (int i = 0; i < NROWS; i++) {
+        for (int j = 0; j < NCOLS; j++)
+        {
+            A_bytes[i*MAX_COLS + (MAX_COLS - NCOLS) + j] = A[ i*NCOLS + j ];
         }
     }
-    const __m256i xf = _mm256_set1_epi8(0xf);
 
     // pivot row is secret, pivot col is not
     unsigned char inverse;
     int pivot_row = 0;
-    int pivot_col = MAX(MAX_COLS - ncols, 0);
+    int pivot_col = MAX(MAX_COLS - NCOLS,0);
     for (; pivot_col < MAX_COLS-128; pivot_col++) {
-        #include "echelon_form_loop.h"
+#include "echelon_form_loop.h"
     }
     for (; pivot_col < MAX_COLS-96; pivot_col++) {
-        #include "echelon_form_loop.h"
+#include "echelon_form_loop.h"
     }
     for (; pivot_col < MAX_COLS-64; pivot_col++) {
-        #include "echelon_form_loop.h"
+#include "echelon_form_loop.h"
     }
     for (; pivot_col < MAX_COLS-32; pivot_col++) {
-        #include "echelon_form_loop.h"
+#include "echelon_form_loop.h"
     }
     for (; pivot_col < MAX_COLS; pivot_col++) {
-        #include "echelon_form_loop.h"
+#include "echelon_form_loop.h"
     }
 
     // write the matrix A back
-    for (int i = 0; i < nrows; i++) {
-        for (int j = 0; j < (ncols/2); j++) {
-            A[i * ncols + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + (MAX_COLS - ncols) + j];
+    for (int i = 0; i < NROWS; i++) {
+        for (int j = 0; j < NCOLS; j++) {
+            A[i * NCOLS + j] = A_bytes[i*AVX_REGS_PER_ROW*32 + (MAX_COLS - NCOLS) + j];
         }
     }
-#undef ncols
-#undef nrows
 #undef AVX_REGS_PER_ROW
 #undef MAX_COLS
 }

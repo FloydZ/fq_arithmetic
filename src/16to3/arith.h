@@ -59,37 +59,34 @@ static inline gf16to3 gf16to3_mul(const gf16to3 a,
                                   const gf16to3 b) {
     gf16to3 r;
 
-    const gf16 a0 = a&0xF, a1 = (a>>4)&0XF, a2 = (a>>8)&0xF;
-    const gf16 b0 = b&0xF, b1 = (b>>4)&0XF, b2 = (b>>8)&0xF;
+    const gf16 a0 = a&0xF, a1 = (a>>4)&0xF, a2 = (a>>8)&0xF;
+    const gf16 b0 = b&0xF, b1 = (b>>4)&0xF, b2 = (b>>8)&0xF;
 
     const gf16 p0 = gf16_mul(a0, b0);
     const gf16 p1 = gf16_mul(a1, b1);
     const gf16 p2 = gf16_mul(a2, b2);
 
-    const gf16 a01 = gf16_add(a0, a1);
-    const gf16 a12 = gf16_add(a1, a2);
-    const gf16 b01 = gf16_add(b0, b1);
-    const gf16 b12 = gf16_add(b1, b2);
-    const gf16 p01 = gf16_mul(a01, b01);
-    const gf16 p12 = gf16_mul(a12, b12);
+    const ff_t a01 = gf16_add(a0, a1);
+    const ff_t a12 = gf16_add(a1, a2);
+    const ff_t a02 = gf16_add(a0, a2);
+    const ff_t b01 = gf16_add(b0, b1);
+    const ff_t b12 = gf16_add(b1, b2);
+    const ff_t b02 = gf16_add(b0, b2);
+    const ff_t p01 = gf16_mul(a01, b01);
+    const ff_t p12 = gf16_mul(a12, b12);
+    const ff_t p02 = gf16_mul(a02, b02);
 
-    const gf16 a012 = gf16_add(a01, a2);
-    const gf16 b012 = gf16_add(b01, b2);
-    const gf16 p012 = gf16_mul(a012, b012);
-
-    // compute lowest limb
     r = gf16_add(p1, p2);
     r = gf16_add(r, p12);
     r = gf16_add(r, p0);
 
-    r^= p2 << 4;
-    r^= p01 << 4;
     r^= p0 << 4;
-    r^= p1 << 4;
+    r^= p01 << 4;
+    r^= p12 << 4;
 
-    r^= p012 << 8;
-    r^= p01 << 8;
-    r^= p12 << 8;
+    r^= p02 << 8;
+    r^= p0 << 8;
+    r^= p1 << 8;
     return r;
 }
 
@@ -127,49 +124,80 @@ static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
 /// NOTE there are multiple ways to implement this:
 ///     - assumes that each 1.5byte element is stored in 2 bytes,
 ///         thus there are 16 elements in a register
-///     - or that that the elements are compressed together, meaning
+///     - or that the elements are compressed together, meaning
 ///         we have 21 elements in a register
 /// NOTE: this implementation follows the first approach
 static inline __m256i gf16to3v_mul_u256(const __m256i a,
                                         const __m256i b) {
-    __m256i r;
+    __m256i r,t;
     const __m256i m0     = _mm256_set1_epi16(0x00F);
     const __m256i m1     = _mm256_set1_epi16(0x0F0);
-    const __m256i m2     = _mm256_set1_epi16(0xF00);
+    const __m256i m12    = _mm256_set1_epi16(0xFF0);
     const __m256i m      = _mm256_set1_epi16(0xFFF);
-    const __m256i pi     = gf16v_mul_full_u256(a, b);
 
-    // bit    0     4      8     12     16
-    // a01_12=[a0   , a0^a1, a1^a2,  a2]
-    // b01_12=[b0   , b0^b1, b1^b2,  b2]
-    const __m256i a01_12 = a ^ _mm256_slli_epi16(a, 4);
-    const __m256i b01_12 = b ^ _mm256_slli_epi16(b, 4);
+    // bit  0     4      8     12     16
+    // pi = [a0*b0, a1*b1, a2*b2,  0  ]
+    // pi = [  p0 ,   p1 ,   p2 ,  0  ]
+    const __m256i pi = gf16v_mul_full_u256(a, b);
 
-    // bit    0     4      8     12        16
-    // a012 = [a0   , a0^a1, a1^a2, a2^a1^a0]
-    // b012 = [b0   , b0^b1, b1^b2, b2^b1^b0]
-    const __m256i a012 = a01_12 ^ _mm256_slli_epi16(a01_12&m1 , 8);
-    const __m256i b012 = b01_12 ^ _mm256_slli_epi16(b01_12&m1 , 8);
 
-    // bit    0    4    8    12    16
-    // p012 = [p0 , p01, p12 , p012]
-    // p012 = [p01, p12, p012, 0000]
-    __m256i p012 = gf16v_mul_full_u256(a012, b012);
-    p012 = _mm256_srli_epi16(p012, 4);
+    // bit    0     4      8     12    16
+    // a01_12=[a0^a1, a1^a2, a0^a2,   0 ]  = [a01, a12, a02, 0]
+    // b01_12=[b0^b1, b1^b2, a0^b2,   0 ]  = [b01, b12, b02, 0]
+    const __m256i a01_12 = a ^ _mm256_srli_epi16(a, 4) ^ _mm256_slli_epi16(a, 8);
+    const __m256i b01_12 = b ^ _mm256_srli_epi16(b, 4) ^ _mm256_slli_epi16(b, 8);
 
-    // bit 0         4         8    16
-    // r = [p0^p1^p2, p0^p1^p2, 0, 0]
-    r = pi ^ (_mm256_srli_epi16(pi, 4));
-    r ^= _mm256_srli_epi16(pi, 8);
-    r ^= _mm256_slli_epi16(pi&m0, 4);     // ^= p0
-    r &= (m0 ^ m1);
+    // bit    0   4    8   12    16
+    // p012 = [p01, p12, p02,   0]
+    __m256i p012 = gf16v_mul_full_u256(a01_12, b01_12);
 
-    r ^= _mm256_srli_epi16(p012, 4) & m0;   //^= p12
-    r ^= _mm256_slli_epi16(p012, 4);        // ^= p01, ^= p12
-    r ^= _mm256_slli_epi16(p012, 8);
-    r ^= p012&m2; // ^= p012
 
+    // bit 0   4           8         12    16
+    // r = [  0, p0^p12^p01, p1^p0^p02,   0]
+    r  = _mm256_slli_epi16(pi, 4);
+    r ^= _mm256_slli_epi16(pi, 8);
+    r ^= p012 & m12;
+    r ^= _mm256_slli_epi16(p012, 4) & m1;
+
+
+    t = pi ^ (_mm256_srli_epi16(pi, 4));
+    t ^= _mm256_srli_epi16(pi, 8);
+    t ^= _mm256_srli_epi16(p012, 4);
+    t &= m0;
+    r ^= t;
     return r&m;
+
+    //// bit    0     4      8     12     16
+    //// a01_12=[a0   , a0^a1, a1^a2,  a2]   = [a0, a01, a12, a2]
+    //// b01_12=[b0   , b0^b1, b1^b2,  b2]   = [b0, b01, b12, b2]
+    //const __m256i a01_12 = a ^ _mm256_slli_epi16(a, 4);
+    //const __m256i b01_12 = b ^ _mm256_slli_epi16(b, 4);
+
+    //// bit    0     4      8     12        16
+    //// a012 = [a0   , a0^a1, a1^a2, a2^a1^a0]
+    //// b012 = [b0   , b0^b1, b1^b2, b2^b1^b0]
+    //const __m256i a012 = a01_12 ^ _mm256_slli_epi16(a01_12&m1 , 8);
+    //const __m256i b012 = b01_12 ^ _mm256_slli_epi16(b01_12&m1 , 8);
+
+    //// bit    0    4    8    12    16
+    //// p012 = [p0 , p01, p12 , p012]
+    //// p012 = [p01, p12, p012, 0000]
+    //__m256i p012 = gf16v_mul_full_u256(a012, b012);
+    //p012 = _mm256_srli_epi16(p012, 4);
+
+    //// bit 0         4         8    16
+    //// r = [p0^p1^p2, p0^p1^p2, 0, 0]
+    //r = pi ^ (_mm256_srli_epi16(pi, 4));
+    //r ^= _mm256_srli_epi16(pi, 8);
+    //r ^= _mm256_slli_epi16(pi&m0, 4);     // ^= p0
+    //r &= (m0 ^ m1);
+
+    //r ^= _mm256_srli_epi16(p012, 4) & m0;   //^= p12
+    //r ^= _mm256_slli_epi16(p012, 4);        // ^= p01, ^= p12
+    //r ^= _mm256_slli_epi16(p012, 8);
+    //r ^= p012&m2; // ^= p012
+
+    //return r&m;
 }
 
 // parallel hadd of 2 gf16to3 elements
