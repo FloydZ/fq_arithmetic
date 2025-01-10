@@ -550,9 +550,9 @@ finish:
 }
 
 uint32_t test_matrix_mul() {
-    const uint32_t nrows1 = 32; //321
-    const uint32_t ncols1 = 32; //1443
-    const uint32_t ncols2 = 1;
+    const uint32_t nrows1 = 33; //321
+    const uint32_t ncols1 = 4; //1443
+    const uint32_t ncols2 = 38;
     uint32_t ret= 0;
 
     gf2 *A  = gf2_matrix_alloc(nrows1, ncols1);
@@ -561,16 +561,20 @@ uint32_t test_matrix_mul() {
     gf2 *C2 = gf2_matrix_alloc(nrows1, ncols2);
 
     gf2_matrix_random(A, nrows1, ncols1);
-    gf2_matrix_random(B, nrows1, ncols1);
+    gf2_matrix_random(B, ncols1, ncols2);
 
     gf2_matrix_mul(C1, A, B, nrows1, ncols1, ncols2);
     gf2_matrix_mul_u256(C2, A, B, nrows1, ncols1, ncols2);
 
-    const uint32_t p = gf2_matrix_bytes_per_column(nrows1);
-    for (uint32_t i = 0; i < ncols2; i++) {
-        for (uint32_t j = 0; j < p; j++) {
-            if (C1[i*p + j] != C2[i*p + j]) {
-                printf("error test_matrix_mul\n");
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            const uint8_t t1 = gf2_matrix_get(C1, nrows1, i, j);
+            const uint8_t t2 = gf2_matrix_get(C2, nrows1, i, j);
+            if (t1 != t2) {
+                gf2_matrix_print(C1, nrows1, ncols2);
+                printf("\n");
+                gf2_matrix_print(C2, nrows1, ncols2);
+                printf("error test_matrix_mul: %d %d\n", i, j);
                 ret = 1;
                 goto finish;
             }
