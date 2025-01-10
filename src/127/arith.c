@@ -4,8 +4,8 @@
 
 
 uint32_t test_transpose(){
-    const uint32_t n = 97;
-    const uint32_t m = 97;
+    const uint32_t n = 128;
+    const uint32_t m = 128;
     uint8_t *A  = (uint8_t *)malloc(n * m);
     uint8_t *B1 = (uint8_t *)malloc(n * m);
     uint8_t *B2 = (uint8_t *)malloc(n * m);

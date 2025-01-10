@@ -209,10 +209,9 @@ const uint8_t* gf127_next_block(const uint8_t *src,
     return src + (rb1*n + cb1) * 64;
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n
 static inline
 void gf127_matrix_transpose_opt(uint8_t *dst,
                                 const uint8_t *src,
@@ -270,11 +269,11 @@ typedef __m256i_u LOAD_TYPE;
 typedef __m256i_u STORE_TYPE;
 
 /// TODO: org code from
-/// @param dst_origin
-/// @param src_origin
-/// @param prf_origin
-/// @param src_stride
-/// @param dst_stride
+/// \param dst_origin
+/// \param src_origin
+/// \param prf_origin
+/// \param src_stride
+/// \param dst_stride
 void gf127_matrix_transpose_64x64_avx2(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const uint8_t* prf_origin,
@@ -691,10 +690,9 @@ void gf127_matrix_transpose_64x64_avx2(uint8_t* dst_origin,
   *(STORE_TYPE*)(dst_origin + 31*dst_stride) = rnd_5_31;
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n
 void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
                                      const uint8_t *src,
                                      const size_t n) {
@@ -712,10 +710,9 @@ void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
     }
 }
 
-///
-/// @param dst
-/// @param src
-/// @param n
+/// \param dst
+/// \param src
+/// \param n
 void gf127_matrix_transpose_opt_avx2_buffered(uint8_t *dst,
                                               const uint8_t *src,
                                               const size_t n) {
