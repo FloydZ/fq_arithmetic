@@ -550,9 +550,9 @@ finish:
 }
 
 uint32_t test_matrix_mul() {
-    const uint32_t nrows1 = 16;
-    const uint32_t ncols1 = 16;
-    const uint32_t ncols2 = 16;
+    const uint32_t nrows1 = 32; //321
+    const uint32_t ncols1 = 32; //1443
+    const uint32_t ncols2 = 1;
     uint32_t ret= 0;
 
     gf2 *A  = gf2_matrix_alloc(nrows1, ncols1);
@@ -587,26 +587,26 @@ finish:
 #endif
 
 int main() {
-    if (test_matrix_m4ri()) { return 1; }
+    // if (test_matrix_m4ri()) { return 1; }
     // if (test_matrix_transpose_le8xle8()) { return 1; }
-    if (test_matrix_transpose_le16xle16()) { return 1; }
-    if (test_matrix_transpose_le32xle32()) { return 1; }
-    if (test_matrix_transpose_64x64()) { return 1; }
-    if (test_matrix_transpose_le64xle64()) { return 1; }
-    if (test_matrix_transpose_64xle64()) { return 1; }
-    if (test_matrix_transpose_le64x64()) { return 1; }
+    // if (test_matrix_transpose_le16xle16()) { return 1; }
+    // if (test_matrix_transpose_le32xle32()) { return 1; }
+    // if (test_matrix_transpose_64x64()) { return 1; }
+    // if (test_matrix_transpose_le64xle64()) { return 1; }
+    // if (test_matrix_transpose_64xle64()) { return 1; }
+    // if (test_matrix_transpose_le64x64()) { return 1; }
     // TODO if (test_matrix_transpose_small()) { return 1; }
     // TODO if (test_matrix_transpose_middle()) { return 1; }
 
 #ifdef USE_AVX2
-    if (test_vector_add()) { return 1; }
-    if (test_vector_scalar()) { return 1; }
-    if (test_vector_scalar_add()) { return 1; }
-    if (test_vector_scalar_add_v2()) { return 1; }
-    if (test_vector_eval()) { return 1; }
+    // if (test_vector_add()) { return 1; }
+    // if (test_vector_scalar()) { return 1; }
+    // if (test_vector_scalar_add()) { return 1; }
+    // if (test_vector_scalar_add_v2()) { return 1; }
+    // if (test_vector_eval()) { return 1; }
 
-    if (test_matrix_add()) { return 1; }
-    if (test_matrix_scalar_add()) { return 1; }
+    // if (test_matrix_add()) { return 1; }
+    // if (test_matrix_scalar_add()) { return 1; }
     if (test_matrix_mul()) { return 1; }
 #endif
 

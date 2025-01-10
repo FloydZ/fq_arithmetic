@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "arith.h"
+#include "vector.h"
 #include "../helper.h"
 
 
@@ -411,6 +412,63 @@ static inline void gf2_matrix_scalar_add_u256(gf2 *matrix1,
     }
 }
 
+/// NOTE: assumes that `n_cols2` == 1
+/// result = matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_mul_u256_vector(gf2 *result, 
+                                              const gf2 *matrix1, 
+                                              const gf2 *matrix2,
+                                              const uint32_t n_rows1, 
+                                              const uint32_t n_cols1) {
+    uint8_t tmp[32] __attribute__((aligned(32)));
+
+    const uint32_t limit = n_rows1 % 8;
+    const uint32_t bytes_per_col = gf2_matrix_bytes_per_column(n_rows1);
+
+    for (uint32_t col = 0; col < n_cols1; col++) {
+        uint32_t i = 0;
+        const uint8_t *m1 = matrix1 + col*bytes_per_col;
+        const char b_ = gf2_vector_get(matrix2, col);
+        const __m256i b = _mm256_set1_epi8(-b_);
+        uint8_t *r = result;
+
+        while ((i + 32) <= n_rows1) {
+            const __m256i a = _mm256_loadu_si256((const __m256i *)m1);
+            __m256i t = a & b;
+            t ^= _mm256_loadu_si256((__m256i *)(r));
+            _mm256_storeu_si256((__m256i *)(r), t);
+
+            m1 += 32;
+            r  += 32;
+            i  += 32;
+        }
+        
+        if (limit) {
+            for (uint32_t j = 0; j < (limit+7)/8; ++j) { tmp[j] = m1[j]; }
+            const __m256i a = _mm256_loadu_si256((const __m256i *)tmp);
+            __m256i t = a & b;
+            _mm256_store_si256((__m256i *)tmp, t);
+            for (uint32_t j = 0; j < limit; ++j) { r[j] ^= tmp[j]; }
+        }
+    }
+}
+
+
+/// NOTE: assumes n_cols1 <= 8
+/// result = matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_mul_u256_Axle8xC(gf2 *result, 
+                                               const gf2 *matrix1, 
+                                               const gf2 *matrix2,
+                                               const uint32_t n_rows1, 
+                                               const uint32_t n_cols1, 
+                                               const uint32_t n_cols2) {
+}
+
 /// result = matrix1 * matrix2
 /// matrix1 of size n_rows1 * n_cols1
 /// matrix2 of size n_cols1 * n_cols2
@@ -421,6 +479,11 @@ static inline void gf2_matrix_mul_u256(gf2 *result,
                                        const uint32_t n_rows1, 
                                        const uint32_t n_cols1, 
                                        const uint32_t n_cols2) {
+    if (n_cols2 == 1) {
+        gf2_matrix_mul_u256_vector(result, matrix1, matrix2, n_rows1, n_cols1);
+        return;
+    }
+
     /// TODO
     uint32_t i, j, k;
     gf2 entry_i_k, entry_k_j, entry_i_j;
