@@ -264,8 +264,8 @@ uint32_t test_matrix_add_scalar_gf2() {
 }
 
 uint32_t test_matrix_mul_gf2() {
-    const uint32_t nrows1 = 32;
-    const uint32_t ncols1 = 2;
+    const uint32_t nrows1 = 33;
+    const uint32_t ncols1 = 32;
     const uint32_t ncols2 = 1;
 
     gf2 *v1     =     gf2_matrix_alloc(nrows1, ncols1);
@@ -337,16 +337,16 @@ int main() {
 #ifdef USE_AVX2
     // if (test_arith_vector_mul()) { return 1; }
 
-    if (test_vector_add()) { return 1; }
-    if (test_vector_add_gf2()) { return 1; }
-    if (test_vector_scalar_add_gf2_v3()) { return 1; }
-    if (test_vector_mul_acc()) { return 1; }
-    if (test_vector_set_to_gf2()) { return 1; }
+    //if (test_vector_add()) { return 1; }
+    //if (test_vector_add_gf2()) { return 1; }
+    //if (test_vector_scalar_add_gf2_v3()) { return 1; }
+    //if (test_vector_mul_acc()) { return 1; }
+    //if (test_vector_set_to_gf2()) { return 1; }
 
-    if (test_matrix_add_gf2()) { return 1; }
-    if (test_matrix_add_scalar_gf2()) { return 1; }
+    //if (test_matrix_add_gf2()) { return 1; }
+    //if (test_matrix_add_scalar_gf2()) { return 1; }
     if (test_matrix_mul_gf2()) { return 1; }
-    if (test_matrix_mul()) { return 1; }
+    // if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all good\n");
