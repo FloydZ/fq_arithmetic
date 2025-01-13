@@ -8,9 +8,9 @@ gf2 *v1, *v2, *v3;
 const uint32_t N = 1000;
 
 gf2 *m1, *m2, *m3;
-const uint32_t nrows  = 100;
-const uint32_t ncols  = 100;
-const uint32_t ncols2 = 100;
+const uint32_t nrows  = 32;
+const uint32_t ncols  = 7;
+const uint32_t ncols2 = 32;
 
 
 static void BM_gf2_mul_u64(benchmark::State& state) {
@@ -51,9 +51,19 @@ static void BM_gf2_vector_scalar_add_v2(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_gf2_vector_eval);
-BENCHMARK(BM_gf2_vector_add);
-BENCHMARK(BM_gf2_vector_scalar_add_v2);
+static void BM_gf2_matrix_mul(benchmark::State& state) {
+    for (auto _ : state) {
+        gf2_matrix_mul(m1, m2, m3, nrows, ncols, ncols2);
+        gf2_matrix_mul(m2, m3, m1, nrows, ncols, ncols2);
+        gf2_matrix_mul(m3, m1, m2, nrows, ncols, ncols2);
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+}
+
+// BENCHMARK(BM_gf2_vector_eval);
+// BENCHMARK(BM_gf2_vector_add);
+// BENCHMARK(BM_gf2_vector_scalar_add_v2);
+BENCHMARK(BM_gf2_matrix_mul);
 #ifdef USE_AVX2
 
 static void BM_gf2_mul_u256(benchmark::State& state) {
@@ -94,13 +104,25 @@ static void BM_gf2_vector_scalar_add_v2_u256(benchmark::State& state) {
         benchmark::DoNotOptimize(v3[7] += 1);
     }
 }
-BENCHMARK(BM_gf2_mul_u256);
-BENCHMARK(BM_gf2_vector_eval_u256);
-BENCHMARK(BM_gf2_vector_add_u256);
-BENCHMARK(BM_gf2_vector_scalar_add_v2_u256);
+
+static void BM_gf2_matrix_mul_u256(benchmark::State& state) {
+    for (auto _ : state) {
+        gf2_matrix_mul_u256(m1, m2, m3, nrows, ncols, ncols2);
+        gf2_matrix_mul_u256(m2, m3, m1, nrows, ncols, ncols2);
+        gf2_matrix_mul_u256(m3, m1, m2, nrows, ncols, ncols2);
+        benchmark::DoNotOptimize(m3[7] += 1);
+    }
+}
+
+
+//BENCHMARK(BM_gf2_mul_u256);
+//BENCHMARK(BM_gf2_vector_eval_u256);
+//BENCHMARK(BM_gf2_vector_add_u256);
+//BENCHMARK(BM_gf2_vector_scalar_add_v2_u256);
+BENCHMARK(BM_gf2_matrix_mul_u256);
 #endif
 
-BENCHMARK(BM_gf2_mul_u64);
+//BENCHMARK(BM_gf2_mul_u64);
 
 
 
@@ -109,12 +131,12 @@ int main(int argc, char** argv) {
     v2 = (gf2 *)malloc(N);
     v3 = (gf2 *)malloc(N);
 
-    m1 = gf2_matrix_alloc(nrows, ncols);
-    m2 = gf2_matrix_alloc(nrows, ncols);
-    m3 = gf2_matrix_alloc(nrows, ncols);
-    gf2_matrix_random(m1, nrows, ncols);
-    gf2_matrix_random(m2, nrows, ncols);
-    gf2_matrix_random(m3, nrows, ncols);
+    m1 = gf2_matrix_alloc(nrows, ncols2);
+    m2 = gf2_matrix_alloc(nrows, ncols2);
+    m3 = gf2_matrix_alloc(nrows, ncols2);
+    gf2_matrix_random(m1, nrows, ncols2);
+    gf2_matrix_random(m2, nrows, ncols2);
+    gf2_matrix_random(m3, nrows, ncols2);
 
     ::benchmark::Initialize(&argc, argv);
     if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
