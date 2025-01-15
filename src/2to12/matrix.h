@@ -531,6 +531,61 @@ static inline void gf2to12_matrix_add_scalar_gf2_u256(gf2to12 *matrix1,
         }
         return;
     }
+    if (n_rows == 5) {
+        const uint64_t m = 0x0101010101;
+        const uint64_t mk = m * ((1u<<n_rows) - 1u);
+        const uint32_t limit = n_cols % 4;
+
+        const gf2 *mm2 = matrix2;
+        gf2to12 *out = matrix1;
+
+        /// NOTE: asumes n_cols %2 == 1
+        uint32_t col = 0;
+        for (; (col+4) <= n_cols; col+=4) {
+            const uint32_t a = *(uint32_t *)(mm2);
+            const uint64_t b = _pext_u64(a, mk);
+
+            const uint64_t t21 = _pdep_u64(b     , 0x0101010101010101);
+            const uint64_t t22 = _pdep_u64(b>> 8u, 0x0101010101010101);
+            const uint64_t t23 = _pdep_u64(b>>16u, 0x0001000100010001);
+            const uint64_t s64 = t23 * scalar;
+
+            const __m128i t2 = _mm_set_epi64x(t22, t21);
+            const __m256i t1   = _mm256_cvtepu8_epi16(t2);
+            const __m256i m1 = _mm256_loadu_si256((__m256i *)out);
+
+            const __m256i c1 = gf2to12v_mul_gf2_u256(s256, t1);
+
+            _mm256_storeu_si256((__m256i *)(out +  0), m1 ^ c1);
+            *(uint64_t *)(out + 16) ^= s64;
+
+            out += 4*n_rows;
+            mm2 += 4;
+        }
+
+        /// NOTE: assumes limit == 1
+        if (limit) {
+            gf2to12 tmp[16] __attribute__((aligned(32)));
+
+            const uint8_t a = *(uint8_t *)(mm2);
+            const uint64_t b = _pext_u64(a, mk);
+
+            const uint64_t t21 = _pdep_u64(b     , 0x0101010101010101);
+            const uint64_t t22 = _pdep_u64(b>> 8u, 0x0101010101010101);
+
+            const __m128i t2 = _mm_set_epi64x(t22, t21);
+            const __m256i t1   = _mm256_cvtepu8_epi16(t2);
+            const __m256i c1 = gf2to12v_mul_gf2_u256(s256, t1);
+
+            _mm256_storeu_si256((__m256i *)(tmp +  0), c1);
+
+            for (uint32_t i = 0; i < limit*n_rows; i++) {
+                out[i] ^= tmp[i];
+            }
+        }
+
+        return;
+    }
 
     if (n_rows == 6) {
         const uint64_t m = 0x010101010101;

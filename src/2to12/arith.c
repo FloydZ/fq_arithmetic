@@ -233,8 +233,8 @@ uint32_t test_matrix_add_gf2() {
 }
 
 uint32_t test_matrix_add_scalar_gf2() {
-    const uint32_t nrows = 4;
-    const uint32_t ncols = 42;
+    const uint32_t nrows = 5;
+    const uint32_t ncols = 45; // 45
 
     gf2 *v1     = gf2_matrix_alloc(nrows, ncols);
     gf2to12 *C1 = gf2to12_matrix_alloc(nrows, ncols);
@@ -242,7 +242,7 @@ uint32_t test_matrix_add_scalar_gf2() {
 
     gf2_matrix_random(v1, nrows, ncols);
 
-    const gf2to12 v2 = 1;
+    const gf2to12 v2 = 2;
     gf2to12_matrix_add_scalar_gf2(C1, v2, v1, nrows, ncols);
     gf2to12_matrix_add_scalar_gf2_u256(C2, v2, v1, nrows, ncols);
 
