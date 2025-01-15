@@ -473,12 +473,118 @@ static inline void gf2to12_matrix_add_scalar_u256_v2(gf2to12 *matrix1,
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
 static inline void gf2to12_matrix_add_scalar_gf2_u256(gf2to12 *matrix1,
-                                                      gf2to12 scalar,
+                                                      const gf2to12 scalar,
                                                       const gf2 *matrix2,
                                                       const uint32_t n_rows,
                                                       const uint32_t n_cols) {
     if (n_rows % 8 == 0) {
         gf2to12_vector_scalar_add_gf2_u256_v3(matrix1, scalar, matrix2, n_rows*n_cols);
+        return;
+    }
+
+    const __m256i s256 = _mm256_set1_epi16(scalar);
+    const __m128i s128 = _mm_set1_epi16(scalar);
+
+    if (n_rows == 4) {
+        const uint64_t m = 0x01010101;
+        const uint32_t limit = n_cols % 4;
+
+        const gf2 *mm2 = matrix2;
+        gf2to12 *out = matrix1;
+
+        /// NOTE: asumes n_cols %2 == 2
+        uint32_t col = 0;
+        for (; (col+4) <= n_cols; col+=4) {
+            const uint32_t a = *(uint32_t *)(matrix2 + col);
+
+            const uint64_t t41 = _pdep_u64(a>> 0u, m);
+            const uint64_t t42 = _pdep_u64(a>> 8u, m);
+            const uint64_t t43 = _pdep_u64(a>>16u, m);
+            const uint64_t t44 = _pdep_u64(a>>24u, m);
+            const uint64_t t31 =  t41 ^ (t42 << 32);
+            const uint64_t t32 =  t43 ^ (t44 << 32);
+            const __m128i t21  = _mm_set_epi64x(t32, t31);
+            const __m256i t1   = _mm256_cvtepu8_epi16(t21);
+
+            const __m256i m1 = _mm256_loadu_si256((__m256i *)out);
+            const __m256i c1 = gf2to12v_mul_gf2_u256(s256, t1);
+            _mm256_storeu_si256((__m256i *)(out +  0), m1 ^ c1);
+
+            out += 4*n_rows;
+            mm2 += 4;
+        }
+
+        if (limit) {
+            gf2to12 tmp[16] __attribute__((aligned(32)));
+
+            const uint64_t t41 = _pdep_u64(mm2[0], m);
+            const uint64_t t42 = _pdep_u64(mm2[1], m);
+            const uint64_t t31 = t41 ^ (t42 << 32);
+            const __m128i t21  = _mm_set_epi64x(0, t31);
+            const __m128i t1   = _mm_cvtepu8_epi16(t21);
+            const __m128i c1 = gf2to12v_mul_gf2_u128(s128, t1);
+            _mm_store_si128((__m128i *)tmp, c1);
+
+            for (uint32_t i = 0; i < 2*n_rows; i++) {
+                out[i] ^= tmp[i];
+            }
+        }
+        return;
+    }
+
+    if (n_rows == 6) {
+        const uint64_t m = 0x010101010101;
+        const uint32_t limit = n_cols % 4;
+
+        const gf2 *mm2 = matrix2;
+        gf2to12 *out = matrix1;
+
+        /// NOTE: asumes n_cols %2 == 2
+        uint32_t col = 0;
+        for (; (col+4) <= n_cols; col+=4) {
+            const uint32_t a = *(uint32_t *)(matrix2 + col);
+
+            const uint64_t t41 = _pdep_u64(a>> 0u, m);
+            const uint64_t t42 = _pdep_u64(a>> 8u, m);
+            const uint64_t t43 = _pdep_u64(a>>16u, m);
+            const uint64_t t44 = _pdep_u64(a>>24u, m);
+            const uint64_t t31 = t41 ^ (t42 << 48);
+            const uint64_t t32 = (t42 >> 16) ^ (t43 << 32);
+            const uint64_t t33 = (t43 >> 32) ^ (t44 << 16);
+            const __m128i t21  = _mm_set_epi64x(t32, t31);
+            const __m128i t22  = _mm_set_epi64x(0, t33);
+            const __m256i t1   = _mm256_cvtepu8_epi16(t21);
+            const __m128i t2   = _mm_cvtepi8_epi16(t22);
+
+            const __m256i m1 = _mm256_loadu_si256((__m256i *)out);
+            const __m128i m2 = _mm_loadu_si128((__m128i *)(out + 16));
+
+            const __m256i c1 = gf2to12v_mul_gf2_u256(s256, t1);
+            const __m128i c2 = gf2to12v_mul_gf2_u128(s128, t2);
+
+            _mm256_storeu_si256((__m256i *)(out +  0), m1 ^ c1);
+            _mm_storeu_si128((__m128i *)(out + 16), m2 ^ c2);
+
+            out += 4*n_rows;
+            mm2 += 4;
+        }
+
+        if (limit) {
+            gf2to12 tmp[16] __attribute__((aligned(32)));
+
+            const uint64_t t41 = _pdep_u64(mm2[0], m);
+            const uint64_t t42 = _pdep_u64(mm2[1], m);
+            const uint64_t t31 = t41 ^ (t42 << 48);
+            const uint64_t t32 = t42 >> 16;
+            const __m128i t21  = _mm_set_epi64x(t32, t31);
+            const __m256i t1   = _mm256_cvtepu8_epi16(t21);
+            const __m256i c1 = gf2to12v_mul_gf2_u256(s256, t1);
+            _mm256_store_si256((__m256i *)tmp, c1);
+
+            for (uint32_t i = 0; i < 2*n_rows; i++) {
+                out[i] ^= tmp[i];
+            }
+        }
         return;
     }
 
@@ -563,8 +669,7 @@ static inline void gf2to12_matrix_mul_gf2_full_v1_u256(gf2to12 *result,
 /// \param[in] matrix2 Matrix over gf2to12
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively 
-/// \param[in] n_cols2 number of columns in matrix2
-static inline void gf2to12_matrix_mul_gf2_vector_u256(gf2to12 *result, 
+static inline void gf2to12_matrix_mul_gf2_vector_u256(gf2to12 *result,
                                                       const gf2 *matrix1, 
                                                       const gf2to12 *matrix2,
                                                       const uint32_t n_rows1, 

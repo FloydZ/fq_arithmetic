@@ -233,8 +233,8 @@ uint32_t test_matrix_add_gf2() {
 }
 
 uint32_t test_matrix_add_scalar_gf2() {
-    const uint32_t nrows = 11;
-    const uint32_t ncols = 11;
+    const uint32_t nrows = 4;
+    const uint32_t ncols = 42;
 
     gf2 *v1     = gf2_matrix_alloc(nrows, ncols);
     gf2to12 *C1 = gf2to12_matrix_alloc(nrows, ncols);
@@ -251,7 +251,7 @@ uint32_t test_matrix_add_scalar_gf2() {
             const gf2to12 t1 = gf2to12_matrix_get(C1, nrows, i, j);
             const gf2to12 t2 = gf2to12_matrix_get(C2, nrows, i, j);
             if (t1 != t2) {
-                printf("error test_matrix_add_scalar_gf2");
+                printf("error test_matrix_add_scalar_gf2\n");
                 gf2to12_matrix_print(C1, nrows, ncols);
                 gf2to12_matrix_print(C2, nrows, ncols);
                 return 1;
@@ -344,9 +344,9 @@ int main() {
     //if (test_vector_set_to_gf2()) { return 1; }
 
     //if (test_matrix_add_gf2()) { return 1; }
-    //if (test_matrix_add_scalar_gf2()) { return 1; }
-    if (test_matrix_mul_gf2()) { return 1; }
-    // if (test_matrix_mul()) { return 1; }
+    if (test_matrix_add_scalar_gf2()) { return 1; }
+    //if (test_matrix_mul_gf2()) { return 1; }
+    //if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all good\n");

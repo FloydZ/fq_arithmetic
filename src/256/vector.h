@@ -480,7 +480,7 @@ static inline void gf256_vector_add_scalar_2_u256(gf256 *out,
 
     // avx2 code
     while (i >= 32u) {
-        const __m256 a = _mm256_loadu_si256((__m256i *)in2);
+        const __m256i a = _mm256_loadu_si256((__m256i *)in2);
         const __m256i tmp = gf256_linear_transform_8x8_256b(ml, mh, a, mask);
         _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)out) ^ tmp);
         i -= 32u;
@@ -555,6 +555,49 @@ static inline void gf256_vector_scalar_gf2_u256(gf256 *out,
         const __m256i t2 = _mm256_blendv_epi8(zero, s, _mm256_load_si256((const __m256i *)(tmp)));
         _mm256_storeu_si256((__m256i *)tmp, t2);
         for (uint32_t j = 0; j < i; j++) { out[j] = tmp2[j]; }
+    }
+}
+
+static inline void gf256_vector_add_scalar_gf2_u256(gf256 *out,
+                                                    const gf256 scalar,
+                                                    const gf2 *in2,
+                                                    const size_t bytes) {
+    uint32_t i = bytes;
+    const __m256i s = _mm256_set1_epi8(scalar);
+    const __m256i zero = _mm256_setzero_si256();
+
+    while (i >= 32u) {
+        const uint32_t t11 = *(in2 + 0);
+        const uint32_t t12 = *(in2 + 1);
+        const uint32_t t13 = *(in2 + 2);
+        const uint32_t t14 = *(in2 + 3);
+
+        const uint64_t t21 = _pdep_u64(t11, 0x8080808080808080);
+        const uint64_t t22 = _pdep_u64(t12, 0x8080808080808080);
+        const uint64_t t23 = _pdep_u64(t13, 0x8080808080808080);
+        const uint64_t t24 = _pdep_u64(t14, 0x8080808080808080);
+
+        const __m256i t1 = _mm256_setr_epi64x(t21, t22, t23, t24);
+        const __m256i t2 = _mm256_blendv_epi8(zero, s, t1);
+
+        const __m256i m1 = _mm256_loadu_si256((__m256i *)out);
+        _mm256_storeu_si256((__m256i *)out, t2^m1);
+
+        in2 += 4u;
+        out += 32u;
+        i   -= 32u;
+    }
+
+    if (i) {
+        uint64_t tmp[4] __attribute__((aligned(32)));
+        uint8_t *tmp2 = (uint8_t *)tmp;
+        for (uint32_t j = 0; j < (i+7)/8; ++j) {
+            tmp[j] = _pdep_u64(in2[j], 0x8080808080808080);
+        }
+
+        const __m256i t2 = _mm256_blendv_epi8(zero, s, _mm256_load_si256((const __m256i *)(tmp)));
+        _mm256_storeu_si256((__m256i *)tmp, t2);
+        for (uint32_t j = 0; j < i; j++) { out[j] ^= tmp2[j]; }
     }
 }
 

@@ -113,6 +113,34 @@ static inline void gf256_matrix_add_gf16(gf256 *matrix1,
     }
 }
 
+/**
+ * \fn static inline void mirath_matrix_ff_mu_add_multiple_ff(ff_mu_t *matrix1, ff_mu_t scalar, const ff_t *matrix2,
+ *                                       const uint32_t n_rows, const uint32_t n_cols)
+ * \brief matrix1 += scalar * matrix2
+ *
+ * \param[out] matrix1 Matrix over ff_mu
+ * \param[in] scalar scalar over ff_mu
+ * \param[in] matrix2 Matrix over ff
+ * \param[in] n_rows number of rows
+ * \param[in] n_cols number of columns
+ */
+static inline void gf256_matrix_add_multiple_gf2(gf256 *matrix1,
+                                                 const gf256 scalar, 
+                                                 const gf2 *matrix2,
+                                                 const uint32_t n_rows,
+                                                 const uint32_t n_cols) {
+    for (uint32_t i = 0; i < n_rows; i++) {
+        for (uint32_t j = 0; j < n_cols; j++) {
+            gf256 entry2, entry3;
+
+            const gf256 entry1 = gf256_matrix_get_entry(matrix1, n_rows, i, j);
+            entry2 = gf2_matrix_get(matrix2, n_rows, i, j) & 0x01;
+            entry3 = entry1 ^ gf256_mul(scalar, entry2);
+            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+        }
+    }
+}
+
 /// \brief matrix1 += scalar * matrix2
 /// 
 /// \param[out] matrix1 Matrix over gf256
@@ -608,6 +636,78 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
             *(uint64_t *)tmp = t1;
             for (uint32_t k = 0; k < i; k++) { out[k] = tmp[k]; }
         }
+    }
+}
+
+/// \brief matrix1 += scalar * matrix2
+/// 
+/// \param[out] matrix1 Matrix over gf256
+/// \param[in] scalar scalar over gf256
+/// \param[in] matrix3 Matrix over gf16
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
+                                                       const gf256 scalar,
+                                                       const gf2 *matrix2,
+                                                       const uint32_t nrows,
+                                                       const uint32_t ncols) {
+    if ((nrows % 8 == 0) || (ncols == 1)) {
+        gf256_vector_add_scalar_gf2_u256(matrix1, scalar, matrix2, nrows*ncols);
+        return;
+    }
+   
+    const __m128i s128 = _mm_set1_epi8(scalar);
+    if (nrows == 4) {
+        const uint64_t m = 0x01010101;
+        const uint32_t limit = ncols % 4;
+
+        const gf2 *mm2 = matrix2;
+        gf256 *out = matrix1;
+
+        /// NOTE: asumes n_cols %2 == 2
+        uint32_t col = 0;
+        for (; (col+4) <= ncols; col+=4) {
+            const uint32_t a = *(uint32_t *)(matrix2 + col);
+
+            const uint64_t t41 = _pdep_u64(a>> 0u, m);
+            const uint64_t t42 = _pdep_u64(a>> 8u, m);
+            const uint64_t t43 = _pdep_u64(a>>16u, m);
+            const uint64_t t44 = _pdep_u64(a>>24u, m);
+            const uint64_t t31 =  t41 ^ (t42 << 32);
+            const uint64_t t32 =  t43 ^ (t44 << 32);
+            const __m128i t  = _mm_set_epi64x(t32, t31);
+
+            const __m128i m1 = _mm_loadu_si128((__m128i *)out);
+            const __m128i c1 = gf256v_mul_gf2_u128(s128, t);
+            _mm_storeu_si128((__m128i *)(out +  0), m1 ^ c1);
+
+            out += 4*nrows;
+            mm2 += 4;
+        }
+
+        if (limit) {
+            gf256 tmp[16] __attribute__((aligned(32)));
+
+            const uint64_t t41 = _pdep_u64(mm2[0], m);
+            const uint64_t t42 = _pdep_u64(mm2[1], m);
+            const uint64_t t31 = t41 ^ (t42 << 32);
+            const __m128i t  = _mm_set_epi64x(0, t31);
+            const __m128i c1 = gf256v_mul_gf2_u128(s128, t);
+            _mm_store_si128((__m128i *)tmp, c1);
+
+            for (uint32_t i = 0; i < 2*nrows; i++) {
+                out[i] ^= tmp[i];
+            }
+        }
+        return;
+    }
+
+    const uint32_t gf2_col_bytes = gf2_matrix_bytes_per_column(nrows);
+    for (uint32_t col = 0; col < ncols; ++col) {
+        gf256 *o      = matrix1 + col*nrows;
+        const gf2 *in = matrix2 + col*gf2_col_bytes;
+
+        gf256_vector_add_scalar_gf2_u256(o, scalar, in, nrows);
     }
 }
 
