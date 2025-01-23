@@ -516,6 +516,7 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
     
     // iterate over 64x64 block matrices
     uint64_t rb = 0;
+#ifdef USE_AVX2
     for (; rb < nrows / bsize1; rb++) {
         for (uint64_t cb = 0; cb < ncols / bsize1; cb++) {
             const uint8_t *src_origin = A + (rb*nrows + cb) * bsize2;
@@ -524,6 +525,7 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
             gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2, ncols/2);
         }
     }
+#endif
 
     const uint32_t rem = ncols % bsize1;
     if (rem) {

@@ -67,11 +67,13 @@ eff_t mul_avx(const eff_t a, const eff_t b) {
 int main() {
 	eff_t a=((eff_t)1ull<<64ul) ^ 1ull,
           b=((eff_t)1ull<<64ul) ^ 1ull;
+#ifdef USE_AVX2
 	eff_t c1 = mul_avx(a, b);
 	printf("%llx\n", c1);
+#endif
 
     // eff_t c2 = mul(a, 2);
     // printf("%llx\n", c2);
-
+	printf("all good\n");
 	return 1;
 }

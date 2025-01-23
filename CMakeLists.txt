@@ -34,11 +34,16 @@ include(CheckIPOSupported)  	# check for -flto
 include(CheckLanguage) 			# needed for `check_language(CUDA)`
 find_package(benchmark QUIET)
 
-set(AVX2_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native -fsanitize=address")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 ${AVX2_FLAGS}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX2_FLAGS}")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0 ${AVX2_FLAGS}")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX2_FLAGS}")
+IF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64") 
+	message(STATUS "ARM CPU detected")
+	set(SIMD_FLAGS "")
+else()
+	set(SIMD_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native -fsanitize=address")
+endif()
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 ${SIMD_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${SIMD_FLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0 ${SIMD_FLAGS}")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${SIMD_FLAGS}")
 
 MACRO(SUBDIRLIST result curdir)
   FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)

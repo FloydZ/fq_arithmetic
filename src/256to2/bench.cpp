@@ -1,6 +1,9 @@
 #include <benchmark/benchmark.h>
 #include "arith.h"
 
+#define LIST_SIZE (1u << 13u)
+gf256to2 *A, *B, *C;
+
 static void BM_gf256to2v_mul_u64(benchmark::State& state) {
     uint64_t a = 1;
     uint16_t b = 2;
@@ -13,8 +16,6 @@ static void BM_gf256to2v_mul_u64(benchmark::State& state) {
 }
 
 #ifdef USE_AVX2
-#define LIST_SIZE (1u << 13u)
-gf256to2 *A, *B, *C;
 
 static void BM_gf256to2v_mul_u256(benchmark::State& state) {
     v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};

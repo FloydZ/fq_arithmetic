@@ -91,6 +91,7 @@ static inline void gf256to24_mul(gf256to24 res,
     r_[2] = gf256to8_add(r_[2], p12);
 }
 
+#ifdef USE_AVX2
 static inline __m256i gf256to24v_mul(const __m256i a,
                                      const __m256i b) {
     const __m256i pi = a ^ b;
@@ -99,6 +100,7 @@ static inline __m256i gf256to24v_mul(const __m256i a,
     const __m256i p0i = gf256to8v_mul_u256(a0i, b0i);
     return pi;
 }
+#endif
 
 /// \param res
 /// \param a
