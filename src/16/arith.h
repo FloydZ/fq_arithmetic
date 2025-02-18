@@ -619,7 +619,7 @@ uint8x16_t gf16v_mul_u128(const uint8x16_t a,
     return vsliq_n_u8( rl , rh , 4 );
 }
 
-uint8x16_t gf16v_mul_u128_full(const uint8x16_t a,
+uint8x16_t gf16v_mul_full_u128(const uint8x16_t a,
                                const uint8x16_t b) {
     const uint8x16_t mask_f = vdupq_n_u8( 0xf );
     const uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);

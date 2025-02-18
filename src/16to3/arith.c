@@ -35,8 +35,8 @@ uint32_t test_arith_vector_mul() {
     uint16_t tmp[16];
     for (uint64_t i = 1; i < 1u << 11; ++i) {
         for (uint64_t j = 2; j < 1u << 11; ++j) {
-            const uint16x8_t a128 = vdupq_n_u64(i^(i<<16u)^(i<<32u));
-            const uint16x8_t b128 = vdupq_n_u64(j^(j<<16u)^(j<<32u));
+            const uint16x8_t a128 = vdupq_n_u16(i);
+            const uint16x8_t b128 = vdupq_n_u16(j);
             const uint16x8_t c128 = gf16to3v_mul_u128(a128, b128);
             vst1q_u16(tmp, c128);
 
