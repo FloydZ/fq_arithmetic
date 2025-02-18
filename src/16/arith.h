@@ -601,8 +601,9 @@ const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
         0x00,0x13,0x26,0x35,0x4c,0x5f,0x6a,0x79, 0x8b,0x98,0xad,0xbe,0xc7,0xd4,0xe1,0xf2
 };
 
-// NOTE: not a full multiplication
-uint8x16_t gf16v_mul_u128(uint8x16_t a, uint8x16_t b) {
+// NOTE: not a full multiplication (only the lower 4 bits in each limb are used in b)
+uint8x16_t gf16v_mul_u128(const uint8x16_t a,
+                          const uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
 
@@ -613,10 +614,29 @@ uint8x16_t gf16v_mul_u128(uint8x16_t a, uint8x16_t b) {
     poly8x16_t abl = vmulq_p8(al0, b);
     poly8x16_t abh = vmulq_p8(ah0, b);
 
-    poly8x16_t rl = abl ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abl,4) );
-    poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
-
+    poly8x16_t rl = abl ^ vqtbl1q_u8(tab_reduce, vshrq_n_u8(abl, 4));
+    poly8x16_t rh = abh ^ vqtbl1q_u8(tab_reduce, vshrq_n_u8(abh, 4));
     return vsliq_n_u8( rl , rh , 4 );
+}
+
+uint8x16_t gf16v_mul_u128_full(const uint8x16_t a,
+                               const uint8x16_t b) {
+    const uint8x16_t mask_f = vdupq_n_u8( 0xf );
+    const uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
+
+    const uint8x16_t al0 = a&mask_f;
+    const uint8x16_t bl0 = b&mask_f;
+    const uint8x16_t ah0 = vshrq_n_u8(a, 4);
+    const uint8x16_t bh0 = vshrq_n_u8(b, 4);
+
+	// mul
+    poly8x16_t abl = vmulq_p8(al0, bl0);
+    poly8x16_t abh = vmulq_p8(ah0, bh0);
+
+    poly8x16_t rl = abl ^ vqtbl1q_u8(tab_reduce, vshrq_n_u8(abl, 4));
+    poly8x16_t rh = abh ^ vqtbl1q_u8(tab_reduce, vshrq_n_u8(abh, 4));
+
+    return vsliq_n_u8(rl, rh, 4);
 }
 
 // NOTE: not a full multiplication
