@@ -25,6 +25,25 @@ typedef union v256_t {
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
+#ifdef USE_NEON
+/// straightforward implementation of intels _pext_u64
+/// /param bitmap
+/// /param select_bitmap
+/// /return
+inline uint64_t _pext_u64(const uint64_t bitmap,
+                          uint64_t select_bitmap) {
+    uint64_t res = 0;
+    for (uint64_t bp = 1; select_bitmap != 0; bp += bp) {
+        if (bitmap & select_bitmap & -select_bitmap) {
+            res |= bp;
+        }
+        select_bitmap &= (select_bitmap - 1);
+    }
+
+    return res;
+}
+#endif
+
 
 // a > b -> b - a is negative
 // returns 0xFFFFFFFF if true, 0x00000000 if false

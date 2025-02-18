@@ -36,7 +36,7 @@ find_package(benchmark QUIET)
 
 IF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64") 
 	message(STATUS "ARM CPU detected")
-	set(SIMD_FLAGS "")
+	set(SIMD_FLAGS "-DUSE_NEON -flax-vector-conversions -march=native")
 else()
 	set(SIMD_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native -fsanitize=address")
 endif()

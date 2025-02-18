@@ -40,6 +40,7 @@ gf2to11 gf2to11_mul_v2(const gf2to11 a,
     r = (-(b>>1u  & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
     return (-(b   & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
 }
+
 /// \return a^-1
 static inline gf2to11 gf2to11_inv(const gf2to11 a) {
     gf2to11 result = a;
@@ -52,13 +53,15 @@ static inline gf2to11 gf2to11_inv(const gf2to11 a) {
     return result;
 }
 
+/// scalar multiplication
+/// \param a
+/// \param b
+/// \return a*b
 gf2to11 gf2to11_mul_gf2(const gf2to11 a,
                         const gf2 b) {
     gf2to11 c = b;
     return a & (-c);
 }
-
-
 
 
 #ifdef USE_AVX2
@@ -228,5 +231,10 @@ static inline __m128i gf2to11v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 #elif defined(USE_NEON)
+#include <arm_neon.h>
+
+static inline __m256i gf2to11v_mul_u256(const __m256i a,
+                                        const __m256i b) {
+}
 #else
 #endif

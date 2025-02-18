@@ -57,13 +57,14 @@ static inline gf2 gf2_hadd_u256(const __m256i in) {
 }
 
 #elif defined(USE_NEON)
+#include <arm_neon.h>
 static uint8x16_t add_simd256(const uint8x16_t a, const uint8x16_t b) { 
 		return a ^ b;
 }
 static uint8x16_t sub_simd256(const uint8x16_t a, const uint8x16_t b) { 
-	return a ^ b
+	return a ^ b;
 }
 static uint8x16_t mul_simd256(const uint8x16_t a, const uint8x16_t b) { 
-	return a & b
+	return a & b;
 }
 #endif

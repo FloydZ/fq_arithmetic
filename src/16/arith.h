@@ -108,7 +108,8 @@ static inline ff_t gf16_mul_v2(const ff_t a,
     return tmp1 ^ tmp2 ^ tmp3 ^ tmp4;
 }
 
-uint8_t gf16_mul_v3(uint8_t a, uint8_t b) {
+uint8_t gf16_mul_v3(const uint8_t a,
+                    const uint8_t b) {
     uint8_t r;
     r = (-(b>>3    ) & a);
     r = (-(b>>2 & 1) & a) ^ (-(r>>3) & MODULUS) ^ ((r+r) & 0x0F);
@@ -125,20 +126,17 @@ static inline ff_t gf16v_mul(const ff_t a,
 
 /// a + b*c
 static inline ff_t gf16_addmul(const ff_t a,
-                 const ff_t b,
-                 const ff_t c) {
+                               const ff_t b,
+                               const ff_t c) {
     return gf16_add(a, gf16_mul(b, c));
 }
 
 /// vectorized sqr(a) = a**2
-static inline uint64_t gf16_sqrv_u64(uint64_t a) {
+static inline uint64_t gf16_sqrv_u64(const uint64_t a) {
     uint64_t a01 = (      a&0x1111111111111111ULL) + ((a<<1)&0x4444444444444444ULL);
     uint64_t a23 = (((a>>2)&0x1111111111111111ULL) + ((a>>1)&0x4444444444444444ULL))*3;
     return a01^a23;
 }
-
-
-
 
 #ifdef USE_AVX2
 
@@ -598,6 +596,7 @@ void gf16v_madd_avx2( uint8_t * accu_c, const uint8_t * a , uint8_t gf16_b, unsi
 }
 
 #elif defined(USE_NEON)
+#include <arm_neon.h>
 const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
         0x00,0x13,0x26,0x35,0x4c,0x5f,0x6a,0x79, 0x8b,0x98,0xad,0xbe,0xc7,0xd4,0xe1,0xf2
 };
@@ -606,14 +605,13 @@ const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
 uint8x16_t gf16v_mul_u128(uint8x16_t a, uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
-    uint8x16_t bp = vdupq_n_u8(b);
 
     uint8x16_t al0 = a&mask_f;
     uint8x16_t ah0 = vshrq_n_u8( a , 4 );
 
 	// mul
-    poly8x16_t abl = vmulq_p8(al0, bp);
-    poly8x16_t abh = vmulq_p8(ah0, bp);
+    poly8x16_t abl = vmulq_p8(al0, b);
+    poly8x16_t abh = vmulq_p8(ah0, b);
 
     poly8x16_t rl = abl ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abl,4) );
     poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
@@ -626,31 +624,30 @@ uint8x16_t gf16v_mul_u128(uint8x16_t a, uint8x16_t b) {
 // each 8 bit limb
 uint8x16_t gf16v_mul_u128_lower(uint8x16_t a,
                                 uint8x16_t b) {
-    uint8x16_t m    = vdupq_n_u8( 0xf );
-    uint8x16_t tr   = vld1q_u8(__gf16_reduce);
-    uint8x16_t bp   = vdupq_n_u8(b);
-    uint8x16_t al0  = a&mm;
+    const uint8x16_t m   = vdupq_n_u8( 0xf );
+    const uint8x16_t tr  = vld1q_u8(__gf16_reduce);
+    const uint8x16_t al0 = a&m;
 
 	// mul
-    poly8x16_t abl = vmulq_p8(al0 , bp);
-    poly8x16_t rl = abl ^ vqtbl1q_u8(tr, vshrq_n_u8(abl, 4));
-    return rl
+    const poly8x16_t abl = vmulq_p8(al0 , b);
+    const poly8x16_t rl = abl ^ vqtbl1q_u8(tr, vshrq_n_u8(abl, 4));
+    return rl;
 }
 
 // only computes the multiplication on the upper 4 bits within
 // each 8 bit limb
 uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
                                 uint8x16_t b) {
-    uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
-    uint8x16_t bp = vdupq_n_u8(b);
-    uint8x16_t ah0 = vshrq_n_u8( a , 4 );
+    const uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
+    const uint8x16_t ah0 = vshrq_n_u8(a, 4);
 
     // mul
-    poly8x16_t abh = vmulq_p8( ah0 , bp );
-    poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
+    const poly8x16_t abh = vmulq_p8(ah0, b);
+    const poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
     return rh;
 }
 #else
+// any other architecture
 #endif
 
 #undef MODULUS
