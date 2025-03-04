@@ -1177,6 +1177,16 @@ static inline __m128i gf256v_mul_gf2_u128(const __m128i a,
     const __m128i t1 = _mm_sign_epi8(b, m1);
     return a & t1;
 }
+
+#elif defined(USE_NEON)
+#include <arm_neon.h>
+typedef union {
+    uint8_t  v8 [32];
+    uint16_t v16[16];
+    uint32_t v32[8];
+    uint64_t v64[4];
+    uint8x16_t v[2];
+} vec256_t;
 #endif /// end USE_AVX2
 #undef MODULUS
 

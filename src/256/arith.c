@@ -10,7 +10,6 @@
 #include "../16/vector.h"
 #include "../2/matrix.h"
 
-#ifdef USE_AVX2
 
 uint32_t test_matrix_map_gf16_to_gf256_u256() {
     uint32_t ret = 0;
@@ -42,6 +41,7 @@ uint32_t test_matrix_map_gf16_to_gf256_u256() {
     return ret;
 }
 
+#ifdef USE_AVX2
 uint32_t test_matrix_add_u256() {
     uint32_t ret = 0;
     const uint32_t nrows = 100;

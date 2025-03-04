@@ -40,6 +40,7 @@ gf2to11 gf2to11_mul_v2(const gf2to11 a,
     r = (-(b>>1u  & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
     return (-(b   & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
 }
+
 /// \return a^-1
 static inline gf2to11 gf2to11_inv(const gf2to11 a) {
     gf2to11 result = a;
@@ -52,13 +53,15 @@ static inline gf2to11 gf2to11_inv(const gf2to11 a) {
     return result;
 }
 
+/// scalar multiplication
+/// \param a
+/// \param b
+/// \return a*b
 gf2to11 gf2to11_mul_gf2(const gf2to11 a,
                         const gf2 b) {
     gf2to11 c = b;
     return a & (-c);
 }
-
-
 
 
 #ifdef USE_AVX2
@@ -228,5 +231,33 @@ static inline __m128i gf2to11v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 #elif defined(USE_NEON)
+#include <arm_neon.h>
+
+static inline uint16x8_t gf2to11v_mul_u128(const uint16x8_t a,
+                                           const uint16x8_t b) {
+    uint16x8_t m = vdupq_n_u16(MODULUS), r;
+
+    r =  vshrq_n_s16(vshlq_n_u16(b,  5), 15) & a;
+    r = (vshrq_n_s16(vshlq_n_u16(b,  6), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b,  7), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b,  8), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b,  9), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 10), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 11), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 12), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 13), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 14), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+    r = (vshrq_n_s16(vshlq_n_u16(b, 15), 15) & a) ^ (vshrq_n_s16(vshlq_n_u16(r, 5), 15) & m) ^ (r+r);
+
+    return r;
+}
+
+static inline uint16x8x2_t gf2to11v_mul_u256(const uint16x8x2_t a,
+                                             const uint16x8x2_t b) {
+    uint16x8x2_t r;
+    r.val[0] = gf2to11v_mul_u128(a.val[0], b.val[0]);
+    r.val[1] = gf2to11v_mul_u128(a.val[1], b.val[1]);
+    return r;
+}
 #else
 #endif
