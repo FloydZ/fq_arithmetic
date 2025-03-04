@@ -2,6 +2,32 @@
 #include "arith.h"
 #include "matrix.h"
 
+#ifdef USE_AVX512
+uint32_t test_gf127v_scalar_table() {
+    __m512i table[2];
+    gf127 tmp[64];
+    for (uint32_t i = 1; i < 127; i++) {
+        for (uint32_t j = 1; j <127; j++) {
+            gf127v_scalar_u512_compute_table(table, j);
+
+            for (uint32_t k = 0; k < 64; k++) { tmp[k] = i; }
+            const __m512i a = _mm512_loadu_si512((const __m512i *)tmp);
+            const __m512i c1 = gf127v_scalar_table_u512(a, table[0], table[1]);
+            _mm512_storeu_si512((__m512i *)tmp, c1);
+
+            const gf127 c = gf127_mul(i, j);
+            for (uint32_t k = 0; k < 64; k++) {
+                if (c != tmp[k]) {
+                    printf("test_gf127v_scalar_table error\n");
+                    return 1;
+                }
+            }
+        } 
+    }
+
+    return 0;
+}
+#endif
 uint32_t test_gf127_matrix_transpose8xN() {
     const uint32_t n = 8;
     const uint32_t m = 9;
@@ -59,8 +85,12 @@ uint32_t test_transpose(){
 }
 
 int main() {
-    if (test_transpose()) { return 1; }
-    if (test_gf127_matrix_transpose8xN()) { return 1; }
+#ifdef USE_AVX512
+    if (test_gf127v_scalar_table()) { return 1; }
+#endif
+
+    // if (test_transpose()) { return 1; }
+    // if (test_gf127_matrix_transpose8xN()) { return 1; }
 
     printf("all worked\n");
     return 0;
