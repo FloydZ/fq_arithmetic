@@ -170,10 +170,10 @@ void gf16_vector_multiple_u256(ff_t *poly1,
 /// poly1 = poly2 + scalar * poly3
 static inline
 void gf16_vector_add_multiple_u256_(ff_t *poly1, 
-                               const ff_t *poly2,
-                               const ff_t scalar, 
-                               const ff_t *poly3,
-                               const uint32_t d) {
+                                    const ff_t *poly2,
+                                    const ff_t scalar, 
+                                    const ff_t *poly3,
+                                    const uint32_t d) {
 	uint32_t i = d/2;
     const __m256i ml = gf16v_tbl32_multab(scalar);
     const __m256i mh = _mm256_slli_epi16(ml, 4);

@@ -127,6 +127,8 @@ static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
 ///     - or that the elements are compressed together, meaning
 ///         we have 21 elements in a register
 /// NOTE: this implementation follows the first approach
+/// NOTE: we actually need that the upper 4 bits in each limb in
+///     a and b are zerod out.
 static inline __m256i gf16to3v_mul_u256(const __m256i a,
                                         const __m256i b) {
     __m256i r,t;
@@ -140,7 +142,6 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
     // pi = [  p0 ,   p1 ,   p2 ,  0  ]
     const __m256i pi = gf16v_mul_full_u256(a, b);
 
-
     // bit    0     4      8     12    16
     // a01_12=[a0^a1, a1^a2, a0^a2,   0 ]  = [a01, a12, a02, 0]
     // b01_12=[b0^b1, b1^b2, a0^b2,   0 ]  = [b01, b12, b02, 0]
@@ -151,7 +152,6 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
     // p012 = [p01, p12, p02,   0]
     __m256i p012 = gf16v_mul_full_u256(a01_12, b01_12);
 
-
     // bit 0   4           8         12    16
     // r = [  0, p0^p12^p01, p1^p0^p02,   0]
     r  = _mm256_slli_epi16(pi, 4);
@@ -159,45 +159,12 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
     r ^= p012 & m12;
     r ^= _mm256_slli_epi16(p012, 4) & m1;
 
-
     t = pi ^ (_mm256_srli_epi16(pi, 4));
     t ^= _mm256_srli_epi16(pi, 8);
     t ^= _mm256_srli_epi16(p012, 4);
     t &= m0;
     r ^= t;
     return r&m;
-
-    //// bit    0     4      8     12     16
-    //// a01_12=[a0   , a0^a1, a1^a2,  a2]   = [a0, a01, a12, a2]
-    //// b01_12=[b0   , b0^b1, b1^b2,  b2]   = [b0, b01, b12, b2]
-    //const __m256i a01_12 = a ^ _mm256_slli_epi16(a, 4);
-    //const __m256i b01_12 = b ^ _mm256_slli_epi16(b, 4);
-
-    //// bit    0     4      8     12        16
-    //// a012 = [a0   , a0^a1, a1^a2, a2^a1^a0]
-    //// b012 = [b0   , b0^b1, b1^b2, b2^b1^b0]
-    //const __m256i a012 = a01_12 ^ _mm256_slli_epi16(a01_12&m1 , 8);
-    //const __m256i b012 = b01_12 ^ _mm256_slli_epi16(b01_12&m1 , 8);
-
-    //// bit    0    4    8    12    16
-    //// p012 = [p0 , p01, p12 , p012]
-    //// p012 = [p01, p12, p012, 0000]
-    //__m256i p012 = gf16v_mul_full_u256(a012, b012);
-    //p012 = _mm256_srli_epi16(p012, 4);
-
-    //// bit 0         4         8    16
-    //// r = [p0^p1^p2, p0^p1^p2, 0, 0]
-    //r = pi ^ (_mm256_srli_epi16(pi, 4));
-    //r ^= _mm256_srli_epi16(pi, 8);
-    //r ^= _mm256_slli_epi16(pi&m0, 4);     // ^= p0
-    //r &= (m0 ^ m1);
-
-    //r ^= _mm256_srli_epi16(p012, 4) & m0;   //^= p12
-    //r ^= _mm256_slli_epi16(p012, 4);        // ^= p01, ^= p12
-    //r ^= _mm256_slli_epi16(p012, 8);
-    //r ^= p012&m2; // ^= p012
-
-    //return r&m;
 }
 
 // parallel hadd of 2 gf16to3 elements
@@ -212,26 +179,50 @@ static inline uint32_t gf16to3_hadd_x2_x32_u256(const __m256i in) {
 
 #ifdef USE_NEON
 
-// TODO neon
-uint16x8_t gf16to3v_mul_u128(uint16x8_t a, uint16x8_t b) {
-    uint16x8_t m0 = vdupq_n_u8(0x00f);
-    uint16x8_t m1 = vdupq_n_u8(0x0f0);
-    uint16x8_t m2 = vdupq_n_u8(0xf00);
-    uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
-    uint8x16_t bp = vdupq_n_u8(b);
+uint16x8_t gf16to3v_mul_u128(const uint16x8_t a,
+                             const uint16x8_t b) {
+    uint16x8_t r,t;
+    const uint16x8_t m0     = vdupq_n_u16(0x00F);
+    const uint16x8_t m1     = vdupq_n_u16(0x0F0);
+    const uint16x8_t m12    = vdupq_n_u16(0xFF0);
+    const uint16x8_t m      = vdupq_n_u16(0xFFF);
 
-    uint8x16_t a0 = a&m0;
-    uint8x16_t a1 = vshrq_n_u8( a , 4 );
-    uint8x16_t a1 = vshrq_n_u8( a , 4 );
-    uint8x16_t a1 = vshrq_n_u8( a , 4 );
-	// mul
-    poly8x16_t abl = vmulq_p8( al0 , bp );
-    poly8x16_t abh = vmulq_p8( ah0 , bp );
+    // bit  0     4      8     12     16
+    // pi = [a0*b0, a1*b1, a2*b2,  0  ]
+    // pi = [  p0 ,   p1 ,   p2 ,  0  ]
+    const uint16x8_t pi = gf16v_mul_full_u128(a, b);
 
-    poly8x16_t rl = abl ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abl,4) );
-    poly8x16_t rh = abh ^ vqtbl1q_u8( tab_reduce , vshrq_n_u8(abh,4) );
+    // bit    0     4      8     12    16
+    // a01_12=[a0^a1, a1^a2, a0^a2,   0 ]  = [a01, a12, a02, 0]
+    // b01_12=[b0^b1, b1^b2, a0^b2,   0 ]  = [b01, b12, b02, 0]
+    const uint16x8_t a01_12 = a ^ vshrq_n_u16(a, 4) ^ vshlq_n_u16(a, 8);
+    const uint16x8_t b01_12 = b ^ vshrq_n_u16(b, 4) ^ vshlq_n_u16(b, 8);
 
-    return vsliq_n_u8( rl , rh , 4 );
+    // bit    0   4    8   12    16
+    // p012 = [p01, p12, p02,   0]
+    uint16x8_t p012 = gf16v_mul_full_u128(a01_12, b01_12);
+
+    // bit 0   4           8         12    16
+    // r = [  0, p0^p12^p01, p1^p0^p02,   0]
+    r  = vshlq_n_u16(pi, 4);
+    r ^= vshlq_n_u16(pi, 8);
+    r ^= p012 & m12;
+    r ^= vshlq_n_u16(p012, 4) & m1;
+
+    t = pi ^ (vshrq_n_u16(pi, 4));
+    t ^= vshrq_n_u16(pi, 8);
+    t ^= vshrq_n_u16(p012, 4);
+    t &= m0;
+    r ^= t;
+    return r&m;
+}
+
+static inline uint16x8x2_t gf16to3v_mul_u256(const uint16x8x2_t a,
+                                             const uint16x8x2_t b) {
+    uint16x8x2_t r;
+    r.val[0] = gf16to3v_mul_u128(a.val[0], b.val[0]);
+    r.val[1] = gf16to3v_mul_u128(a.val[1], b.val[1]);
+    return r;
 }
 #endif
 #undef MODULUS

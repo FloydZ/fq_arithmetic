@@ -113,6 +113,34 @@ static inline void gf256_matrix_add_gf16(gf256 *matrix1,
     }
 }
 
+/**
+ * \fn static inline void mirath_matrix_ff_mu_add_multiple_ff(ff_mu_t *matrix1, ff_mu_t scalar, const ff_t *matrix2,
+ *                                       const uint32_t n_rows, const uint32_t n_cols)
+ * \brief matrix1 += scalar * matrix2
+ *
+ * \param[out] matrix1 Matrix over ff_mu
+ * \param[in] scalar scalar over ff_mu
+ * \param[in] matrix2 Matrix over ff
+ * \param[in] n_rows number of rows
+ * \param[in] n_cols number of columns
+ */
+static inline void gf256_matrix_add_multiple_gf2(gf256 *matrix1,
+                                                 const gf256 scalar, 
+                                                 const gf2 *matrix2,
+                                                 const uint32_t n_rows,
+                                                 const uint32_t n_cols) {
+    for (uint32_t i = 0; i < n_rows; i++) {
+        for (uint32_t j = 0; j < n_cols; j++) {
+            gf256 entry2, entry3;
+
+            const gf256 entry1 = gf256_matrix_get_entry(matrix1, n_rows, i, j);
+            entry2 = gf2_matrix_get(matrix2, n_rows, i, j) & 0x01;
+            entry3 = entry1 ^ gf256_mul(scalar, entry2);
+            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+        }
+    }
+}
+
 /// \brief matrix1 += scalar * matrix2
 /// 
 /// \param[out] matrix1 Matrix over gf256
@@ -608,6 +636,78 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
             *(uint64_t *)tmp = t1;
             for (uint32_t k = 0; k < i; k++) { out[k] = tmp[k]; }
         }
+    }
+}
+
+/// \brief matrix1 += scalar * matrix2
+/// 
+/// \param[out] matrix1 Matrix over gf256
+/// \param[in] scalar scalar over gf256
+/// \param[in] matrix3 Matrix over gf16
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
+                                                       const gf256 scalar,
+                                                       const gf2 *matrix2,
+                                                       const uint32_t nrows,
+                                                       const uint32_t ncols) {
+    if ((nrows % 8 == 0) || (ncols == 1)) {
+        gf256_vector_add_scalar_gf2_u256(matrix1, scalar, matrix2, nrows*ncols);
+        return;
+    }
+   
+    const __m128i s128 = _mm_set1_epi8(scalar);
+    if (nrows == 4) {
+        const uint64_t m = 0x01010101;
+        const uint32_t limit = ncols % 4;
+
+        const gf2 *mm2 = matrix2;
+        gf256 *out = matrix1;
+
+        /// NOTE: asumes n_cols %2 == 2
+        uint32_t col = 0;
+        for (; (col+4) <= ncols; col+=4) {
+            const uint32_t a = *(uint32_t *)(matrix2 + col);
+
+            const uint64_t t41 = _pdep_u64(a>> 0u, m);
+            const uint64_t t42 = _pdep_u64(a>> 8u, m);
+            const uint64_t t43 = _pdep_u64(a>>16u, m);
+            const uint64_t t44 = _pdep_u64(a>>24u, m);
+            const uint64_t t31 =  t41 ^ (t42 << 32);
+            const uint64_t t32 =  t43 ^ (t44 << 32);
+            const __m128i t  = _mm_set_epi64x(t32, t31);
+
+            const __m128i m1 = _mm_loadu_si128((__m128i *)out);
+            const __m128i c1 = gf256v_mul_gf2_u128(s128, t);
+            _mm_storeu_si128((__m128i *)(out +  0), m1 ^ c1);
+
+            out += 4*nrows;
+            mm2 += 4;
+        }
+
+        if (limit) {
+            gf256 tmp[16] __attribute__((aligned(32)));
+
+            const uint64_t t41 = _pdep_u64(mm2[0], m);
+            const uint64_t t42 = _pdep_u64(mm2[1], m);
+            const uint64_t t31 = t41 ^ (t42 << 32);
+            const __m128i t  = _mm_set_epi64x(0, t31);
+            const __m128i c1 = gf256v_mul_gf2_u128(s128, t);
+            _mm_store_si128((__m128i *)tmp, c1);
+
+            for (uint32_t i = 0; i < 2*nrows; i++) {
+                out[i] ^= tmp[i];
+            }
+        }
+        return;
+    }
+
+    const uint32_t gf2_col_bytes = gf2_matrix_bytes_per_column(nrows);
+    for (uint32_t col = 0; col < ncols; ++col) {
+        gf256 *o      = matrix1 + col*nrows;
+        const gf2 *in = matrix2 + col*gf2_col_bytes;
+
+        gf256_vector_add_scalar_gf2_u256(o, scalar, in, nrows);
     }
 }
 
@@ -1404,6 +1504,294 @@ static inline void gf2to12_matrix_map_gf2_u256(gf256 *out,
         gf256 *o = out + col*nrows;
 
         gf256_vector_set_to_gf2_u256(o, in2, nrows);
+    }
+}
+#elif defined(USE_NEON)
+#include <arm_neon.h>
+
+/// source original from: https://github.com/pqov/pqov-paper
+/// \param mat[out]
+/// \param src_mat[in]
+/// \param vec_len[in]
+/// \param src_vec_len[in]
+static  void gf256_matrix_transpose_32x32(uint8_t *mat,
+                                           const uint8_t * src_mat,
+                                           unsigned vec_len,
+                                           unsigned src_vec_len ) {
+    byte_transpose_16x16_neon(mat , vec_len , src_mat , src_vec_len );
+    byte_transpose_16x16_neon(mat+16 , vec_len , src_mat+16*src_vec_len, src_vec_len );
+    byte_transpose_16x16_neon(mat+16*vec_len , vec_len , src_mat+16, src_vec_len );
+    byte_transpose_16x16_neon(mat+16*vec_len+16 , vec_len , src_mat+16*src_vec_len+16, src_vec_len );
+
+}
+
+/// orifinal code from: https://github.com/less-sig/LESS
+/// \param dst_origin[out]: output matrix
+/// \param src_origin[in]: input matrix
+/// \param src_stride[in]: number of bytes (including alignment) in each row for source matrix
+/// \param dst_stride[in]: number of bytes (including alignment) in each row for destination matrix
+void gf256_matrix_transpose_32x32_v2(uint8_t* dst_origin,
+                                    const uint8_t* src_origin,
+                                    const size_t src_stride,
+                                    const size_t dst_stride) {
+    const vec256_t rnd_0_0 = *((vec256_t *)(src_origin + 0*src_stride));
+    const vec256_t rnd_0_1 = *((vec256_t *)(src_origin + 1*src_stride));
+    vec256_t rnd_1_0; rnd_1_0.v[0] = vtrn1q_u8(rnd_0_0.v[0], rnd_0_1.v[0]); rnd_1_0.v[1] = vtrn1q_u8(rnd_0_0.v[1], rnd_0_1.v[1]);
+    vec256_t rnd_1_1; rnd_1_1.v[0] = vtrn2q_u8(rnd_0_0.v[0], rnd_0_1.v[0]); rnd_1_1.v[1] = vtrn2q_u8(rnd_0_0.v[1], rnd_0_1.v[1]);
+    const vec256_t rnd_0_2 = *((vec256_t *)(src_origin + 2*src_stride));
+    const vec256_t rnd_0_3 = *((vec256_t *)(src_origin + 3*src_stride));
+    vec256_t rnd_1_2; rnd_1_2.v[0] = vtrn1q_u8(rnd_0_2.v[0], rnd_0_3.v[0]); rnd_1_2.v[1] = vtrn1q_u8(rnd_0_2.v[1], rnd_0_3.v[1]);
+    vec256_t rnd_1_3; rnd_1_3.v[0] = vtrn2q_u8(rnd_0_2.v[0], rnd_0_3.v[0]); rnd_1_3.v[1] = vtrn2q_u8(rnd_0_2.v[1], rnd_0_3.v[1]);
+    const vec256_t rnd_0_4 = *((vec256_t *)(src_origin + 4*src_stride));
+    const vec256_t rnd_0_5 = *((vec256_t *)(src_origin + 5*src_stride));
+    vec256_t rnd_1_4; rnd_1_4.v[0] = vtrn1q_u8(rnd_0_4.v[0], rnd_0_5.v[0]); rnd_1_4.v[1] = vtrn1q_u8(rnd_0_4.v[1], rnd_0_5.v[1]);
+    vec256_t rnd_1_5; rnd_1_5.v[0] = vtrn2q_u8(rnd_0_4.v[0], rnd_0_5.v[0]); rnd_1_5.v[1] = vtrn2q_u8(rnd_0_4.v[1], rnd_0_5.v[1]);
+    const vec256_t rnd_0_6 = *((vec256_t *)(src_origin + 6*src_stride));
+    const vec256_t rnd_0_7 = *((vec256_t *)(src_origin + 7*src_stride));
+    vec256_t rnd_1_6; rnd_1_6.v[0] = vtrn1q_u8(rnd_0_6.v[0], rnd_0_7.v[0]); rnd_1_6.v[1] = vtrn1q_u8(rnd_0_6.v[1], rnd_0_7.v[1]);
+    vec256_t rnd_1_7; rnd_1_7.v[0] = vtrn2q_u8(rnd_0_6.v[0], rnd_0_7.v[0]); rnd_1_7.v[1] = vtrn2q_u8(rnd_0_6.v[1], rnd_0_7.v[1]);
+    const vec256_t rnd_0_8 = *((vec256_t *)(src_origin + 8*src_stride));
+    const vec256_t rnd_0_9 = *((vec256_t *)(src_origin + 9*src_stride));
+    vec256_t rnd_1_8; rnd_1_8.v[0] = vtrn1q_u8(rnd_0_8.v[0], rnd_0_9.v[0]); rnd_1_8.v[1] = vtrn1q_u8(rnd_0_8.v[1], rnd_0_9.v[1]);
+    vec256_t rnd_1_9; rnd_1_9.v[0] = vtrn2q_u8(rnd_0_8.v[0], rnd_0_9.v[0]); rnd_1_9.v[1] = vtrn2q_u8(rnd_0_8.v[1], rnd_0_9.v[1]);
+    const vec256_t rnd_0_10 = *((vec256_t *)(src_origin + 10*src_stride));
+    const vec256_t rnd_0_11 = *((vec256_t *)(src_origin + 11*src_stride));
+    vec256_t rnd_1_10; rnd_1_10.v[0] = vtrn1q_u8(rnd_0_10.v[0], rnd_0_11.v[0]); rnd_1_10.v[1] = vtrn1q_u8(rnd_0_10.v[1], rnd_0_11.v[1]);
+    vec256_t rnd_1_11; rnd_1_11.v[0] = vtrn2q_u8(rnd_0_10.v[0], rnd_0_11.v[0]); rnd_1_11.v[1] = vtrn2q_u8(rnd_0_10.v[1], rnd_0_11.v[1]);
+    const vec256_t rnd_0_12 = *((vec256_t *)(src_origin + 12*src_stride));
+    const vec256_t rnd_0_13 = *((vec256_t *)(src_origin + 13*src_stride));
+    vec256_t rnd_1_12; rnd_1_12.v[0] = vtrn1q_u8(rnd_0_12.v[0], rnd_0_13.v[0]); rnd_1_12.v[1] = vtrn1q_u8(rnd_0_12.v[1], rnd_0_13.v[1]);
+    vec256_t rnd_1_13; rnd_1_13.v[0] = vtrn2q_u8(rnd_0_12.v[0], rnd_0_13.v[0]); rnd_1_13.v[1] = vtrn2q_u8(rnd_0_12.v[1], rnd_0_13.v[1]);
+    const vec256_t rnd_0_14 = *((vec256_t *)(src_origin + 14*src_stride));
+    const vec256_t rnd_0_15 = *((vec256_t *)(src_origin + 15*src_stride));
+    vec256_t rnd_1_14; rnd_1_14.v[0] = vtrn1q_u8(rnd_0_14.v[0], rnd_0_15.v[0]); rnd_1_14.v[1] = vtrn1q_u8(rnd_0_14.v[1], rnd_0_15.v[1]);
+    vec256_t rnd_1_15; rnd_1_15.v[0] = vtrn2q_u8(rnd_0_14.v[0], rnd_0_15.v[0]); rnd_1_15.v[1] = vtrn2q_u8(rnd_0_14.v[1], rnd_0_15.v[1]);
+    const vec256_t rnd_0_16 = *((vec256_t *)(src_origin + 16*src_stride));
+    const vec256_t rnd_0_17 = *((vec256_t *)(src_origin + 17*src_stride));
+    vec256_t rnd_1_16; rnd_1_16.v[0] = vtrn1q_u8(rnd_0_16.v[0], rnd_0_17.v[0]); rnd_1_16.v[1] = vtrn1q_u8(rnd_0_16.v[1], rnd_0_17.v[1]);
+    vec256_t rnd_1_17; rnd_1_17.v[0] = vtrn2q_u8(rnd_0_16.v[0], rnd_0_17.v[0]); rnd_1_17.v[1] = vtrn2q_u8(rnd_0_16.v[1], rnd_0_17.v[1]);
+    const vec256_t rnd_0_18 = *((vec256_t *)(src_origin + 18*src_stride));
+    const vec256_t rnd_0_19 = *((vec256_t *)(src_origin + 19*src_stride));
+    vec256_t rnd_1_18; rnd_1_18.v[0] = vtrn1q_u8(rnd_0_18.v[0], rnd_0_19.v[0]); rnd_1_18.v[1] = vtrn1q_u8(rnd_0_18.v[1], rnd_0_19.v[1]);
+    vec256_t rnd_1_19; rnd_1_19.v[0] = vtrn2q_u8(rnd_0_18.v[0], rnd_0_19.v[0]); rnd_1_19.v[1] = vtrn2q_u8(rnd_0_18.v[1], rnd_0_19.v[1]);
+    const vec256_t rnd_0_20 = *((vec256_t *)(src_origin + 20*src_stride));
+    const vec256_t rnd_0_21 = *((vec256_t *)(src_origin + 21*src_stride));
+    vec256_t rnd_1_20; rnd_1_20.v[0] = vtrn1q_u8(rnd_0_20.v[0], rnd_0_21.v[0]); rnd_1_20.v[1] = vtrn1q_u8(rnd_0_20.v[1], rnd_0_21.v[1]);
+    vec256_t rnd_1_21; rnd_1_21.v[0] = vtrn2q_u8(rnd_0_20.v[0], rnd_0_21.v[0]); rnd_1_21.v[1] = vtrn2q_u8(rnd_0_20.v[1], rnd_0_21.v[1]);
+    const vec256_t rnd_0_22 = *((vec256_t *)(src_origin + 22*src_stride));
+    const vec256_t rnd_0_23 = *((vec256_t *)(src_origin + 23*src_stride));
+    vec256_t rnd_1_22; rnd_1_22.v[0] = vtrn1q_u8(rnd_0_22.v[0], rnd_0_23.v[0]); rnd_1_22.v[1] = vtrn1q_u8(rnd_0_22.v[1], rnd_0_23.v[1]);
+    vec256_t rnd_1_23; rnd_1_23.v[0] = vtrn2q_u8(rnd_0_22.v[0], rnd_0_23.v[0]); rnd_1_23.v[1] = vtrn2q_u8(rnd_0_22.v[1], rnd_0_23.v[1]);
+    const vec256_t rnd_0_24 = *((vec256_t *)(src_origin + 24*src_stride));
+    const vec256_t rnd_0_25 = *((vec256_t *)(src_origin + 25*src_stride));
+    vec256_t rnd_1_24; rnd_1_24.v[0] = vtrn1q_u8(rnd_0_24.v[0], rnd_0_25.v[0]); rnd_1_24.v[1] = vtrn1q_u8(rnd_0_24.v[1], rnd_0_25.v[1]);
+    vec256_t rnd_1_25; rnd_1_25.v[0] = vtrn2q_u8(rnd_0_24.v[0], rnd_0_25.v[0]); rnd_1_25.v[1] = vtrn2q_u8(rnd_0_24.v[1], rnd_0_25.v[1]);
+    const vec256_t rnd_0_26 = *((vec256_t *)(src_origin + 26*src_stride));
+    const vec256_t rnd_0_27 = *((vec256_t *)(src_origin + 27*src_stride));
+    vec256_t rnd_1_26; rnd_1_26.v[0] = vtrn1q_u8(rnd_0_26.v[0], rnd_0_27.v[0]); rnd_1_26.v[1] = vtrn1q_u8(rnd_0_26.v[1], rnd_0_27.v[1]);
+    vec256_t rnd_1_27; rnd_1_27.v[0] = vtrn2q_u8(rnd_0_26.v[0], rnd_0_27.v[0]); rnd_1_27.v[1] = vtrn2q_u8(rnd_0_26.v[1], rnd_0_27.v[1]);
+    const vec256_t rnd_0_28 = *((vec256_t *)(src_origin + 28*src_stride));
+    const vec256_t rnd_0_29 = *((vec256_t *)(src_origin + 29*src_stride));
+    vec256_t rnd_1_28; rnd_1_28.v[0] = vtrn1q_u8(rnd_0_28.v[0], rnd_0_29.v[0]); rnd_1_28.v[1] = vtrn1q_u8(rnd_0_28.v[1], rnd_0_29.v[1]);
+    vec256_t rnd_1_29; rnd_1_29.v[0] = vtrn2q_u8(rnd_0_28.v[0], rnd_0_29.v[0]); rnd_1_29.v[1] = vtrn2q_u8(rnd_0_28.v[1], rnd_0_29.v[1]);
+    const vec256_t rnd_0_30 = *((vec256_t *)(src_origin + 30*src_stride));
+    const vec256_t rnd_0_31 = *((vec256_t *)(src_origin + 31*src_stride));
+    vec256_t rnd_1_30; rnd_1_30.v[0] = vtrn1q_u8(rnd_0_30.v[0], rnd_0_31.v[0]); rnd_1_30.v[1] = vtrn1q_u8(rnd_0_30.v[1], rnd_0_31.v[1]);
+    vec256_t rnd_1_31; rnd_1_31.v[0] = vtrn2q_u8(rnd_0_30.v[0], rnd_0_31.v[0]); rnd_1_31.v[1] = vtrn2q_u8(rnd_0_30.v[1], rnd_0_31.v[1]);
+
+    vec256_t rnd_2_0; rnd_2_0.v[0] = vtrn1q_u16(rnd_1_0.v[0], rnd_1_2.v[0]); rnd_2_0.v[1] = vtrn1q_u16(rnd_1_0.v[1], rnd_1_2.v[1]);
+    vec256_t rnd_2_2; rnd_2_2.v[0] = vtrn2q_u16(rnd_1_0.v[0], rnd_1_2.v[0]); rnd_2_2.v[1] = vtrn2q_u16(rnd_1_0.v[1], rnd_1_2.v[1]);
+    vec256_t rnd_2_1; rnd_2_1.v[0] = vtrn1q_u16(rnd_1_1.v[0], rnd_1_3.v[0]); rnd_2_1.v[1] = vtrn1q_u16(rnd_1_1.v[1], rnd_1_3.v[1]);
+    vec256_t rnd_2_3; rnd_2_3.v[0] = vtrn2q_u16(rnd_1_1.v[0], rnd_1_3.v[0]); rnd_2_3.v[1] = vtrn2q_u16(rnd_1_1.v[1], rnd_1_3.v[1]);
+    vec256_t rnd_2_4; rnd_2_4.v[0] = vtrn1q_u16(rnd_1_4.v[0], rnd_1_6.v[0]); rnd_2_4.v[1] = vtrn1q_u16(rnd_1_4.v[1], rnd_1_6.v[1]);
+    vec256_t rnd_2_6; rnd_2_6.v[0] = vtrn2q_u16(rnd_1_4.v[0], rnd_1_6.v[0]); rnd_2_6.v[1] = vtrn2q_u16(rnd_1_4.v[1], rnd_1_6.v[1]);
+    vec256_t rnd_2_5; rnd_2_5.v[0] = vtrn1q_u16(rnd_1_5.v[0], rnd_1_7.v[0]); rnd_2_5.v[1] = vtrn1q_u16(rnd_1_5.v[1], rnd_1_7.v[1]);
+    vec256_t rnd_2_7; rnd_2_7.v[0] = vtrn2q_u16(rnd_1_5.v[0], rnd_1_7.v[0]); rnd_2_7.v[1] = vtrn2q_u16(rnd_1_5.v[1], rnd_1_7.v[1]);
+    vec256_t rnd_2_8 ; rnd_2_8.v[0]  = vtrn1q_u16(rnd_1_8.v[0], rnd_1_10.v[0]); rnd_2_8.v[1]  = vtrn1q_u16(rnd_1_8.v[1], rnd_1_10.v[1]);
+    vec256_t rnd_2_10; rnd_2_10.v[0] = vtrn2q_u16(rnd_1_8.v[0], rnd_1_10.v[0]); rnd_2_10.v[1] = vtrn2q_u16(rnd_1_8.v[1], rnd_1_10.v[1]);
+    vec256_t rnd_2_9 ; rnd_2_9.v[0]  = vtrn1q_u16(rnd_1_9.v[0], rnd_1_11.v[0]); rnd_2_9.v[1]  = vtrn1q_u16(rnd_1_9.v[1], rnd_1_11.v[1]);
+    vec256_t rnd_2_11; rnd_2_11.v[0] = vtrn2q_u16(rnd_1_9.v[0], rnd_1_11.v[0]); rnd_2_11.v[1] = vtrn2q_u16(rnd_1_9.v[1], rnd_1_11.v[1]);
+    vec256_t rnd_2_12; rnd_2_12.v[0] = vtrn1q_u16(rnd_1_12.v[0], rnd_1_14.v[0]); rnd_2_12.v[1] = vtrn1q_u16(rnd_1_12.v[1], rnd_1_14.v[1]);
+    vec256_t rnd_2_14; rnd_2_14.v[0] = vtrn2q_u16(rnd_1_12.v[0], rnd_1_14.v[0]); rnd_2_14.v[1] = vtrn2q_u16(rnd_1_12.v[1], rnd_1_14.v[1]);
+    vec256_t rnd_2_13; rnd_2_13.v[0] = vtrn1q_u16(rnd_1_13.v[0], rnd_1_15.v[0]); rnd_2_13.v[1] = vtrn1q_u16(rnd_1_13.v[1], rnd_1_15.v[1]);
+    vec256_t rnd_2_15; rnd_2_15.v[0] = vtrn2q_u16(rnd_1_13.v[0], rnd_1_15.v[0]); rnd_2_15.v[1] = vtrn2q_u16(rnd_1_13.v[1], rnd_1_15.v[1]);
+    vec256_t rnd_2_16; rnd_2_16.v[0] = vtrn1q_u16(rnd_1_16.v[0], rnd_1_18.v[0]); rnd_2_16.v[1] = vtrn1q_u16(rnd_1_16.v[1], rnd_1_18.v[1]);
+    vec256_t rnd_2_18; rnd_2_18.v[0] = vtrn2q_u16(rnd_1_16.v[0], rnd_1_18.v[0]); rnd_2_18.v[1] = vtrn2q_u16(rnd_1_16.v[1], rnd_1_18.v[1]);
+    vec256_t rnd_2_17; rnd_2_17.v[0] = vtrn1q_u16(rnd_1_17.v[0], rnd_1_19.v[0]); rnd_2_17.v[1] = vtrn1q_u16(rnd_1_17.v[1], rnd_1_19.v[1]);
+    vec256_t rnd_2_19; rnd_2_19.v[0] = vtrn2q_u16(rnd_1_17.v[0], rnd_1_19.v[0]); rnd_2_19.v[1] = vtrn2q_u16(rnd_1_17.v[1], rnd_1_19.v[1]);
+    vec256_t rnd_2_20; rnd_2_20.v[0] = vtrn1q_u16(rnd_1_20.v[0], rnd_1_22.v[0]); rnd_2_20.v[1] = vtrn1q_u16(rnd_1_20.v[1], rnd_1_22.v[1]);
+    vec256_t rnd_2_22; rnd_2_22.v[0] = vtrn2q_u16(rnd_1_20.v[0], rnd_1_22.v[0]); rnd_2_22.v[1] = vtrn2q_u16(rnd_1_20.v[1], rnd_1_22.v[1]);
+    vec256_t rnd_2_21; rnd_2_21.v[0] = vtrn1q_u16(rnd_1_21.v[0], rnd_1_23.v[0]); rnd_2_21.v[1] = vtrn1q_u16(rnd_1_21.v[1], rnd_1_23.v[1]);
+    vec256_t rnd_2_23; rnd_2_23.v[0] = vtrn2q_u16(rnd_1_21.v[0], rnd_1_23.v[0]); rnd_2_23.v[1] = vtrn2q_u16(rnd_1_21.v[1], rnd_1_23.v[1]);
+    vec256_t rnd_2_24; rnd_2_24.v[0] = vtrn1q_u16(rnd_1_24.v[0], rnd_1_26.v[0]); rnd_2_24.v[1] = vtrn1q_u16(rnd_1_24.v[1], rnd_1_26.v[1]);
+    vec256_t rnd_2_26; rnd_2_26.v[0] = vtrn2q_u16(rnd_1_24.v[0], rnd_1_26.v[0]); rnd_2_26.v[1] = vtrn2q_u16(rnd_1_24.v[1], rnd_1_26.v[1]);
+    vec256_t rnd_2_25; rnd_2_25.v[0] = vtrn1q_u16(rnd_1_25.v[0], rnd_1_27.v[0]); rnd_2_25.v[1] = vtrn1q_u16(rnd_1_25.v[1], rnd_1_27.v[1]);
+    vec256_t rnd_2_27; rnd_2_27.v[0] = vtrn2q_u16(rnd_1_25.v[0], rnd_1_27.v[0]); rnd_2_27.v[1] = vtrn2q_u16(rnd_1_25.v[1], rnd_1_27.v[1]);
+    vec256_t rnd_2_28; rnd_2_28.v[0] = vtrn1q_u16(rnd_1_28.v[0], rnd_1_30.v[0]); rnd_2_28.v[1] = vtrn1q_u16(rnd_1_28.v[1], rnd_1_30.v[1]);
+    vec256_t rnd_2_30; rnd_2_30.v[0] = vtrn2q_u16(rnd_1_28.v[0], rnd_1_30.v[0]); rnd_2_30.v[1] = vtrn2q_u16(rnd_1_28.v[1], rnd_1_30.v[1]);
+    vec256_t rnd_2_29; rnd_2_29.v[0] = vtrn1q_u16(rnd_1_29.v[0], rnd_1_31.v[0]); rnd_2_29.v[1] = vtrn1q_u16(rnd_1_29.v[1], rnd_1_31.v[1]);
+    vec256_t rnd_2_31; rnd_2_31.v[0] = vtrn2q_u16(rnd_1_29.v[0], rnd_1_31.v[0]); rnd_2_31.v[1] = vtrn2q_u16(rnd_1_29.v[1], rnd_1_31.v[1]);
+
+    vec256_t rnd_3_0; rnd_3_0.v[0] = vtrn1q_u32(rnd_2_0.v[0], rnd_2_4.v[0]); rnd_3_0.v[1] = vtrn1q_u32(rnd_2_0.v[1], rnd_2_4.v[1]);
+    vec256_t rnd_3_4; rnd_3_4.v[0] = vtrn2q_u32(rnd_2_0.v[0], rnd_2_4.v[0]); rnd_3_4.v[1] = vtrn2q_u32(rnd_2_0.v[1], rnd_2_4.v[1]);
+    vec256_t rnd_3_1; rnd_3_1.v[0] = vtrn1q_u32(rnd_2_1.v[0], rnd_2_5.v[0]); rnd_3_1.v[1] = vtrn1q_u32(rnd_2_1.v[1], rnd_2_5.v[1]);
+    vec256_t rnd_3_5; rnd_3_5.v[0] = vtrn2q_u32(rnd_2_1.v[0], rnd_2_5.v[0]); rnd_3_5.v[1] = vtrn2q_u32(rnd_2_1.v[1], rnd_2_5.v[1]);
+    vec256_t rnd_3_2; rnd_3_2.v[0] = vtrn1q_u32(rnd_2_2.v[0], rnd_2_6.v[0]); rnd_3_2.v[1] = vtrn1q_u32(rnd_2_2.v[1], rnd_2_6.v[1]);
+    vec256_t rnd_3_6; rnd_3_6.v[0] = vtrn2q_u32(rnd_2_2.v[0], rnd_2_6.v[0]); rnd_3_6.v[1] = vtrn2q_u32(rnd_2_2.v[1], rnd_2_6.v[1]);
+    vec256_t rnd_3_3; rnd_3_3.v[0] = vtrn1q_u32(rnd_2_3.v[0], rnd_2_7.v[0]); rnd_3_3.v[1] = vtrn1q_u32(rnd_2_3.v[1], rnd_2_7.v[1]);
+    vec256_t rnd_3_7; rnd_3_7.v[0] = vtrn2q_u32(rnd_2_3.v[0], rnd_2_7.v[0]); rnd_3_7.v[1] = vtrn2q_u32(rnd_2_3.v[1], rnd_2_7.v[1]);
+    vec256_t rnd_3_8 ; rnd_3_8.v[0]  = vtrn1q_u32(rnd_2_8.v[0], rnd_2_12.v[0]); rnd_3_8.v[1]  = vtrn1q_u32(rnd_2_8.v[1], rnd_2_12.v[1]);
+    vec256_t rnd_3_12; rnd_3_12.v[0] = vtrn2q_u32(rnd_2_8.v[0], rnd_2_12.v[0]); rnd_3_12.v[1] = vtrn2q_u32(rnd_2_8.v[1], rnd_2_12.v[1]);
+    vec256_t rnd_3_9;  rnd_3_9.v[0] =  vtrn1q_u32(rnd_2_9.v[0], rnd_2_13.v[0]); rnd_3_9.v[1] =  vtrn1q_u32(rnd_2_9.v[1], rnd_2_13.v[1]);
+    vec256_t rnd_3_13; rnd_3_13.v[0] = vtrn2q_u32(rnd_2_9.v[0], rnd_2_13.v[0]); rnd_3_13.v[1] = vtrn2q_u32(rnd_2_9.v[1], rnd_2_13.v[1]);
+    vec256_t rnd_3_10; rnd_3_10.v[0] = vtrn1q_u32(rnd_2_10.v[0], rnd_2_14.v[0]); rnd_3_10.v[1] = vtrn1q_u32(rnd_2_10.v[1], rnd_2_14.v[1]);
+    vec256_t rnd_3_14; rnd_3_14.v[0] = vtrn2q_u32(rnd_2_10.v[0], rnd_2_14.v[0]); rnd_3_14.v[1] = vtrn2q_u32(rnd_2_10.v[1], rnd_2_14.v[1]);
+    vec256_t rnd_3_11; rnd_3_11.v[0] = vtrn1q_u32(rnd_2_11.v[0], rnd_2_15.v[0]); rnd_3_11.v[1] = vtrn1q_u32(rnd_2_11.v[1], rnd_2_15.v[1]);
+    vec256_t rnd_3_15; rnd_3_15.v[0] = vtrn2q_u32(rnd_2_11.v[0], rnd_2_15.v[0]); rnd_3_15.v[1] = vtrn2q_u32(rnd_2_11.v[1], rnd_2_15.v[1]);
+    vec256_t rnd_3_16; rnd_3_16.v[0] = vtrn1q_u32(rnd_2_16.v[0], rnd_2_20.v[0]); rnd_3_16.v[1] = vtrn1q_u32(rnd_2_16.v[1], rnd_2_20.v[1]);
+    vec256_t rnd_3_20; rnd_3_20.v[0] = vtrn2q_u32(rnd_2_16.v[0], rnd_2_20.v[0]); rnd_3_20.v[1] = vtrn2q_u32(rnd_2_16.v[1], rnd_2_20.v[1]);
+    vec256_t rnd_3_17; rnd_3_17.v[0] = vtrn1q_u32(rnd_2_17.v[0], rnd_2_21.v[0]); rnd_3_17.v[1] = vtrn1q_u32(rnd_2_17.v[1], rnd_2_21.v[1]);
+    vec256_t rnd_3_21; rnd_3_21.v[0] = vtrn2q_u32(rnd_2_17.v[0], rnd_2_21.v[0]); rnd_3_21.v[1] = vtrn2q_u32(rnd_2_17.v[1], rnd_2_21.v[1]);
+    vec256_t rnd_3_18; rnd_3_18.v[0] = vtrn1q_u32(rnd_2_18.v[0], rnd_2_22.v[0]); rnd_3_18.v[1] = vtrn1q_u32(rnd_2_18.v[1], rnd_2_22.v[1]);
+    vec256_t rnd_3_22; rnd_3_22.v[0] = vtrn2q_u32(rnd_2_18.v[0], rnd_2_22.v[0]); rnd_3_22.v[1] = vtrn2q_u32(rnd_2_18.v[1], rnd_2_22.v[1]);
+    vec256_t rnd_3_19; rnd_3_19.v[0] = vtrn1q_u32(rnd_2_19.v[0], rnd_2_23.v[0]); rnd_3_19.v[1] = vtrn1q_u32(rnd_2_19.v[1], rnd_2_23.v[1]);
+    vec256_t rnd_3_23; rnd_3_23.v[0] = vtrn2q_u32(rnd_2_19.v[0], rnd_2_23.v[0]); rnd_3_23.v[1] = vtrn2q_u32(rnd_2_19.v[1], rnd_2_23.v[1]);
+    vec256_t rnd_3_24; rnd_3_24.v[0] = vtrn1q_u32(rnd_2_24.v[0], rnd_2_28.v[0]); rnd_3_24.v[1] = vtrn1q_u32(rnd_2_24.v[1], rnd_2_28.v[1]);
+    vec256_t rnd_3_28; rnd_3_28.v[0] = vtrn2q_u32(rnd_2_24.v[0], rnd_2_28.v[0]); rnd_3_28.v[1] = vtrn2q_u32(rnd_2_24.v[1], rnd_2_28.v[1]);
+    vec256_t rnd_3_25; rnd_3_25.v[0] = vtrn1q_u32(rnd_2_25.v[0], rnd_2_29.v[0]); rnd_3_25.v[1] = vtrn1q_u32(rnd_2_25.v[1], rnd_2_29.v[1]);
+    vec256_t rnd_3_29; rnd_3_29.v[0] = vtrn2q_u32(rnd_2_25.v[0], rnd_2_29.v[0]); rnd_3_29.v[1] = vtrn2q_u32(rnd_2_25.v[1], rnd_2_29.v[1]);
+    vec256_t rnd_3_26; rnd_3_26.v[0] = vtrn1q_u32(rnd_2_26.v[0], rnd_2_30.v[0]); rnd_3_26.v[1] = vtrn1q_u32(rnd_2_26.v[1], rnd_2_30.v[1]);
+    vec256_t rnd_3_30; rnd_3_30.v[0] = vtrn2q_u32(rnd_2_26.v[0], rnd_2_30.v[0]); rnd_3_30.v[1] = vtrn2q_u32(rnd_2_26.v[1], rnd_2_30.v[1]);
+    vec256_t rnd_3_27; rnd_3_27.v[0] = vtrn1q_u32(rnd_2_27.v[0], rnd_2_31.v[0]); rnd_3_27.v[1] = vtrn1q_u32(rnd_2_27.v[1], rnd_2_31.v[1]);
+    vec256_t rnd_3_31; rnd_3_31.v[0] = vtrn2q_u32(rnd_2_27.v[0], rnd_2_31.v[0]); rnd_3_31.v[1] = vtrn2q_u32(rnd_2_27.v[1], rnd_2_31.v[1]);
+
+    vec256_t rnd_4_0; rnd_4_0.v[0] = vtrn1q_u64(rnd_3_0.v[0], rnd_3_8.v[0]); rnd_4_0.v[1] = vtrn1q_u64(rnd_3_0.v[1], rnd_3_8.v[1]);
+    vec256_t rnd_4_8; rnd_4_8.v[0] = vtrn2q_u64(rnd_3_0.v[0], rnd_3_8.v[0]); rnd_4_8.v[1] = vtrn2q_u64(rnd_3_0.v[1], rnd_3_8.v[1]);
+    vec256_t rnd_4_1; rnd_4_1.v[0] = vtrn1q_u64(rnd_3_1.v[0], rnd_3_9.v[0]); rnd_4_1.v[1] = vtrn1q_u64(rnd_3_1.v[1], rnd_3_9.v[1]);
+    vec256_t rnd_4_9; rnd_4_9.v[0] = vtrn2q_u64(rnd_3_1.v[0], rnd_3_9.v[0]); rnd_4_9.v[1] = vtrn2q_u64(rnd_3_1.v[1], rnd_3_9.v[1]);
+    vec256_t rnd_4_2 ; rnd_4_2.v[0]  = vtrn1q_u64(rnd_3_2.v[0], rnd_3_10.v[0]); rnd_4_2.v[1]  = vtrn1q_u64(rnd_3_2.v[1], rnd_3_10.v[1]);
+    vec256_t rnd_4_10; rnd_4_10.v[0] = vtrn2q_u64(rnd_3_2.v[0], rnd_3_10.v[0]); rnd_4_10.v[1] = vtrn2q_u64(rnd_3_2.v[1], rnd_3_10.v[1]);
+    vec256_t rnd_4_3;  rnd_4_3.v[0]  = vtrn1q_u64(rnd_3_3.v[0], rnd_3_11.v[0]); rnd_4_3.v[1]  = vtrn1q_u64(rnd_3_3.v[1], rnd_3_11.v[1]);
+    vec256_t rnd_4_11; rnd_4_11.v[0] = vtrn2q_u64(rnd_3_3.v[0], rnd_3_11.v[0]); rnd_4_11.v[1] = vtrn2q_u64(rnd_3_3.v[1], rnd_3_11.v[1]);
+    vec256_t rnd_4_4;  rnd_4_4.v[0]  = vtrn1q_u64(rnd_3_4.v[0], rnd_3_12.v[0]); rnd_4_4.v[1]  = vtrn1q_u64(rnd_3_4.v[1], rnd_3_12.v[1]);
+    vec256_t rnd_4_12; rnd_4_12.v[0] = vtrn2q_u64(rnd_3_4.v[0], rnd_3_12.v[0]); rnd_4_12.v[1] = vtrn2q_u64(rnd_3_4.v[1], rnd_3_12.v[1]);
+    vec256_t rnd_4_5;  rnd_4_5.v[0]  = vtrn1q_u64(rnd_3_5.v[0], rnd_3_13.v[0]); rnd_4_5.v[1]  = vtrn1q_u64(rnd_3_5.v[1], rnd_3_13.v[1]);
+    vec256_t rnd_4_13; rnd_4_13.v[0] = vtrn2q_u64(rnd_3_5.v[0], rnd_3_13.v[0]); rnd_4_13.v[1] = vtrn2q_u64(rnd_3_5.v[1], rnd_3_13.v[1]);
+    vec256_t rnd_4_6;  rnd_4_6.v[0]  = vtrn1q_u64(rnd_3_6.v[0], rnd_3_14.v[0]); rnd_4_6.v[1]  = vtrn1q_u64(rnd_3_6.v[1], rnd_3_14.v[1]);
+    vec256_t rnd_4_14; rnd_4_14.v[0] = vtrn2q_u64(rnd_3_6.v[0], rnd_3_14.v[0]); rnd_4_14.v[1] = vtrn2q_u64(rnd_3_6.v[1], rnd_3_14.v[1]);
+    vec256_t rnd_4_7;  rnd_4_7.v[0]  = vtrn1q_u64(rnd_3_7.v[0], rnd_3_15.v[0]); rnd_4_7.v[1]  = vtrn1q_u64(rnd_3_7.v[1], rnd_3_15.v[1]);
+    vec256_t rnd_4_15; rnd_4_15.v[0] = vtrn2q_u64(rnd_3_7.v[0], rnd_3_15.v[0]); rnd_4_15.v[1] = vtrn2q_u64(rnd_3_7.v[1], rnd_3_15.v[1]);
+    vec256_t rnd_4_16; rnd_4_16.v[0] = vtrn1q_u64(rnd_3_16.v[0], rnd_3_24.v[0]); rnd_4_16.v[1] = vtrn1q_u64(rnd_3_16.v[1], rnd_3_24.v[1]);
+    vec256_t rnd_4_24; rnd_4_24.v[0] = vtrn2q_u64(rnd_3_16.v[0], rnd_3_24.v[0]); rnd_4_24.v[1] = vtrn2q_u64(rnd_3_16.v[1], rnd_3_24.v[1]);
+    vec256_t rnd_4_17; rnd_4_17.v[0] = vtrn1q_u64(rnd_3_17.v[0], rnd_3_25.v[0]); rnd_4_17.v[1] = vtrn1q_u64(rnd_3_17.v[1], rnd_3_25.v[1]);
+    vec256_t rnd_4_25; rnd_4_25.v[0] = vtrn2q_u64(rnd_3_17.v[0], rnd_3_25.v[0]); rnd_4_25.v[1] = vtrn2q_u64(rnd_3_17.v[1], rnd_3_25.v[1]);
+    vec256_t rnd_4_18; rnd_4_18.v[0] = vtrn1q_u64(rnd_3_18.v[0], rnd_3_26.v[0]); rnd_4_18.v[1] = vtrn1q_u64(rnd_3_18.v[1], rnd_3_26.v[1]);
+    vec256_t rnd_4_26; rnd_4_26.v[0] = vtrn2q_u64(rnd_3_18.v[0], rnd_3_26.v[0]); rnd_4_26.v[1] = vtrn2q_u64(rnd_3_18.v[1], rnd_3_26.v[1]);
+    vec256_t rnd_4_19; rnd_4_19.v[0] = vtrn1q_u64(rnd_3_19.v[0], rnd_3_27.v[0]); rnd_4_19.v[1] = vtrn1q_u64(rnd_3_19.v[1], rnd_3_27.v[1]);
+    vec256_t rnd_4_27; rnd_4_27.v[0] = vtrn2q_u64(rnd_3_19.v[0], rnd_3_27.v[0]); rnd_4_27.v[1] = vtrn2q_u64(rnd_3_19.v[1], rnd_3_27.v[1]);
+    vec256_t rnd_4_20; rnd_4_20.v[0] = vtrn1q_u64(rnd_3_20.v[0], rnd_3_28.v[0]); rnd_4_20.v[1] = vtrn1q_u64(rnd_3_20.v[1], rnd_3_28.v[1]);
+    vec256_t rnd_4_28; rnd_4_28.v[0] = vtrn2q_u64(rnd_3_20.v[0], rnd_3_28.v[0]); rnd_4_28.v[1] = vtrn2q_u64(rnd_3_20.v[1], rnd_3_28.v[1]);
+    vec256_t rnd_4_21; rnd_4_21.v[0] = vtrn1q_u64(rnd_3_21.v[0], rnd_3_29.v[0]); rnd_4_21.v[1] = vtrn1q_u64(rnd_3_21.v[1], rnd_3_29.v[1]);
+    vec256_t rnd_4_29; rnd_4_29.v[0] = vtrn2q_u64(rnd_3_21.v[0], rnd_3_29.v[0]); rnd_4_29.v[1] = vtrn2q_u64(rnd_3_21.v[1], rnd_3_29.v[1]);
+    vec256_t rnd_4_22; rnd_4_22.v[0] = vtrn1q_u64(rnd_3_22.v[0], rnd_3_30.v[0]); rnd_4_22.v[1] = vtrn1q_u64(rnd_3_22.v[1], rnd_3_30.v[1]);
+    vec256_t rnd_4_30; rnd_4_30.v[0] = vtrn2q_u64(rnd_3_22.v[0], rnd_3_30.v[0]); rnd_4_30.v[1] = vtrn2q_u64(rnd_3_22.v[1], rnd_3_30.v[1]);
+    vec256_t rnd_4_23; rnd_4_23.v[0] = vtrn1q_u64(rnd_3_23.v[0], rnd_3_31.v[0]); rnd_4_23.v[1] = vtrn1q_u64(rnd_3_23.v[1], rnd_3_31.v[1]);
+    vec256_t rnd_4_31; rnd_4_31.v[0] = vtrn2q_u64(rnd_3_23.v[0], rnd_3_31.v[0]); rnd_4_31.v[1] = vtrn2q_u64(rnd_3_23.v[1], rnd_3_31.v[1]);
+
+    // NOTE: maybe It's useful to reoptimize the following code.
+    // As we are just shuffling some register we could do
+    // already do this in round 4, just above.
+    vec256_t rnd_5_0;  rnd_5_0.v[0]  = rnd_4_0.v[0]; rnd_5_0.v[1]  = rnd_4_16.v[0];
+    vec256_t rnd_5_16; rnd_5_16.v[0] = rnd_4_0.v[1]; rnd_5_16.v[1] = rnd_4_16.v[1];
+    *((vec256_t *)(dst_origin +  0*dst_stride)) = rnd_5_0;
+    *((vec256_t *)(dst_origin + 16*dst_stride)) = rnd_5_16;
+    vec256_t rnd_5_1;  rnd_5_1.v[0]  = rnd_4_1.v[0]; rnd_5_1.v[1]  = rnd_4_17.v[0];
+    vec256_t rnd_5_17; rnd_5_17.v[0] = rnd_4_1.v[1]; rnd_5_17.v[1] = rnd_4_17.v[1];
+    *((vec256_t *)(dst_origin +  1*dst_stride)) = rnd_5_1;
+    *((vec256_t *)(dst_origin + 17*dst_stride)) = rnd_5_17;
+    vec256_t rnd_5_2;  rnd_5_2.v[0]  = rnd_4_2.v[0];  rnd_5_2.v[1] = rnd_4_18.v[0];
+    vec256_t rnd_5_18; rnd_5_18.v[0] = rnd_4_2.v[1]; rnd_5_18.v[1] = rnd_4_18.v[1];
+    *((vec256_t *)(dst_origin +  2*dst_stride)) = rnd_5_2;
+    *((vec256_t *)(dst_origin + 18*dst_stride)) = rnd_5_18;
+    vec256_t rnd_5_3;  rnd_5_3.v[0]  = rnd_4_3.v[0];  rnd_5_3.v[1] = rnd_4_19.v[0];
+    vec256_t rnd_5_19; rnd_5_19.v[0] = rnd_4_3.v[1]; rnd_5_19.v[1] = rnd_4_19.v[1];
+    *((vec256_t *)(dst_origin +  3*dst_stride)) = rnd_5_3;
+    *((vec256_t *)(dst_origin + 19*dst_stride)) = rnd_5_19;
+    vec256_t rnd_5_4;  rnd_5_4.v[0]  = rnd_4_4.v[0];  rnd_5_4.v[1] = rnd_4_20.v[0];
+    vec256_t rnd_5_20; rnd_5_20.v[0] = rnd_4_4.v[1]; rnd_5_20.v[1] = rnd_4_20.v[1];
+    *((vec256_t *)(dst_origin +  4*dst_stride)) = rnd_5_4;
+    *((vec256_t *)(dst_origin + 20*dst_stride)) = rnd_5_20;
+    vec256_t rnd_5_5;  rnd_5_5.v[0]  = rnd_4_5.v[0];  rnd_5_5.v[1] = rnd_4_21.v[0];
+    vec256_t rnd_5_21; rnd_5_21.v[0] = rnd_4_5.v[1]; rnd_5_21.v[1] = rnd_4_21.v[1];
+    *((vec256_t *)(dst_origin +  5*dst_stride)) = rnd_5_5;
+    *((vec256_t *)(dst_origin + 21*dst_stride)) = rnd_5_21;
+    vec256_t rnd_5_6;  rnd_5_6.v[0]  = rnd_4_6.v[0];  rnd_5_6.v[1] = rnd_4_22.v[0];
+    vec256_t rnd_5_22; rnd_5_22.v[0] = rnd_4_6.v[1]; rnd_5_22.v[1] = rnd_4_22.v[1];
+    *((vec256_t *)(dst_origin +  6*dst_stride)) = rnd_5_6;
+    *((vec256_t *)(dst_origin + 22*dst_stride)) = rnd_5_22;
+    vec256_t rnd_5_7;  rnd_5_7.v[0]  = rnd_4_7.v[0];  rnd_5_7.v[1] = rnd_4_23.v[0];
+    vec256_t rnd_5_23; rnd_5_23.v[0] = rnd_4_7.v[1]; rnd_5_23.v[1] = rnd_4_23.v[1];
+    *((vec256_t *)(dst_origin +  7*dst_stride)) = rnd_5_7;
+    *((vec256_t *)(dst_origin + 23*dst_stride)) = rnd_5_23;
+    vec256_t rnd_5_8;  rnd_5_8.v[0]  = rnd_4_8.v[0];  rnd_5_8.v[1] = rnd_4_24.v[0];
+    vec256_t rnd_5_24; rnd_5_24.v[0] = rnd_4_8.v[1]; rnd_5_24.v[1] = rnd_4_24.v[1];
+    *((vec256_t *)(dst_origin +  8*dst_stride)) = rnd_5_8;
+    *((vec256_t *)(dst_origin + 24*dst_stride)) = rnd_5_24;
+    vec256_t rnd_5_9;  rnd_5_9.v[0]  = rnd_4_9.v[0];  rnd_5_9.v[1] = rnd_4_25.v[0];
+    vec256_t rnd_5_25; rnd_5_25.v[0] = rnd_4_9.v[1]; rnd_5_25.v[1] = rnd_4_25.v[1];
+    *((vec256_t *)(dst_origin +  9*dst_stride)) = rnd_5_9;
+    *((vec256_t *)(dst_origin + 25*dst_stride)) = rnd_5_25;
+    vec256_t rnd_5_10; rnd_5_10.v[0] = rnd_4_10.v[0]; rnd_5_10.v[1] = rnd_4_26.v[0];
+    vec256_t rnd_5_26; rnd_5_26.v[0] = rnd_4_10.v[1]; rnd_5_26.v[1] = rnd_4_26.v[1];
+    *((vec256_t *)(dst_origin + 10*dst_stride)) = rnd_5_10;
+    *((vec256_t *)(dst_origin + 26*dst_stride)) = rnd_5_26;
+    vec256_t rnd_5_11; rnd_5_11.v[0] = rnd_4_11.v[0]; rnd_5_11.v[1] = rnd_4_27.v[0];
+    vec256_t rnd_5_27; rnd_5_27.v[0] = rnd_4_11.v[1]; rnd_5_27.v[1] = rnd_4_27.v[1];
+    *((vec256_t *)(dst_origin + 11*dst_stride)) = rnd_5_11;
+    *((vec256_t *)(dst_origin + 27*dst_stride)) = rnd_5_27;
+    vec256_t rnd_5_12; rnd_5_12.v[0] = rnd_4_12.v[0]; rnd_5_12.v[1] = rnd_4_28.v[0];
+    vec256_t rnd_5_28; rnd_5_28.v[0] = rnd_4_12.v[1]; rnd_5_28.v[1] = rnd_4_28.v[1];
+    *((vec256_t *)(dst_origin + 12*dst_stride)) = rnd_5_12;
+    *((vec256_t *)(dst_origin + 28*dst_stride)) = rnd_5_28;
+    vec256_t rnd_5_13; rnd_5_13.v[0] = rnd_4_13.v[0]; rnd_5_13.v[1] = rnd_4_29.v[0];
+    vec256_t rnd_5_29; rnd_5_29.v[0] = rnd_4_13.v[1]; rnd_5_29.v[1] = rnd_4_29.v[1];
+    *((vec256_t *)(dst_origin + 13*dst_stride)) = rnd_5_13;
+    *((vec256_t *)(dst_origin + 29*dst_stride)) = rnd_5_29;
+    vec256_t rnd_5_14; rnd_5_14.v[0] = rnd_4_14.v[0]; rnd_5_14.v[1] = rnd_4_30.v[0];
+    vec256_t rnd_5_30; rnd_5_30.v[0] = rnd_4_14.v[1]; rnd_5_30.v[1] = rnd_4_30.v[1];
+    *((vec256_t *)(dst_origin + 14*dst_stride)) = rnd_5_14;
+    *((vec256_t *)(dst_origin + 30*dst_stride)) = rnd_5_30;
+    vec256_t rnd_5_15; rnd_5_15.v[0] = rnd_4_15.v[0]; rnd_5_15.v[1] = rnd_4_31.v[0];
+    vec256_t rnd_5_31; rnd_5_31.v[0] = rnd_4_15.v[1]; rnd_5_31.v[1] = rnd_4_31.v[1];
+    *((vec256_t *)(dst_origin + 15*dst_stride)) = rnd_5_15;
+    *((vec256_t *)(dst_origin + 31*dst_stride)) = rnd_5_31;
+}
+
+/// source original from: https://github.com/pqov/pqov-paper
+/// \param dest_mat
+/// \param dest_vec_len
+/// \param src_sqmat
+static  void gf16mat_64x64_sqmat_transpose_neon(uint8_t *dest_mat, unsigned dest_vec_len , const uint8_t *src_sqmat ) {
+    gf256_matrix_transpose_32x32(dest_mat             ,  src_sqmat ,   dest_vec_len*2 ,64 );     // transpose even rows
+    gf256_matrix_transpose_32x32(dest_mat+dest_vec_len,  src_sqmat+32, dest_vec_len*2,64 );  // transpose odd rows
+    // transpose 2x2 4-bit blocks
+    uint8x16_t mask_0f = vdupq_n_u8(0x0f);
+    uint8x16_t mask_f0 = vdupq_n_u8(0xf0);
+    for(int i=0;i<64;i+=2) {
+        uint8x16_t row1_0 = vld1q_u8( dest_mat+i*dest_vec_len );
+        uint8x16_t row1_1 = vld1q_u8( dest_mat+i*dest_vec_len +16);
+        uint8x16_t row2_0 = vld1q_u8( dest_mat+(i+1)*dest_vec_len );
+        uint8x16_t row2_1 = vld1q_u8( dest_mat+(i+1)*dest_vec_len +16);
+
+        uint8x16_t out1_0 = (row1_0&mask_0f)^vshlq_n_u8(row2_0&mask_0f,4);
+        uint8x16_t out1_1 = (row1_1&mask_0f)^vshlq_n_u8(row2_1&mask_0f,4);
+        uint8x16_t out2_0 = (row2_0&mask_f0)^vshrq_n_u8(row1_0&mask_f0,4);
+        uint8x16_t out2_1 = (row2_1&mask_f0)^vshrq_n_u8(row1_1&mask_f0,4);
+
+        vst1q_u8( dest_mat+i*dest_vec_len        , out1_0 );
+        vst1q_u8( dest_mat+i*dest_vec_len+16     , out1_1 );
+        vst1q_u8( dest_mat+(i+1)*dest_vec_len    , out2_0 );
+        vst1q_u8( dest_mat+(i+1)*dest_vec_len+16 , out2_1 );
     }
 }
 #endif

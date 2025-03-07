@@ -504,6 +504,86 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
         _mm256_storeu_si256((__m256i *)(B + i*dst_stride), M[i]);
     }
 }
+
+#else
+
+/// source original from: https://github.com/pqov/pqov-paper
+/// \param dest[out]
+/// \param dest_vec_len[in]
+/// \param src[in]
+/// \param src_vec_len[in]
+static inline  void byte_transpose_16x16_neon(uint8_t *dest,
+                                              unsigned dest_vec_len,
+                                              const uint8_t *src,
+                                              unsigned src_vec_len ) {
+   uint8x16_t r0  = vtrn1q_u64(vld1q_u8(src+0*src_vec_len), vld1q_u8(src+8*src_vec_len));
+   uint8x16_t r8  = vtrn2q_u64(vld1q_u8(src+0*src_vec_len), vld1q_u8(src+8*src_vec_len));
+   uint8x16_t r1  = vtrn1q_u64(vld1q_u8(src+1*src_vec_len), vld1q_u8(src+9*src_vec_len));
+   uint8x16_t r9  = vtrn2q_u64(vld1q_u8(src+1*src_vec_len), vld1q_u8(src+9*src_vec_len));
+   uint8x16_t r2  = vtrn1q_u64(vld1q_u8(src+2*src_vec_len), vld1q_u8(src+10*src_vec_len));
+   uint8x16_t r10 = vtrn2q_u64(vld1q_u8(src+2*src_vec_len), vld1q_u8(src+10*src_vec_len));
+   uint8x16_t r3  = vtrn1q_u64(vld1q_u8(src+3*src_vec_len), vld1q_u8(src+11*src_vec_len));
+   uint8x16_t r11 = vtrn2q_u64(vld1q_u8(src+3*src_vec_len), vld1q_u8(src+11*src_vec_len));
+   uint8x16_t r4  = vtrn1q_u64(vld1q_u8(src+4*src_vec_len), vld1q_u8(src+12*src_vec_len));
+   uint8x16_t r12 = vtrn2q_u64(vld1q_u8(src+4*src_vec_len), vld1q_u8(src+12*src_vec_len));
+   uint8x16_t r5  = vtrn1q_u64(vld1q_u8(src+5*src_vec_len), vld1q_u8(src+13*src_vec_len));
+   uint8x16_t r13 = vtrn2q_u64(vld1q_u8(src+5*src_vec_len), vld1q_u8(src+13*src_vec_len));
+   uint8x16_t r6  = vtrn1q_u64(vld1q_u8(src+6*src_vec_len), vld1q_u8(src+14*src_vec_len));
+   uint8x16_t r14 = vtrn2q_u64(vld1q_u8(src+6*src_vec_len), vld1q_u8(src+14*src_vec_len));
+   uint8x16_t r7  = vtrn1q_u64(vld1q_u8(src+7*src_vec_len), vld1q_u8(src+15*src_vec_len));
+   uint8x16_t r15 = vtrn2q_u64(vld1q_u8(src+7*src_vec_len), vld1q_u8(src+15*src_vec_len));
+
+   uint8x16_t s0  = vtrn1q_u32(r0,  r4);
+   uint8x16_t s4  = vtrn2q_u32(r0,  r4);
+   uint8x16_t s1  = vtrn1q_u32(r1,  r5);
+   uint8x16_t s5  = vtrn2q_u32(r1,  r5);
+   uint8x16_t s2  = vtrn1q_u32(r2,  r6);
+   uint8x16_t s6  = vtrn2q_u32(r2,  r6);
+   uint8x16_t s3  = vtrn1q_u32(r3,  r7);
+   uint8x16_t s7  = vtrn2q_u32(r3,  r7);
+   uint8x16_t s8  = vtrn1q_u32(r8,  r12);
+   uint8x16_t s12 = vtrn2q_u32(r8,  r12);
+   uint8x16_t s9  = vtrn1q_u32(r9,  r13);
+   uint8x16_t s13 = vtrn2q_u32(r9,  r13);
+   uint8x16_t s10 = vtrn1q_u32(r10, r14);
+   uint8x16_t s14 = vtrn2q_u32(r10, r14);
+   uint8x16_t s11 = vtrn1q_u32(r11, r15);
+   uint8x16_t s15 = vtrn2q_u32(r11, r15);
+
+   r0 = vtrn1q_u16( s0 , s2 );
+   r2 = vtrn2q_u16( s0 , s2 );
+   r1 = vtrn1q_u16( s1 , s3 );
+   r3 = vtrn2q_u16( s1 , s3 );
+   r4 = vtrn1q_u16( s4 , s6 );
+   r6 = vtrn2q_u16( s4 , s6 );
+   r5 = vtrn1q_u16( s5 , s7 );
+   r7 = vtrn2q_u16( s5 , s7 );
+   r8 = vtrn1q_u16( s8 , s10 );
+   r10 = vtrn2q_u16( s8 , s10 );
+   r9 = vtrn1q_u16( s9 , s11 );
+   r11 = vtrn2q_u16( s9 , s11 );
+   r12 = vtrn1q_u16( s12 , s14 );
+   r14 = vtrn2q_u16( s12 , s14 );
+   r13 = vtrn1q_u16( s13 , s15 );
+   r15 = vtrn2q_u16( s13 , s15 );
+
+   vst1q_u8( dest+0*dest_vec_len , vtrn1q_u8( r0 , r1 ) );
+   vst1q_u8( dest+1*dest_vec_len , vtrn2q_u8( r0 , r1 ) );
+   vst1q_u8( dest+2*dest_vec_len , vtrn1q_u8( r2 , r3 ) );
+   vst1q_u8( dest+3*dest_vec_len , vtrn2q_u8( r2 , r3 ) );
+   vst1q_u8( dest+4*dest_vec_len , vtrn1q_u8( r4 , r5 ) );
+   vst1q_u8( dest+5*dest_vec_len , vtrn2q_u8( r4 , r5 ) );
+   vst1q_u8( dest+6*dest_vec_len , vtrn1q_u8( r6 , r7 ) );
+   vst1q_u8( dest+7*dest_vec_len , vtrn2q_u8( r6 , r7 ) );
+   vst1q_u8( dest+8*dest_vec_len , vtrn1q_u8( r8 , r9 ) );
+   vst1q_u8( dest+9*dest_vec_len , vtrn2q_u8( r8 , r9 ) );
+   vst1q_u8( dest+10*dest_vec_len , vtrn1q_u8( r10 , r11 ) );
+   vst1q_u8( dest+11*dest_vec_len , vtrn2q_u8( r10 , r11 ) );
+   vst1q_u8( dest+12*dest_vec_len , vtrn1q_u8( r12 , r13 ) );
+   vst1q_u8( dest+13*dest_vec_len , vtrn2q_u8( r12 , r13 ) );
+   vst1q_u8( dest+14*dest_vec_len , vtrn1q_u8( r14 , r15 ) );
+   vst1q_u8( dest+15*dest_vec_len , vtrn2q_u8( r14 , r15 ) );
+}
 #endif
 
 /// B = A^T
@@ -516,6 +596,7 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
     
     // iterate over 64x64 block matrices
     uint64_t rb = 0;
+#ifdef USE_AVX2
     for (; rb < nrows / bsize1; rb++) {
         for (uint64_t cb = 0; cb < ncols / bsize1; cb++) {
             const uint8_t *src_origin = A + (rb*nrows + cb) * bsize2;
@@ -524,6 +605,7 @@ void gf16_matrix_tranpose_opt(uint8_t *B,
             gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2, ncols/2);
         }
     }
+#endif
 
     const uint32_t rem = ncols % bsize1;
     if (rem) {

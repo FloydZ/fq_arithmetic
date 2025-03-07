@@ -11,10 +11,14 @@ const uint32_t ncols2 = 50;
 gf2to12 *m1, *m2, *m3;
 
 static long long cpucycles(void) noexcept {
+#ifdef USE_AVX2
     unsigned long long result;
     asm volatile(".byte 15;.byte 49;shlq $32,%%rdx;orq %%rdx,%%rax"
             : "=a"(result)::"%rdx");
     return result;
+#else
+    return 0;
+#endif
 }
 
 static void BM_gf2to12_mul(benchmark::State& state) {

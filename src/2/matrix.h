@@ -152,7 +152,7 @@ static inline void gf2_matrix_random(gf2 *matrix,
     const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t i = 0; i < n_cols; i++) {
         for (uint32_t j = 0; j < p; j++) {
-            matrix[i*p + j] = rand();
+            matrix[i*p + j] = rand() &0x1F;
         }
     }
 }

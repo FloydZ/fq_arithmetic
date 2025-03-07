@@ -305,6 +305,26 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
 #endif
 
+#ifdef USE_NEON
+
+static void BM_gf256_matrix_transpose_32x32(benchmark::State& state) {
+    for (auto _ : state) {
+        gf256_matrix_transpose_32x32(m1, m2, nrows, ncols);
+        gf256_matrix_transpose_32x32(m2, m1, nrows, ncols);
+        benchmark::DoNotOptimize(m2[7] += 1);
+    }
+}
+
+static void BM_gf256_matrix_transpose_32x32_v2(benchmark::State& state) {
+    for (auto _ : state) {
+        gf256_matrix_transpose_32x32_v2(m1, m2, nrows, ncols);
+        gf256_matrix_transpose_32x32_v2(m2, m1, nrows, ncols);
+        benchmark::DoNotOptimize(m2[7] += 1);
+    }
+}
+BENCHMARK(BM_gf256_matrix_transpose_32x32);
+BENCHMARK(BM_gf256_matrix_transpose_32x32_v2);
+#endif
 
 #ifdef __AVX512VL__
 static void BM_gf256v_vector_add_scalar_u512(benchmark::State& state) {

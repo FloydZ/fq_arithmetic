@@ -1180,7 +1180,6 @@ static inline __m128i gf256v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 
-
 /// \param multabs[out], len<=16 many avx registers
 /// \param a[in]
 /// \param len[i]
@@ -1265,6 +1264,15 @@ void gf256mat_prod_small_avx2(uint8_t *c,
         }
 	}
 }
+#elif defined(USE_NEON)
+#include <arm_neon.h>
+typedef union {
+    uint8_t  v8 [32];
+    uint16_t v16[16];
+    uint32_t v32[8];
+    uint64_t v64[4];
+    uint8x16_t v[2];
+} vec256_t;
 #endif /// end USE_AVX2
 #undef MODULUS
 

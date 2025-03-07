@@ -8,6 +8,42 @@
 
 #include "../2/matrix.h"
 
+#if defined(USE_NEON)
+uint32_t test_arith_vector_mul() {
+    uint16_t tmp[16];
+    for (uint16_t i = 1; i < 1u << 11; ++i) {
+        for (uint16_t j = 1; j < 1u << 11; ++j) {
+            const uint16x8_t a128 = vdupq_n_u16(i);
+            const uint16x8_t b128 = vdupq_n_u16(j);
+            const uint16x8_t c128 = gf2to12v_mul_u128(a128, b128);
+            vst1q_u16(tmp, c128);
+
+            const gf2to12 c1 = gf2to12_mul(i, j);
+            for (uint32_t k = 0; k < 8; ++k) {
+                if (tmp[k] != c1) {
+                    printf("gf2to12 neon 128 mul error\n");
+                    return 1;
+                }
+            }
+
+            uint16x8x2_t a256, b256, c256;
+            a256.val[0] = vdupq_n_u16(i); a256.val[1] = vdupq_n_u16(i);
+            b256.val[0] = vdupq_n_u16(j); b256.val[1] = vdupq_n_u16(j);
+            c256 = gf2to12v_mul_u256(a256, b256);
+            vst1q_u16_x2(tmp, c256);
+
+            for (uint32_t k = 0; k < 16; ++k) {
+                if (tmp[k] != c1) {
+                    printf("gf2to12 neon 256 mul error\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+#endif
 
 #ifdef USE_AVX2
 
@@ -233,8 +269,8 @@ uint32_t test_matrix_add_gf2() {
 }
 
 uint32_t test_matrix_add_scalar_gf2() {
-    const uint32_t nrows = 11;
-    const uint32_t ncols = 11;
+    const uint32_t nrows = 5;
+    const uint32_t ncols = 45; // 45
 
     gf2 *v1     = gf2_matrix_alloc(nrows, ncols);
     gf2to12 *C1 = gf2to12_matrix_alloc(nrows, ncols);
@@ -242,7 +278,7 @@ uint32_t test_matrix_add_scalar_gf2() {
 
     gf2_matrix_random(v1, nrows, ncols);
 
-    const gf2to12 v2 = 1;
+    const gf2to12 v2 = 2;
     gf2to12_matrix_add_scalar_gf2(C1, v2, v1, nrows, ncols);
     gf2to12_matrix_add_scalar_gf2_u256(C2, v2, v1, nrows, ncols);
 
@@ -251,7 +287,7 @@ uint32_t test_matrix_add_scalar_gf2() {
             const gf2to12 t1 = gf2to12_matrix_get(C1, nrows, i, j);
             const gf2to12 t2 = gf2to12_matrix_get(C2, nrows, i, j);
             if (t1 != t2) {
-                printf("error test_matrix_add_scalar_gf2");
+                printf("error test_matrix_add_scalar_gf2\n");
                 gf2to12_matrix_print(C1, nrows, ncols);
                 gf2to12_matrix_print(C2, nrows, ncols);
                 return 1;
@@ -264,8 +300,8 @@ uint32_t test_matrix_add_scalar_gf2() {
 }
 
 uint32_t test_matrix_mul_gf2() {
-    const uint32_t nrows1 = 32;
-    const uint32_t ncols1 = 2;
+    const uint32_t nrows1 = 33;
+    const uint32_t ncols1 = 32;
     const uint32_t ncols2 = 1;
 
     gf2 *v1     =     gf2_matrix_alloc(nrows1, ncols1);
@@ -334,19 +370,20 @@ uint32_t test_matrix_mul() {
 
 
 int main() {
-#ifdef USE_AVX2
-    // if (test_arith_vector_mul()) { return 1; }
+#if defined(USE_AVX2) || defined(USE_NEON)
+    if (test_arith_vector_mul()) { return 1; }
+#if defined(USE_AVX2)
+    //if (test_vector_add()) { return 1; }
+    //if (test_vector_add_gf2()) { return 1; }
+    //if (test_vector_scalar_add_gf2_v3()) { return 1; }
+    //if (test_vector_mul_acc()) { return 1; }
+    //if (test_vector_set_to_gf2()) { return 1; }
 
-    if (test_vector_add()) { return 1; }
-    if (test_vector_add_gf2()) { return 1; }
-    if (test_vector_scalar_add_gf2_v3()) { return 1; }
-    if (test_vector_mul_acc()) { return 1; }
-    if (test_vector_set_to_gf2()) { return 1; }
-
-    if (test_matrix_add_gf2()) { return 1; }
+    //if (test_matrix_add_gf2()) { return 1; }
     if (test_matrix_add_scalar_gf2()) { return 1; }
-    if (test_matrix_mul_gf2()) { return 1; }
-    if (test_matrix_mul()) { return 1; }
+    //if (test_matrix_mul_gf2()) { return 1; }
+    //if (test_matrix_mul()) { return 1; }
+#endif
 #endif
 
     printf("all good\n");

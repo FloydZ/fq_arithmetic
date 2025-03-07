@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "arith.h"
 
@@ -11,8 +12,11 @@
 static inline
 gf127* gf127_matrix_alloc(const uint32_t nrows,
                           const uint32_t ncols) {
-    // return (gf127 *)malloc(nrows * ncols * sizeof(gf127));
+#ifdef USE_AVX2
     return (gf127 *)aligned_alloc(32, nrows * ncols * sizeof(gf127));
+#else
+    return (gf127 *)malloc(nrows * ncols * sizeof(gf127));
+#endif
 }
 
 ///

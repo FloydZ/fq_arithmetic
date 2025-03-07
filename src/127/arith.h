@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "lookup_table.h"
 
 
 #define PRIME 127
@@ -115,7 +116,8 @@ __m256i gf127v_add_u256(const __m256i a,
     return c;
 }
 
-/// NOTE: assumes that each gf31 element is in a single uint8_t
+/// NOTE: assumes that each gf127 element is in a single uint8_t
+/// \return [a_0 * b_0, a_1*b_1, ..., a_31 * b_31]
 __m256i gf127v_mul_u256(const __m256i a,
                         const __m256i b) {
     __m256i a_lo, b_lo, a_hi, b_hi, t, r;
@@ -150,3 +152,36 @@ __m256i gf127v_mul_u256(const __m256i a,
 }
 #endif
 
+
+#ifdef USE_AVX512
+/// TODO optimize
+static inline void gf127v_scalar_u512_compute_table(__m512i *ret,
+                                                    const gf127 a) {
+#if 1
+    ret[0] = _mm512_load_si512((const __m512i *)(__gf127_lookuptable + 128 * a +  0));
+    ret[1] = _mm512_load_si512((const __m512i *)(__gf127_lookuptable + 128 * a + 64));
+#else
+    for (uint32_t i = 0; i < 2; i++) {
+        gf127 table[64] = {0};
+        for (uint32_t j = 0; j < 64-i; j++) {
+            table[j] = gf127_mul(a, i*64 + j); 
+        }
+
+        ret[i] = _mm512_loadu_si512((const __m512i *)table);
+    }
+#endif
+}
+
+__m512i gf127v_scalar_table_u512(const __m512i a,
+                                 const __m512i table1,
+                                 const __m512i table2) {
+    const __m512i mask1 = _mm512_set1_epi8(64);
+
+    const __mmask64 m1 = _mm512_cmplt_epi8_mask(a, mask1);
+    const __mmask64 m2 = ~m1;
+    const __m512i t1 = _mm512_maskz_permutexvar_epi8(m1, a, table1);
+    const __m512i t2 = _mm512_maskz_permutexvar_epi8(m2, a, table2);
+    const __m512i t = t1 ^ t2;
+    return t;
+}
+#endif
