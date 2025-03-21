@@ -1,30 +1,33 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "../2/arith.h"
+
 /// Representation:
 /// the generic base type is `uint64_t` called a `limb`. Each `limb` can store 
 /// up to 64 bits or coordinates mod 2.
 
-typedef __uint128_t eff_t;
 typedef __uint128_t gf2to128;
 
 // using irreducible polynomial x^128+x^7+x^2+x+1
 // We need only the last word
 #define MODULUS 0b10000111
 
-eff_t add(const eff_t a, 
-          const eff_t b) {
+
+gf2to128 gf2to128_add(const gf2to128 a, 
+                      const gf2to128 b) {
 	return a ^ b;
 }
 
-eff_t sub(const eff_t a, 
-          const eff_t b) {
+gf2to128 gf2to128_sub(const gf2to128 a, 
+                      const gf2to128 b) {
 	return a ^ b;
 }
 
-eff_t mul(const eff_t a,
-          const eff_t b) {
-    eff_t shifted=a, result=0,m=MODULUS;
+/// original correct multiplication
+gf2to128 gf2to128_mul_org(const gf2to128 a,
+                          const gf2to128 b) {
+    gf2to128 shifted=a, result=0,m=MODULUS;
 
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < 64; ++j) {
@@ -44,11 +47,43 @@ eff_t mul(const eff_t a,
     return result;
 }
 
+/// \return a*b
+gf2to128 gf2to128_mul_gf2(const gf2to128 a,
+                          const gf2 b) {
+    gf2to128 c = ((gf2to128)-1ull)*b;
+    return a & c;
+}
+
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-eff_t mul_avx(const eff_t a,
-              const eff_t b) {
+/// \param out[out]: must be 4 registers
+/// \param in[in]:
+/// \return 
+static inline void gf2to128v_expand_gf2_x8_u256(__m256i *out,
+                                                const uint8_t in) {
+    const __m256i mask = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF,0,0xFFFFFFFFFFFFFFFF,0);
+    const uint64_t t21 = _pdep_u64(in>>0, 0x0001000100010001);
+    const uint64_t t22 = _pdep_u64(in>>4, 0x0001000100010001);
+
+    const __m128i t31 = _mm_set_epi64x(0, t21);
+    const __m128i t32 = _mm_set_epi64x(0, t22);
+
+    const __m256i t41 = _mm256_cvtepi16_epi64(t31);
+    const __m256i t42 = _mm256_cvtepi16_epi64(t32);
+
+    const __m256i t51 = _mm256_permute4x64_epi64(t41, 0b11011000);
+    const __m256i t52 = _mm256_permute4x64_epi64(t42, 0b11011000);
+
+    out[0] = t51&mask;
+    out[1] = _mm256_bsrli_epi128(t51, 8);
+    out[2] = t52&mask;
+    out[3] = _mm256_bsrli_epi128(t52, 8);
+}
+
+gf2to128 gf2to128_mul(const gf2to128 a,
+                   const gf2to128 b) {
     const __m128i a_ = _mm_loadu_si128((const __m128i*) &(a));
     const __m128i b_ = _mm_loadu_si128((const __m128i*) &(b)); 
     const __m128i modulus = _mm_setr_epi32(MODULUS, 0, 0, 0);
@@ -77,7 +112,7 @@ eff_t mul_avx(const eff_t a,
     /* reduce w.r.t. low half of mul256_high */
     tmp = _mm_clmulepi64_si128(mul256_high, modulus, 0x00);
     mul256_low = _mm_xor_si128(mul256_low, tmp);
-    return (eff_t)mul256_low;
+    return (gf2to128)mul256_low;
 }
 
 /// \param []
@@ -134,8 +169,8 @@ __m256i gf2to128v_mul_u256(const __m256i a,
 /// \param a[in]: 
 /// \param b[in]: 
 /// \return a*b
-eff_t mul_avx2(const eff_t a,
-               const eff_t b) {
+gf2to128 gf2to128_mul_slow(const gf2to128 a,
+                           const gf2to128 b) {
 	uint64_t tmp[4] = {0};
 #ifdef USE_AVX512
     *(__m256 *) = _mm256_clmulepi64_epi128(a, b);
@@ -157,8 +192,48 @@ eff_t mul_avx2(const eff_t a,
 		tmp[i-2] ^= s;
 	}
 
-	return *((eff_t*)tmp);
+	return *((gf2to128*)tmp);
 }
+
+
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
+static inline __m256i gf2to128v_mul_gf2_u256(const __m256i a,
+                                             const __m256i b) {
+    const __m256i m1 = _mm256_set1_epi16(-1);
+    const __m256i t1 = _mm256_sign_epi16(b, m1);
+    return a & t1;
+}
+
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
+static inline __m128i gf2to128v_mul_gf2_u128(const __m128i a,
+                                             const __m128i b) {
+    const __m128i m1 = _mm_set1_epi16(-1);
+    const __m128i t1 = _mm_sign_epi16(b, m1);
+    return a & t1;
+}
+
+/// \param a
+/// \param b in gf2 already expanded
+/// \return
+static inline __m256i gf2to128v_mul_gf2_u256_v2(const __m256i a,
+                                                const __m256i b) {
+    return a & b;
+}
+
+/// \param a
+/// \param b in gf2 already expanded
+/// \return
+static inline __m128i gf2to128v_mul_gf2_u128_v2(const __m128i a,
+                                                const __m128i b) {
+    return a & b;
+}
+
+
+
 #elif defined(USE_NEON)
 #else
 #error "not implemented"

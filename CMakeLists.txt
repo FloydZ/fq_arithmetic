@@ -42,7 +42,7 @@ else()
 endif()
 
 
-set(SIMD_FLAGS " ${SIMD_FLAGS} -DUSE_AVX512 -mavx512f -mavx512bw -mavx512vbmi")
+#set(SIMD_FLAGS " ${SIMD_FLAGS} -DUSE_AVX512 -mavx512f -mavx512bw -mavx512vbmi")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 ${SIMD_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${SIMD_FLAGS}")
