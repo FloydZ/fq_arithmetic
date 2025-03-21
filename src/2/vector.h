@@ -33,8 +33,15 @@ static inline void gf2_vector_set(gf2 *vector,
 /// \param[in/out] arg1 = random
 static inline void gf2_vector_random(gf2 *arg1,
                                      const uint32_t d) {
-    for (uint32_t i = 0; i < (d+7)/8; i++) {
+    const uint32_t limbs = (d+7)/8;
+    for (uint32_t i = 0; i < limbs; i++) {
         arg1[i] = rand();
+    }
+
+    const uint32_t l = d%8;
+    if (l) {
+        const uint8_t mask = (1u << l) - 1u;
+        arg1[limbs - 1] &= mask;
     }
 }
 
