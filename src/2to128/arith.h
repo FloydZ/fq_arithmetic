@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -25,7 +27,7 @@ gf2to128 gf2to128_sub(const gf2to128 a,
 }
 
 /// original correct multiplication
-gf2to128 gf2to128_mul_org(const gf2to128 a,
+gf2to128 gf2to128_mul(const gf2to128 a,
                           const gf2to128 b) {
     gf2to128 shifted=a, result=0,m=MODULUS;
 
@@ -60,7 +62,7 @@ gf2to128 gf2to128_mul_gf2(const gf2to128 a,
 
 /// \param out[out]: must be 4 registers
 /// \param in[in]:
-/// \return 
+/// \return nothing
 static inline void gf2to128v_expand_gf2_x8_u256(__m256i *out,
                                                 const uint8_t in) {
     const __m256i mask = _mm256_setr_epi64x(0xFFFFFFFFFFFFFFFF,0,0xFFFFFFFFFFFFFFFF,0);
@@ -82,10 +84,23 @@ static inline void gf2to128v_expand_gf2_x8_u256(__m256i *out,
     out[3] = _mm256_bsrli_epi128(t52, 8);
 }
 
-gf2to128 gf2to128_mul(const gf2to128 a,
-                   const gf2to128 b) {
-    const __m128i a_ = _mm_loadu_si128((const __m128i*) &(a));
-    const __m128i b_ = _mm_loadu_si128((const __m128i*) &(b)); 
+/// \param in[in]: 2bits
+/// \return [0, in_1, 0, in_0];
+static inline __m256i gf2to128v_expand_gf2_x2_u256(const uint8_t in) {
+    const __m256i mask = _mm256_setr_epi32(0x0, 0x2, 0x2, 0x2, 0x1, 0x2, 0x2, 0x2);
+    const uint64_t t1 = _pdep_u64(in, 0x100000001);
+    const __m256i t2 = _mm256_setr_epi64x(t1, 0, 0, 0);
+    const __m256i t3 = _mm256_permutevar8x32_epi32(t2, mask);
+    return t3;
+}
+
+
+static inline gf2to128 gf2to128v_expand_gf2_x1(const uint8_t in) {
+    return (gf2to128)(in & 1u);
+}
+
+gf2to128 gf2to128_mul_(const gf2to128 a,
+                       const gf2to128 b) {
     const __m128i modulus = _mm_setr_epi32(MODULUS, 0, 0, 0);
 
     /* compute the 256-bit result of a * b with the 4x64-bit multiplication
@@ -118,15 +133,12 @@ gf2to128 gf2to128_mul(const gf2to128 a,
 /// \param []
 __m256i gf2to128v_mul_u256(const __m256i a, 
                            const __m256i b) {
-#ifdef USE_AVX512 
-
-#else
     __m256i ret;
     const __m128i modulus = _mm_setr_epi32(MODULUS, 0, 0, 0);
     const __m128i a1 = _mm256_castsi256_si128(a);
     const __m128i a2 = _mm256_extracti128_si256(a, 0x1);
     const __m128i b1 = _mm256_castsi256_si128(b);
-    const __m128i b2 = _mm256_extracti128_si256(a, 0x1);
+    const __m128i b2 = _mm256_extracti128_si256(b, 0x1);
 
     __m128i m1_high = _mm_clmulepi64_si128(a1, b1, 0x11); // high of both
     __m128i m2_high = _mm_clmulepi64_si128(a2, b2, 0x11); // high of both
@@ -134,9 +146,9 @@ __m256i gf2to128v_mul_u256(const __m256i a,
     __m128i m2_low  = _mm_clmulepi64_si128(a2, b2, 0x00); // low of both
     __m128i m1_mid  = _mm_clmulepi64_si128(a1, b1, 0x01); // low of a, high of b
     __m128i m2_mid  = _mm_clmulepi64_si128(a2, b2, 0x01); // low of a, high of b
-    m2_mid ^= _mm_clmulepi64_si128(a2, b2, 0x10); // high of a, low of b
     m1_mid ^= _mm_clmulepi64_si128(a1, b1, 0x10); // high of a, low of b
-    
+    m2_mid ^= _mm_clmulepi64_si128(a2, b2, 0x10); // high of a, low of b
+
     m1_high = _mm_xor_si128(m1_high, _mm_srli_si128(m1_mid, 8));
     m2_high = _mm_xor_si128(m2_high, _mm_srli_si128(m2_mid, 8));
     m1_low  = _mm_xor_si128(m1_low,  _mm_slli_si128(m1_mid, 8));
@@ -157,7 +169,6 @@ __m256i gf2to128v_mul_u256(const __m256i a,
     m2_low = _mm_xor_si128(m2_low, tmp);
     ret = _mm256_set_m128i(m2_low, m1_low);
     return ret;
-#endif
 }
 
 /// roughly 5 times slower then the function above (Intel N97:word):

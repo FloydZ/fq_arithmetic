@@ -23,6 +23,8 @@ const uint8_t gf256_expand_tab[32] = {
     0, 1, 92, 93, 224, 225, 188, 189, 80, 81, 12, 13, 176, 177, 236, 237
 };
 
+
+
 // full multiplication table: [i*256 + j] = i*j mod 256
 const gf256 __gf256_mul[8192] __attribute__((aligned(32))) = {
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -1178,6 +1180,90 @@ static inline __m128i gf256v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 
+/// \param multabs[out], len<=16 many avx registers
+/// \param a[in]
+/// \param len[i]
+static inline
+void gf256v_generate_multab_le16_u256(__m256i *multabs,
+                                      const __m128i a,
+                                      const unsigned len) {
+    __m256i tab0 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*0));
+    __m256i tab1 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*1));
+    __m256i tab2 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*2));
+    __m256i tab3 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*3));
+    __m256i tab4 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*4));
+    __m256i tab5 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*5));
+    __m256i tab6 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*6));
+    __m256i tab7 = _mm256_load_si256((__m256i const *)(__gf256_mulbase_v2 + 32*7));
+    __m256i mask_f = _mm256_set1_epi8(0xf);
+
+    __m256i aa = _mm256_setr_m128i( a , a );
+    __m256i a_lo = aa&mask_f;
+    __m256i a_hi = _mm256_srli_epi16(aa,4)&mask_f;
+    __m256i bx1 =  _mm256_shuffle_epi8( tab0  ,a_lo) ^ _mm256_shuffle_epi8( tab1  ,a_hi);
+    __m256i bx2 =  _mm256_shuffle_epi8( tab2  ,a_lo) ^ _mm256_shuffle_epi8( tab3  ,a_hi);
+    __m256i bx4 =  _mm256_shuffle_epi8( tab4  ,a_lo) ^ _mm256_shuffle_epi8( tab5  ,a_hi);
+    __m256i bx8 =  _mm256_shuffle_epi8( tab6  ,a_lo) ^ _mm256_shuffle_epi8( tab7  ,a_hi);
+
+    __m256i broadcast_x1 = _mm256_set_epi8( 0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16 );
+    __m256i broadcast_x2 = _mm256_set_epi8( 0,0,-16,-16, 0,0,-16,-16,  0,0,-16,-16, 0,0,-16,-16,  0,0,-16,-16, 0,0,-16,-16,  0,0,-16,-16, 0,0,-16,-16 );
+    __m256i broadcast_x4 = _mm256_set_epi8( 0,0,0,0, -16,-16,-16,-16,  0,0,0,0, -16,-16,-16,-16,  0,0,0,0, -16,-16,-16,-16,  0,0,0,0, -16,-16,-16,-16 );
+    __m256i broadcast_x8 = _mm256_set_epi8( 0,0,0,0, 0,0,0,0,  -16,-16,-16,-16, -16,-16,-16,-16,  0,0,0,0, 0,0,0,0,  -16,-16,-16,-16, -16,-16,-16,-16 );
+    __m256i broadcast_x1_2 = _mm256_set_epi8( 1,-16,1,-16, 1,-16,1,-16,  1,-16,1,-16, 1,-16,1,-16,  1,-16,1,-16, 1,-16,1,-16,  1,-16,1,-16, 1,-16,1,-16 );
+    __m256i broadcast_x2_2 = _mm256_set_epi8( 1,1,-16,-16, 1,1,-16,-16,  1,1,-16,-16, 1,1,-16,-16,  1,1,-16,-16, 1,1,-16,-16,  1,1,-16,-16, 1,1,-16,-16 );
+    __m256i broadcast_x4_2 = _mm256_set_epi8( 1,1,1,1, -16,-16,-16,-16,  1,1,1,1, -16,-16,-16,-16,  1,1,1,1, -16,-16,-16,-16,  1,1,1,1, -16,-16,-16,-16 );
+    __m256i broadcast_x8_2 = _mm256_set_epi8( 1,1,1,1, 1,1,1,1,  -16,-16,-16,-16, -16,-16,-16,-16,  1,1,1,1, 1,1,1,1,  -16,-16,-16,-16, -16,-16,-16,-16 );
+
+    if( 0==(len&1) ) {
+        multabs[0] =  _mm256_shuffle_epi8(bx1,broadcast_x1) ^ _mm256_shuffle_epi8(bx2,broadcast_x2)
+                    ^ _mm256_shuffle_epi8(bx4,broadcast_x4) ^ _mm256_shuffle_epi8(bx8,broadcast_x8);
+        multabs[1] =  _mm256_shuffle_epi8(bx1,broadcast_x1_2) ^ _mm256_shuffle_epi8(bx2,broadcast_x2_2)
+                    ^ _mm256_shuffle_epi8(bx4,broadcast_x4_2) ^ _mm256_shuffle_epi8(bx8,broadcast_x8_2);
+        
+        for(unsigned i=2;i<len;i+=2) {
+            bx1 = _mm256_srli_si256( bx1 , 2 );
+            bx2 = _mm256_srli_si256( bx2 , 2 );
+            bx4 = _mm256_srli_si256( bx4 , 2 );
+            bx8 = _mm256_srli_si256( bx8 , 2 );
+            multabs[i] =  _mm256_shuffle_epi8(bx1,broadcast_x1) ^ _mm256_shuffle_epi8(bx2,broadcast_x2)
+                          ^ _mm256_shuffle_epi8(bx4,broadcast_x4) ^ _mm256_shuffle_epi8(bx8,broadcast_x8);
+            multabs[i+1] =  _mm256_shuffle_epi8(bx1,broadcast_x1_2) ^ _mm256_shuffle_epi8(bx2,broadcast_x2_2)
+                          ^ _mm256_shuffle_epi8(bx4,broadcast_x4_2) ^ _mm256_shuffle_epi8(bx8,broadcast_x8_2);
+        }
+    } else {
+        multabs[0] =  _mm256_shuffle_epi8(bx1,broadcast_x1) ^ _mm256_shuffle_epi8(bx2,broadcast_x2)
+                    ^ _mm256_shuffle_epi8(bx4,broadcast_x4) ^ _mm256_shuffle_epi8(bx8,broadcast_x8);
+        
+        for(unsigned i=1;i<len;i++) {
+            bx1 = _mm256_srli_si256( bx1 , 1 );
+            bx2 = _mm256_srli_si256( bx2 , 1 );
+            bx4 = _mm256_srli_si256( bx4 , 1 );
+            bx8 = _mm256_srli_si256( bx8 , 1 );
+        
+            multabs[i] =  _mm256_shuffle_epi8(bx1,broadcast_x1) ^ _mm256_shuffle_epi8(bx2,broadcast_x2)
+                          ^ _mm256_shuffle_epi8(bx4,broadcast_x4) ^ _mm256_shuffle_epi8(bx8,broadcast_x8);
+        }
+    }
+}
+
+/// NOTE: ncols1 <= 16
+void gf256mat_prod_small_avx2(uint8_t *c, 
+                              const uint8_t *a,
+                              const uint8_t *b,
+                              const uint32_t nrows1,
+                              const uint32_t ncols1,
+                              const uint32_t ncols2) {
+    __m256i multabs[16];
+    for(uint32_t i = 0; i < ncols2; i++) {
+        const __m128i x = (ncols1 == 16u) ?
+                            _mm_loadu_si128((const __m128i*)(b+i)) : 
+                            _load_xmm((b+i), ncols1);
+        for (uint32_t j = 0; j < ncols1; j++) {
+            // TODO
+        
+        }
+	}
+}
 #elif defined(USE_NEON)
 #include <arm_neon.h>
 typedef union {

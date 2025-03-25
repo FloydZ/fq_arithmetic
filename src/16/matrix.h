@@ -411,6 +411,7 @@ static void gf16_transpose_32x32_avx2(uint8_t *B,
     }
 }
 
+// TODO add to cryptanalysislib
 // NOTE: stride in bytes
 static void gf16_transpose_64x64_avx2(uint8_t *B,
                                       const uint8_t *const A,
