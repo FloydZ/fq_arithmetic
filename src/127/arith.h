@@ -5,6 +5,7 @@
 
 
 #define PRIME 127
+#define PRIME_LOG_CEIL 7
 
 // Select low 8-bit, skip the high 8-bit in 16 bit type
 const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
@@ -33,6 +34,22 @@ gf127 gf127_mul(const gf127 a,
 
 gf127 gf127_neg(const gf127 a) {
     return (PRIME - a) % PRIME;
+}
+
+inline static uint32_t gf127v_red_u32(uint32_t Z) {
+    const uint32_t mask = 0x7F7F7F7F;
+    const uint32_t one = 0x01010101;
+    Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
+    uint32_t C  = ((Z+one) & ~mask) ;
+    return Z + (C>>PRIME_LOG_CEIL) - C ;
+}
+
+inline static uint64_t gf127v_red_u64(uint64_t Z) {
+    const uint64_t mask = 0x7F7F7F7F7F7F7F7F;
+    const uint64_t one  = 0x0101010101010101;
+    Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
+    uint64_t C  = ((Z+one) & ~mask) ;
+    return Z + (C>>PRIME_LOG_CEIL) - C ;
 }
 
 

@@ -2,6 +2,39 @@
 #include "arith.h"
 #include "matrix.h"
 
+uint32_t test_gf127v_red_u32() {
+    for (uint32_t i = 0; i < 256; ++i) {
+        const uint32_t t = (i << 24) ^ (i << 16) ^ (i << 8) ^ i;
+        const uint32_t a1 = gf127v_red_u32(t);
+        const uint32_t a2 = i % 127;
+        for (uint32_t j = 0; j < 4; ++j) {
+            const uint32_t a3 = (a1 >> (j*8)) & 0xFF;
+            if (a3 != a2) {
+                printf("test_gf127v_ref_u32 \n");
+                return 1;
+            }
+        }
+    }
+
+    for (uint32_t i = 0; i < 127; ++i) {
+        for (uint32_t j = 0; j < 127; ++j) {
+            const uint32_t t1 = (i << 24) ^ (i << 16) ^ (i << 8) ^ i;
+            const uint32_t t2 = (j << 24) ^ (j << 16) ^ (j << 8) ^ j;
+            const uint32_t a1 = gf127v_red_u32(t1+t2);
+            const uint32_t a2 = (i+j) % 127;
+
+            for (uint32_t k = 0; k < 4; ++k) {
+                const uint32_t a3 = (a1 >> (k * 8)) & 0xFF;
+                if (a3 != a2) {
+                    printf("test_gf127v_ref_u32 v2\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 #ifdef USE_AVX512
 uint32_t test_gf127v_scalar_table() {
     __m512i table[2];
@@ -85,6 +118,7 @@ uint32_t test_transpose(){
 }
 
 int main() {
+    if (test_gf127v_red_u32()) { return 1; }
 #ifdef USE_AVX512
     if (test_gf127v_scalar_table()) { return 1; }
 #endif
