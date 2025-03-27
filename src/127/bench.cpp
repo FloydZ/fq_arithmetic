@@ -15,6 +15,26 @@ static long long cpucycles(void) noexcept {
 }
 
 
+static void BM_gf127v_scalar_u32(benchmark::State& state) {
+    uint64_t c = 0;
+    uint32_t a = rand();
+    uint8_t b = rand();
+    for (auto _ : state) {
+        c -= cpucycles();
+        a = gf127v_scalar_u32(a, b);
+        a = gf127v_scalar_u32(a, b);
+        a = gf127v_scalar_u32(a, b);
+        c += cpucycles();
+
+        benchmark::DoNotOptimize(a);
+        a+=c;
+        b+=a;
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+BENCHMARK(BM_gf127v_scalar_u32);
+
 static void BM_gf127_matrix_transpose(benchmark::State& state) {
     const uint32_t nrows = state.range(0);
     const uint32_t ncols = state.range(0);
