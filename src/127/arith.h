@@ -56,8 +56,76 @@ inline static uint64_t gf127v_red_u64(uint64_t Z) {
     return Z + (C>>PRIME_LOG_CEIL) - C ;
 }
 
+///
+inline static uint32_t gf127v_add_u32(const uint32_t a,
+                                      const uint32_t b) {
+    return gf127v_red_u32(a + b);
+}
 
-#ifdef USE_AVX2 
+///
+inline static uint64_t gf127v_add_u64(const uint64_t a,
+                                      const uint64_t b) {
+    return gf127v_red_u64(a + b);
+}
+
+///
+inline static uint32_t gf127v_sub_u32(const uint32_t a,
+                                      const uint32_t b) {
+    return gf127v_red_u32(a - b + 0x7F7F7F7F);
+}
+
+///
+inline static uint64_t gf127v_sub_u64(const uint64_t a,
+                                      const uint64_t b) {
+    return gf127v_red_u64(a - b + 0x7F7F7F7F7F7F7F7F);
+}
+
+///
+inline static uint32_t gf127v_scalar_u32(const uint32_t a,
+                                         const uint8_t b) {
+    const uint32_t mask1 = 0x00FF00FF;
+    const uint32_t mask2 = 0xFF00FF00;
+    const uint32_t mask3 = 0x007F007F;
+    const uint32_t mask4 = 0x7F007F00;
+
+    const uint32_t t1 = (a&mask1) * b;
+    const uint64_t t2 = ((uint64_t)a&mask2) * b;
+
+    const uint32_t v1 = ((t1 >> 7) + (t1 & mask3)) & mask1;
+    const uint32_t v2 = ((t2 >> 7) + (t2 & mask4)) & mask2;
+
+    return gf127v_red_u32(v1 ^ v2);
+}
+
+/// basically a rref core operation
+/// a-a*b
+inline static uint32_t gf127v_scalar_sub_u32(const uint32_t a,
+                                             const uint64_t b,
+                                             const uint8_t c) {
+    const uint32_t mask  = 0x7F7F7F7F;
+    const uint32_t one   = 0x01010101;
+    const uint32_t mask1 = 0x00FF00FF;
+    const uint32_t mask2 = 0xFF00FF00;
+    const uint32_t mask3 = 0x007F007F;
+    const uint32_t mask4 = 0x7F007F00;
+
+    const uint32_t t1 = (b&mask1) * c;
+    const uint64_t t2 = ((uint64_t)b&mask2) * c;
+
+    const uint32_t v1 = ((t1 >> 7) + (t1 & mask3)) & mask1;
+    const uint32_t v2 = ((t2 >> 7) + (t2 & mask4)) & mask2;
+
+    uint32_t Z = v1 ^ v2;
+    Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
+    Z = mask - Z;
+    Z = Z + a;
+
+    Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
+    uint32_t C  = ((Z+one) & ~mask) ;
+    return Z + (C>>PRIME_LOG_CEIL) - C ;
+}
+
+#ifdef USE_AVX2
 #include <immintrin.h>
 
 /*
