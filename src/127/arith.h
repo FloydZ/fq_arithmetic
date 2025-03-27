@@ -17,21 +17,25 @@ const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
 
 typedef uint8_t gf127;
 
+static inline
 gf127 gf127_add(const gf127 a,
                 const gf127 b) {
     return (a+b) % PRIME;
 }
 
+static inline
 gf127 gf127_sub(const gf127 a,
                 const gf127 b) {
     return (a+PRIME-b) % PRIME;
 }
 
+static inline
 gf127 gf127_mul(const gf127 a,
                 const gf127 b) {
     return (a*b)%PRIME;
 }
 
+static inline
 gf127 gf127_neg(const gf127 a) {
     return (PRIME - a) % PRIME;
 }
