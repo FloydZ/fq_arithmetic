@@ -318,25 +318,27 @@ __m512i gf127v_scalar_table_u512(const __m512i a,
 }
 #endif
 
-#ifdef USE_M4
+#ifdef USE_NEON
 
+#include <arm_neon.h>
 #include <arm_acle.h>
 
 /// \return a-b*c
-inline static uint8x8_t fq_scalar_sub_u32(const uint8x8_t a,
-                                          const uint8x8_t b,
-                                          const uint8_t c) {
-    const uint8x8_t c1 = vdup_n_u8(c);
-    const uint8x8_t q = vdup_n_u8(0x7f);
+inline static uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
+                                              const uint8x8_t b,
+                                              const uint8_t c) {
+    const uint8x8_t c1  = vdup_n_u8(c);
+    const uint8x8_t q   = vdup_n_u8(0x7f);
+    const uint16x8_t q2 = vdupq_n_u16(0x7f);
 
     const uint16x8_t t1 = vmull_u8(b, c1);
     const uint16x8_t t2 = vshrq_n_u16(t1, 7);
-    const uint16x8_t t3 = vaddq_u16(t1, t2);
-    const uint8x8_t t4 = vmovn_u16(t3);
-    const uint8x8_t t5 = vsub_u8(t4, q);
-
-    const uint8x8_t mask = vshr_n_s8(t5, 7);
-    const uint8x8_t ret = vbsl_u8(mask, t4, t5)
+    const uint16x8_t t3 = vaddq_u16(t2, vandq_u16(t1, q2));
+    const uint8x8_t t4  = vmovn_u16(t3);
+    const uint8x8_t t5  = vsub_u8(a, t4);
+    const uint8x8_t t6  = vadd_u8(t5, q);
+    const uint8x8_t mask2 = vshr_n_s8(t5, 7);
+    const uint8x8_t ret  = vbsl_u8(mask2, t6, t5);
     return ret;
 }
 #endif
@@ -345,5 +347,6 @@ inline static uint8x8_t fq_scalar_sub_u32(const uint8x8_t a,
 #include <arm_neon.h>
 uint8x16_t gf127v_mul_u128(const uint8x16_t a, 
                            const uint8x16_t b) {
+    return b;
 }
 #endif
