@@ -225,19 +225,62 @@ __m256i gf127v_mul_u256(const __m256i a,
     tmp = _mm256_extracti128_si256(b, 1);
     b_hi = _mm256_cvtepu8_epi16(tmp);
 
-    barrett_mul_u16(a_lo, a_lo, b_lo, t);
-    barrett_mul_u16(a_hi, a_hi, b_hi, t);
+    const __m256i c7f = _mm256_set1_epi8((short)127);
+    const __m256i c7f2 = _mm256_set1_epi16((short)127);
+    __m256i v1, v2, w1, w2;
+    a_lo = _mm256_mullo_epi16(a_lo, b_lo);
+    a_hi = _mm256_mullo_epi16(a_hi, b_hi);
+    v1 = _mm256_srai_epi16(a_lo, 7);
+    v2 = _mm256_srai_epi16(a_hi, 7);
+    w1 = _mm256_packs_epi16(a_lo&c7f2, a_hi&c7f2);
+    w2 = _mm256_packs_epi16(v1, v2);
 
-    a_lo = _mm256_shuffle_epi8(a_lo, shuffle);
-    a_hi = _mm256_shuffle_epi8(a_hi, shuffle);
+    v1 = _mm256_add_epi8(w1, w2);
+    v2 = _mm256_permute4x64_epi64(v1, 0b11011000);
+    w1 = _mm256_sub_epi8(v2, c7f);
+    w2 = _mm256_blendv_epi8(w1, v2, w1);
 
-    a_lo = _mm256_permute4x64_epi64(a_lo, 0xd8);
-    a_hi = _mm256_permute4x64_epi64(a_hi, 0xd8);
+    return w2;
+    //barrett_mul_u16(a_lo, a_lo, b_lo, t);
+    //barrett_mul_u16(a_hi, a_hi, b_hi, t);
 
-    t = _mm256_permute2x128_si256(a_lo, a_hi, 0x20);
+    //a_lo = _mm256_shuffle_epi8(a_lo, shuffle);
+    //a_hi = _mm256_shuffle_epi8(a_hi, shuffle);
 
-    barrett_red8(t, r, c8_127, c8_1);
-    return t;
+    //a_lo = _mm256_permute4x64_epi64(a_lo, 0xd8);
+    //a_hi = _mm256_permute4x64_epi64(a_hi, 0xd8);
+
+    //t = _mm256_permute2x128_si256(a_lo, a_hi, 0x20);
+
+    //barrett_red8(t, r, c8_127, c8_1);
+    //return t;
+}
+
+/// NOTE assumes each FQ element is in a 16bit limb
+static inline __m256i gf127v_mul_u256_v2(const __m256i a1, const __m256i a2,
+                                         const __m256i b1, const __m256i b2) {
+    __m256i v1, v2, w1, w2;
+    const __m256i c7f = _mm256_set1_epi8((short)127);
+    const __m256i c7f2 = _mm256_set1_epi16((short)127);
+
+    __m256i a_lo = a1;
+    __m256i a_hi = a2;
+    __m256i b_lo = b1;
+    __m256i b_hi = b2;
+
+    a_lo = _mm256_mullo_epi16(a_lo, b_lo);
+    a_hi = _mm256_mullo_epi16(a_hi, b_hi);
+    v1 = _mm256_srai_epi16(a_lo, 7);
+    v2 = _mm256_srai_epi16(a_hi, 7);
+    w1 = _mm256_packs_epi16(a_lo&c7f2, a_hi&c7f2);
+    w2 = _mm256_packs_epi16(v1, v2);
+
+    v1 = _mm256_add_epi8(w1, w2);
+    v2 = _mm256_permute4x64_epi64(v1, 0b11011000);
+    w1 = _mm256_sub_epi8(v2, c7f);
+    w2 = _mm256_blendv_epi8(w1, v2, w1);
+
+    return w2;
 }
 #endif
 
@@ -272,5 +315,35 @@ __m512i gf127v_scalar_table_u512(const __m512i a,
     const __m512i t2 = _mm512_maskz_permutexvar_epi8(m2, a, table2);
     const __m512i t = t1 ^ t2;
     return t;
+}
+#endif
+
+#ifdef USE_M4
+
+#include <arm_acle.h>
+
+/// \return a-b*c
+inline static uint8x8_t fq_scalar_sub_u32(const uint8x8_t a,
+                                          const uint8x8_t b,
+                                          const uint8_t c) {
+    const uint8x8_t c1 = vdup_n_u8(c);
+    const uint8x8_t q = vdup_n_u8(0x7f);
+
+    const uint16x8_t t1 = vmull_u8(b, c1);
+    const uint16x8_t t2 = vshrq_n_u16(t1, 7);
+    const uint16x8_t t3 = vaddq_u16(t1, t2);
+    const uint8x8_t t4 = vmovn_u16(t3);
+    const uint8x8_t t5 = vsub_u8(t4, q);
+
+    const uint8x8_t mask = vshr_n_s8(t5, 7);
+    const uint8x8_t ret = vbsl_u8(mask, t4, t5)
+    return ret;
+}
+#endif
+
+#ifdef USE_NEON
+#include <arm_neon.h>
+uint8x16_t gf127v_mul_u128(const uint8x16_t a, 
+                           const uint8x16_t b) {
 }
 #endif

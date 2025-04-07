@@ -117,6 +117,7 @@ static void BM_gf127v_mul_u256(benchmark::State& state) {
         a = gf127v_mul_u256(a, b);
         b = gf127v_mul_u256(a, b);
         a = gf127v_mul_u256(a, b);
+        b = gf127v_mul_u256(a, b);
         c += cpucycles();
 
         a = _mm256_add_epi16(a, b);
@@ -126,7 +127,31 @@ static void BM_gf127v_mul_u256(benchmark::State& state) {
 
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
+
+static void BM_gf127v_mul_u256_v2(benchmark::State& state) {
+    uint64_t cc = 0;
+    __m256i a = _mm256_set1_epi8(1);
+    __m256i b = _mm256_set1_epi8(2);
+    __m256i c = _mm256_set1_epi8(3);
+    __m256i d = _mm256_set1_epi8(4);
+    for (auto _ : state) {
+        cc -= cpucycles();
+        a = gf127v_mul_u256_v2(a, b, c, d);
+        b = gf127v_mul_u256_v2(b, c, d, a);
+        c = gf127v_mul_u256_v2(c, d, a, b);
+        d = gf127v_mul_u256_v2(d, a, b, c);
+        cc += cpucycles();
+
+        a = _mm256_add_epi16(a, c);
+        b = _mm256_add_epi16(b, d);
+        benchmark::DoNotOptimize(a);
+    }
+
+    state.counters["cycles"] = (double)cc/(double)state.iterations();
+}
+
 BENCHMARK(BM_gf127v_mul_u256);
+BENCHMARK(BM_gf127v_mul_u256_v2);
 
 // BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
 // BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
@@ -147,11 +172,13 @@ static void BM_gf127v_scalar_u512(benchmark::State& state) {
         a = gf127v_scalar_table_u512(a, table[0], table[1]);
         a = gf127v_scalar_table_u512(a, table[0], table[1]);
         a = gf127v_scalar_table_u512(a, table[0], table[1]);
+        a = gf127v_scalar_table_u512(a, table[0], table[1]);
         c += cpucycles();
 
         benchmark::DoNotOptimize(a);
         benchmark::DoNotOptimize(b+=1);
         b %= 127;
+        a = _mm512_add_epi8(a,a);
     }
 
     state.counters["cycles"] = (double)c/(double)state.iterations();
