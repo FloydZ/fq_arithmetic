@@ -105,6 +105,28 @@ uint32_t test_gf127v_red_u32() {
 }
 
 
+#ifdef USE_M4
+uint32_t test_gf127v_scalar_sub() {
+    for (uint32_t i = 0; i < 127; ++i) {
+        for (uint32_t j = 0; j < 127; ++j) {
+            const uint32_t a = j ^ (j << 8) ^ (j << 16) ^ (j << 24);
+            const uint32_t b = i ^ (i << 8) ^ (i << 16) ^ (i << 24);
+
+            const uint32_t d = gf127v_scalar_sub_u32(a, b, j);
+            const uint8_t e = gf127_sub(j, gf127_mul(i, j));
+            for (uint32_t k = 0; k < 4; ++k) {
+                const uint8_t e2 = ((d>>(k*8)) & 0xFF);
+                if (e2 != e) {
+                    printf("test_gf127v_scalar_sub error: i=%d j=%d k=%d: %d %d\n", i, j, k, e, e2);
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+#endif
+
 #ifdef USE_NEON
 uint32_t test_gf127v_scalar_sub() {
     uint8_t tmp[8];
@@ -214,7 +236,7 @@ uint32_t test_transpose(){
 
 int main() {
     // if (test_gf127v_red_u32()) { return 1; }
-#ifdef USE_NEON
+#if defined(USE_NEON) || defined(USE_M4)
     if (test_gf127v_scalar_sub()) { return 1; }
 #endif
 #ifdef USE_AVX512

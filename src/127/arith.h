@@ -341,12 +341,39 @@ inline static uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
     const uint8x8_t ret  = vbsl_u8(mask2, t6, t5);
     return ret;
 }
-#endif
 
-#ifdef USE_NEON
 #include <arm_neon.h>
 uint8x16_t gf127v_mul_u128(const uint8x16_t a, 
                            const uint8x16_t b) {
+    // TODO
     return b;
 }
+#endif
+
+
+#ifdef USE_M4
+#include <arm_acle.h>
+
+/// \return a-b*c
+inline static uint32_t fq_scalar_sub_u32(const uint32_t a,
+                                         const uint32_t b,
+                                         const uint8_t c) {
+    const uint32_t mask  = 0x7F7F7F7F;
+    const uint32_t mask1 = 0x00FF00FF;
+    const uint32_t mask3 = 0x007F007F;
+
+    const uint32_t t1 = (b&mask1) * c;
+    const uint32_t t2 = ((b >> 8)&mask1) * c;
+
+    const uint32_t v1 = ((t1 >> 7) + (t1 & mask3)) & mask1;
+    const uint32_t v2 = ((t2 >> 7) + (t2 & mask3)) & mask1;
+
+    uint32_t Z = v1 ^ (v2<<8);
+    uint8x4_t t3 = __usub8(mask, Z);
+    uint8x4_t t4 = __uadd8(a, t3);
+    uint8x4_t t5 = __usub8(t4, mask);
+    uint8x4_t t6 = __sel(t5, t4);
+    return t6;
+}
+
 #endif
