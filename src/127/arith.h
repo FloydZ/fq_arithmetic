@@ -342,11 +342,29 @@ inline static uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
     return ret;
 }
 
-#include <arm_neon.h>
-uint8x16_t gf127v_mul_u128(const uint8x16_t a, 
+uint8x16_t gf127v_mul_u128(const uint8x16_t a,
                            const uint8x16_t b) {
-    // TODO
-    return b;
+    const uint8x16_t q  = vdupq_n_u8(0x7f);
+    const uint16x8_t q2 = vdupq_n_u16(0x007f);
+
+    const uint8x8_t la = vget_low_u8(a);
+    const uint8x8_t lb = vget_low_u8(b);
+    const uint8x8_t ha = vget_high_u8(a);
+    const uint8x8_t hb = vget_high_u8(b);
+
+    const uint16x8_t lc = vmull_u8(la, lb);
+    const uint16x8_t hc = vmull_u8(ha, hb);
+
+    const uint16x8_t lt1 = vshrq_n_u16(lc, 7);
+    const uint16x8_t ht1 = vshrq_n_u16(hc, 7);
+    const uint16x8_t lt2 = vaddq_u16(lt1, vandq_u16(lc, q2));
+    const uint16x8_t ht2 = vaddq_u16(ht1, vandq_u16(hc, q2));
+    const uint8x16_t c   = veorq_u16(lt2, vshlq_n_u16(ht2, 8));
+
+    const uint8x16_t t   = vsubq_u8(c, q);
+    const uint8x16_t m   = vshrq_n_s8(c, 7);
+    const uint8x16_t r   = vbslq_u8(m, t, c);
+    return r;
 }
 #endif
 

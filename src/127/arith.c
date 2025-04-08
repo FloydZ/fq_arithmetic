@@ -149,7 +149,32 @@ uint32_t test_gf127v_scalar_sub() {
     }
     return 0;
 }
+
+uint32_t test_gf127v_mul_u128() {
+    uint8_t tmp[16];
+    for (uint32_t i = 0; i < 127; ++i) {
+        for (uint32_t j = 0; j < 127; ++j) {
+            const uint8x16_t a = vdupq_n_u8(j);
+            const uint8x16_t b = vdupq_n_u8(i);
+
+            const uint8x16_t d = gf127v_mul_u128(a, b);
+            const uint8_t e = gf127_mul(i, j);
+            vst1q_u8(tmp, d);
+
+            for (uint32_t k = 0; k < 16; ++k) {
+                if (tmp[k] != e) {
+                    printf("test_gf127v_mul_u128 error\n");
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 #endif
+
+
 #ifdef USE_AVX512
 uint32_t test_gf127v_scalar_table() {
     __m512i table[2];
@@ -238,6 +263,7 @@ int main() {
     // if (test_gf127v_red_u32()) { return 1; }
 #if defined(USE_NEON) || defined(USE_M4)
     if (test_gf127v_scalar_sub()) { return 1; }
+    if (test_gf127v_mul_u128()) { return 1; }
 #endif
 #ifdef USE_AVX512
     if (test_gf127v_scalar_table()) { return 1; }
