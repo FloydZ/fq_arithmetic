@@ -150,8 +150,69 @@ static void BM_gf127v_mul_u256_v2(benchmark::State& state) {
     state.counters["cycles"] = (double)cc/(double)state.iterations();
 }
 
-BENCHMARK(BM_gf127v_mul_u256);
-BENCHMARK(BM_gf127v_mul_u256_v2);
+static void BM_gf127v_add_u256(benchmark::State& state) {
+    uint64_t c = 0;
+    __m256i a = _mm256_set1_epi8(1);
+    __m256i b = _mm256_set1_epi8(2);
+    for (auto _ : state) {
+        c -= cpucycles();
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        a = gf127v_add_u256(a, b);
+        b = gf127v_add_u256(a, b);
+        c += cpucycles();
+        benchmark::DoNotOptimize(a);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
+static void BM_gf127v_add_u256_v2(benchmark::State& state) {
+    uint64_t c = 0;
+    __m256i a = _mm256_set1_epi8(1);
+    __m256i b = _mm256_set1_epi8(2);
+    for (auto _ : state) {
+        c -= cpucycles();
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        a = gf127v_add_u256_v2(a, b);
+        b = gf127v_add_u256_v2(a, b);
+        c += cpucycles();
+        benchmark::DoNotOptimize(a);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
+BENCHMARK(BM_gf127v_add_u256);
+BENCHMARK(BM_gf127v_add_u256_v2);
+
+// BENCHMARK(BM_gf127v_mul_u256);
+// BENCHMARK(BM_gf127v_mul_u256_v2);
 
 // BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
 // BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);

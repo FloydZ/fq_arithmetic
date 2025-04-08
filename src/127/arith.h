@@ -194,15 +194,26 @@ __m256i gf127v_red_u256(const __m256i a) {
     return a;
 }
                                       
-/// NOTE: assumes that each gf31 element is in a single uint8_t
+/// NOTE: assumes that each gf127 element is in a single uint8_t
+/// vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpminub ymm0, ymm1, ymm0
+/// sudo ./nanoBench.sh -asm_init "MOV RAX, R14; SUB RAX, 8; MOV [RAX], 129" -asm "vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpminub ymm0, ymm1, ymm0" -config configs/cfg_AlderLakeE_common.txt
+/// sudo ./nanoBench.sh -asm_init "MOV RAX, R14; SUB RAX, 8; MOV [RAX], rax" -asm "vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpblendvb ymm0, ymm1, ymm0, ymm1;" -config configs/cfg_AlderLakeE_common.txt
 __m256i gf127v_add_u256(const __m256i a,
                         const __m256i b) {
-   const __m256i c7f = _mm256_set1_epi8(127);
-   const __m256i c01 = _mm256_set1_epi8(1);
-    __m256i t;
-    __m256i c = _mm256_add_epi8(a, b);
-    W_RED127(c);
-    return c;
+    const __m256i c7f = _mm256_set1_epi8(127);
+    const __m256i t1 = _mm256_add_epi8(a, b);
+    const __m256i t2 = _mm256_sub_epi8(t1, c7f);
+    const __m256i t3 = _mm256_min_epu8(t2, t1);
+    return t3;
+}
+
+__m256i gf127v_add_u256_v2(const __m256i a,
+                        const __m256i b) {
+    const __m256i c7f = _mm256_set1_epi8(127);
+    const __m256i t1 = _mm256_add_epi8(a, b);
+    const __m256i t2 = _mm256_sub_epi8(t1, c7f);
+    const __m256i t3 = _mm256_blendv_epi8(t2, t1, t2);
+    return t3;
 }
 
 /// NOTE: assumes that each gf127 element is in a single uint8_t

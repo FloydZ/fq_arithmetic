@@ -2,6 +2,32 @@
 #include "arith.h"
 #include "matrix.h"
 
+#ifdef USE_AVX2
+#include <immintrin.h>
+uint32_t test_gf127v_red_u256() {
+    uint8_t tmp[32];
+    for (uint32_t i = 0; i < 127; ++i) {
+        for (uint32_t j = 0; j < 127; ++j) {
+            const __m256i t1 = _mm256_set1_epi8(i);
+            const __m256i t2 = _mm256_set1_epi8(j);
+            const uint32_t a1 = (i+j) % 127;
+            const __m256i a3 = gf127v_add_u256(t1, t2);
+            _mm256_storeu_si256((__m256i *)tmp, a3);
+
+            for (uint32_t k = 0; k < 32; ++k) {
+                const uint32_t b3 = tmp[k] & 0xFF;
+                if (b3 != a1) {
+                    printf("test_gf127v_add_u256 v2\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+#endif
+
 uint32_t test_gf127v_red_u32() {
     for (uint32_t i = 0; i < 256; ++i) {
         const uint32_t t = (i << 24) ^ (i << 16) ^ (i << 8) ^ i;
@@ -265,6 +291,10 @@ int main() {
     if (test_gf127v_scalar_sub()) { return 1; }
     if (test_gf127v_mul_u128()) { return 1; }
 #endif
+#ifdef USE_AVX2
+    if (test_gf127v_red_u256()) { return 1; }
+#endif
+
 #ifdef USE_AVX512
     if (test_gf127v_scalar_table()) { return 1; }
 #endif
