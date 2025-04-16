@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04]
           # TODO currently not working. The CI does not find omp? Probably need 
           # to install the correct omp version for the correct compiler
           # compiler: [ g++-10, clang++-11, clang++-12, clang++-13, clang++-14, clang++-15]
