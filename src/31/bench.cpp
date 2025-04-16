@@ -12,12 +12,12 @@ static long long cpucycles(void) noexcept {
 #endif
 }
 
-static void BM_gf32_add(benchmark::State& state) {
+static void BM_gf31_add(benchmark::State& state) {
     uint64_t a = 1, c = 0;
     uint8_t b = 2;
     for (auto _ : state) {
         c -= cpucycles();
-        // a = gf31_add(a, b);
+        a = gf31_add(a, b);
         c += cpucycles();
         a += 1 - b;
         b += 1 + a;
@@ -31,7 +31,7 @@ static void BM_gf31_mul(benchmark::State& state) {
     uint8_t b = 2;
     for (auto _ : state) {
         c -= cpucycles();
-        // a = gf32_mul(a, b);
+        a = gf31_mul(a, b);
         c += cpucycles();
         a += 1 - b;
         b += 1 + a;
@@ -41,6 +41,6 @@ static void BM_gf31_mul(benchmark::State& state) {
 }
 
 
-BENCHMARK(BM_gf32_mul);
-BENCHMARK(BM_gf32_add);
+BENCHMARK(BM_gf31_mul);
+BENCHMARK(BM_gf31_add);
 BENCHMARK_MAIN();

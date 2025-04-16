@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "../helper.h"
+#include "../16/arith.h"
 
 /// sources:
 /// https://github.com/moepinet/libmoepgf
@@ -764,6 +765,14 @@ uint8_t gf256_reduce_u64(const uint64_t a) {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
+/// \param a[in]
+// static inline
+// __m128i _load_xmm(const uint8_t *a ,
+//                   const unsigned _num_byte ) {
+//     uint8_t temp[32] __attribute__((aligned(32)));
+//     for(unsigned i=0;i<_num_byte;i++) temp[i] = a[i];
+//     return _mm_load_si128((__m128i*)temp);
+// }
 
 const uint8_t __gf256_mulbase_avx2[256] __attribute__((aligned(32))) = {
         // repeated over each 128bit lane

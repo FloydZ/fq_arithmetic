@@ -11,7 +11,7 @@ jobs:
       with:
         submodules: recursive
 
-    - uses: pguyot/arm-runner-action@HEAD
+    - uses: pguyot/arm-runner-action@v2
       with:
         bind_mount_repository: true
         base_image: raspios_lite_arm64:latest

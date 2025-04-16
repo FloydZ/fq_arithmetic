@@ -36,7 +36,7 @@ int test_vector_mul() {
         const gf2to128 a = rand();// ^ ((gf2to128)rand() << 64u);
         const gf2to128 b = rand();// ^ ((gf2to128)rand() << 64u);
 
-        const gf2to128 c1 = gf2to128_mul_(a, b);
+        const gf2to128 c1 = gf2to128_mul_avx2(a, b);
         const gf2to128 c2 = gf2to128_mul(a, b);
         const gf2to128 c3 = gf2to128_mul_slow(a, b);
 
