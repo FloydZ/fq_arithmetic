@@ -115,11 +115,11 @@ gf2to128 gf2to128_mul_avx2(const gf2to128 a,
 
     /* compute the 256-bit result of a * b with the 4x64-bit multiplication
        intrinsic */
-    __m128i mul256_high = _mm_clmulepi64_si128(a, b, 0x11); /* high of both */
-    __m128i mul256_low = _mm_clmulepi64_si128(a, b, 0x00); /* low of both */
+    __m128i mul256_high = _mm_clmulepi64_si128((__m128i)a, (__m128i)b, 0x11); /* high of both */
+    __m128i mul256_low = _mm_clmulepi64_si128((__m128i)a, (__m128i)b, 0x00); /* low of both */
 
-    __m128i mul256_mid1 = _mm_clmulepi64_si128(a, b, 0x01); /* low of a, high of b */
-    __m128i mul256_mid2 = _mm_clmulepi64_si128(a, b, 0x10); /* high of a, low of b */
+    __m128i mul256_mid1 = _mm_clmulepi64_si128((__m128i)a,(__m128i)b, 0x01); /* low of a, high of b */
+    __m128i mul256_mid2 = _mm_clmulepi64_si128((__m128i)a,(__m128i)b, 0x10); /* high of a, low of b */
 
     /* Add the 4 terms together */
     __m128i mul256_mid = _mm_xor_si128(mul256_mid1, mul256_mid2);
