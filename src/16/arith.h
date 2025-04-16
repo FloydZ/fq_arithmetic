@@ -500,15 +500,27 @@ static inline __m256i gf16v_tbl32_multab(const ff_t b) {
          ^ (tab3 & _mm256_cmpgt_epi16(b1&mask_4  , mask_0));
 }
 
+/// \param a[in]:
+/// \param _num_byte[in]:
+/// \return 
 static inline
-__m128i _load_xmm( const uint8_t *a , unsigned _num_byte ) {
+__m128i _load_xmm(const uint8_t *a,
+                  const unsigned _num_byte ) {
     uint8_t temp[32] __attribute__((aligned(32)));
-    for(unsigned i=0;i<_num_byte;i++) temp[i] = a[i];
+    for(unsigned i=0;i<_num_byte;i++) { 
+        temp[i] = a[i]; 
+    }
     return _mm_load_si128((__m128i*)temp);
 }
 
+/// \param a[in]:
+/// \param _num_byte[in]:
+/// \param [in]:
+/// \return 
 static inline
-void _store_xmm( uint8_t *a , unsigned _num_byte , __m128i data ) {
+void _store_xmm(uint8_t *a ,
+                const unsigned _num_byte , 
+                const __m128i data ) {
     uint8_t temp[32] __attribute__((aligned(32)));
     _mm_store_si128((__m128i*)temp,data);
     for(unsigned i=0;i<_num_byte;i++) a[i] = temp[i];

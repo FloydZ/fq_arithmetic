@@ -144,10 +144,10 @@ static void BM_gf16_matrix_transpose_64x64_avx2(benchmark::State& state) {
     uint8_t a = 0;
     uint64_t c = 0;
     for (auto _ : state) {
-        gf16_transpose_64x64_avx2(data2, data1, 32);
+        gf16_transpose_64x64_avx2(data2, data1, 32, 32);
         a += data2[8];
         c -= cpucycles();
-        gf16_transpose_64x64_avx2(data1, data2, 32);
+        gf16_transpose_64x64_avx2(data1, data2, 32, 32);
         c += cpucycles();
         a += data1[8];
 

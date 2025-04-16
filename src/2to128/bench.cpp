@@ -17,27 +17,12 @@ static long long cpucycles(void) noexcept {
 
 static void BM_gf2to128_mul_avx(benchmark::State& state) {
     uint64_t c = 0;
-    eff_t a = 1, b = 2;
+    gf2to128 a = 1, b = 2;
     for (auto _ : state) {
         c -= cpucycles();
-        a ^= mul_avx(a, b);
-        b ^= mul_avx(a, b);
-        a ^= mul_avx(a, b);
-        c += cpucycles();
-        a += c;
-        benchmark::DoNotOptimize(a+=1);
-    }
-
-    state.counters["cycles"] = (double)c/(double)state.iterations();
-}
-static void BM_gf2to128_mul_avx2(benchmark::State& state) {
-    uint64_t c = 0;
-    eff_t a = 1, b = 2;
-    for (auto _ : state) {
-        c -= cpucycles();
-        a ^= mul_avx2(a, b);
-        b ^= mul_avx2(a, b);
-        a ^= mul_avx2(a, b);
+        a ^= gf2to128_mul_avx2(a, b);
+        b ^= gf2to128_mul_avx2(a, b);
+        a ^= gf2to128_mul_avx2(a, b);
         c += cpucycles();
         a += c;
         benchmark::DoNotOptimize(a+=1);
@@ -65,7 +50,6 @@ static void BM_gf2to128_mul_u256(benchmark::State& state) {
 #endif
 
 BENCHMARK(BM_gf2to128_mul_avx);
-BENCHMARK(BM_gf2to128_mul_avx2);
 BENCHMARK(BM_gf2to128_mul_u256);
 BENCHMARK_MAIN();
 

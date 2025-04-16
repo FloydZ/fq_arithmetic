@@ -15,20 +15,28 @@ typedef __uint128_t gf2to128;
 // We need only the last word
 #define MODULUS 0b10000111
 
-
+/// \param a[in]: 
+/// \param b[in]: 
+/// \param return:
+static inline
 gf2to128 gf2to128_add(const gf2to128 a, 
                       const gf2to128 b) {
 	return a ^ b;
 }
 
+/// \param a[in]: 
+/// \param b[in]: 
+/// \param return:
+static inline
 gf2to128 gf2to128_sub(const gf2to128 a, 
                       const gf2to128 b) {
 	return a ^ b;
 }
 
 /// original correct multiplication
+static inline
 gf2to128 gf2to128_mul(const gf2to128 a,
-                          const gf2to128 b) {
+                      const gf2to128 b) {
     gf2to128 shifted=a, result=0,m=MODULUS;
 
     for (size_t i = 0; i < 2; ++i) {
@@ -94,13 +102,15 @@ static inline __m256i gf2to128v_expand_gf2_x2_u256(const uint8_t in) {
     return t3;
 }
 
-
-static inline gf2to128 gf2to128v_expand_gf2_x1(const uint8_t in) {
+/// \param in[in]:
+static inline
+gf2to128 gf2to128v_expand_gf2_x1(const uint8_t in) {
     return (gf2to128)(in & 1u);
 }
 
-gf2to128 gf2to128_mul_(const gf2to128 a,
-                       const gf2to128 b) {
+static inline
+gf2to128 gf2to128_mul_avx2(const gf2to128 a,
+                           const gf2to128 b) {
     const __m128i modulus = _mm_setr_epi32(MODULUS, 0, 0, 0);
 
     /* compute the 256-bit result of a * b with the 4x64-bit multiplication
@@ -131,6 +141,7 @@ gf2to128 gf2to128_mul_(const gf2to128 a,
 }
 
 /// \param []
+static inline
 __m256i gf2to128v_mul_u256(const __m256i a, 
                            const __m256i b) {
     __m256i ret;
@@ -180,6 +191,7 @@ __m256i gf2to128v_mul_u256(const __m256i a,
 /// \param a[in]: 
 /// \param b[in]: 
 /// \return a*b
+static inline
 gf2to128 gf2to128_mul_slow(const gf2to128 a,
                            const gf2to128 b) {
 	uint64_t tmp[4] = {0};
