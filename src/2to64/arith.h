@@ -9,16 +9,19 @@
 
 typedef uint64_t gf2to64;
 
+static inline
 gf2to64 gf64_add(const gf2to64 a,
                  const gf2to64 b) {
     return a ^ b;
 }
 
+static inline
 gf2to64 gf64_sub(const gf2to64 a,
                  const gf2to64 b) {
     return a ^ b;
 }
 
+static inline
 gf2to64 gf64_mul(const gf2to64 a,
                  const gf2to64 b) {
 #ifdef USE_AVX2
@@ -64,6 +67,7 @@ gf2to64 gf64_neg(const gf2to64 a) {
 
 __m256i gf64v_add_u256(const __m256i a,
                        const __m256i b) {
+    return a; // TODO
 }
 
 #endif

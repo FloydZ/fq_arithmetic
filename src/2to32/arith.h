@@ -6,16 +6,19 @@
 
 typedef uint32_t gf2to32;
 
+static inline
 gf2to32 gf32_add(const gf2to32 a,
                  const gf2to32 b) {
     return a ^ b;
 }
 
+static inline
 gf2to32 gf32_sub(const gf2to32 a,
                  const gf2to32 b) {
     return a ^ b;
 }
 
+static inline
 gf2to32 gf32_mul(const gf2to32 a,
                  const gf2to32 b) {
     uint32_t result = 0;
@@ -37,6 +40,7 @@ gf2to32 gf32_mul(const gf2to32 a,
     return result;
 }
 
+static inline
 gf2to32 gf32_neg(const gf2to32 a) {
     return ~a;
 }
@@ -46,6 +50,7 @@ gf2to32 gf32_neg(const gf2to32 a) {
 
 __m256i gf32v_add_u256(const __m256i a,
                        const __m256i b) {
+    return a; // TODO
 }
 
 #endif

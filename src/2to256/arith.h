@@ -201,8 +201,11 @@ void gf2to256_mul(gf2to256 r,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
+static inline
 __m256i gf256v_add_u256(const __m256i a,
                        const __m256i b) {
+    // TODO
+    return a;
 }
 
 #endif
