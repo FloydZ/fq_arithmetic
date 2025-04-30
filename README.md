@@ -32,3 +32,5 @@ sub_T, mul_T` functions are providied which computes vectorized values. Meaning
 
 Finally Matrix operations are also provided.
 
+Additonally a CUDA implementation is provided for primes up to 2**{32*8}, see 
+[here](cuda/README.md)
