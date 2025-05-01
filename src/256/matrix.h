@@ -14,14 +14,16 @@
 
 /// \param n_rows
 /// \param n_cols
+static inline
 gf256* gf256_matrix_alloc(const uint32_t n_rows,
                           const uint32_t n_cols) {
     return (gf256 *)calloc(sizeof(gf256), gf256_matrix_bytes_size(n_rows, n_cols));
 }
 
-static inline void gf256_matrix_print(const gf256 *matrix1,
-                                      const uint32_t n_rows,
-                                      const uint32_t n_cols) {
+static inline 
+void gf256_matrix_print(const gf256 *matrix1,
+                        const uint32_t n_rows,
+                        const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
             const gf256 t = gf256_matrix_get_entry(matrix1, n_rows, i, j);
@@ -1506,6 +1508,7 @@ static inline void gf2to12_matrix_map_gf2_u256(gf256 *out,
         gf256_vector_set_to_gf2_u256(o, in2, nrows);
     }
 }
+
 #elif defined(USE_NEON)
 #include <arm_neon.h>
 

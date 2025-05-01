@@ -580,23 +580,32 @@ const uint8_t gf256_inverse_tab[256] = {
     52, 104, 70, 3, 140, 221, 156, 125, 160, 205, 26, 65, 28
 };
 
+/// NOTE: non ct
 /// \return a^{-1}
+static inline
 gf256 gf256_inverse(const gf256 a) {
     return gf256_inverse_tab[a];
 }
 
+/// \return a+b mod 256
+static inline
 gf256 gf256_add(const gf256 a,
-               const gf256 b) {
+                const gf256 b) {
     return a ^ b;
 }
 
+/// \return a-b mod 256
+static inline
 gf256 gf256_sub(const gf256 a,
-               const gf256 b) {
+                const gf256 b) {
     return a ^ b;
 }
 
 /// a*b via the lookup into the muliplication table of 16**i
 /// multiplication is for a single element
+/// NOTE: NOT CT
+/// \return a*b mod 256
+static inline
 gf256 gf256_mul(const gf256 a,
                 const gf256 b) {
     const gf256 *p = &__gf256_mulbase[b * 8u];
@@ -612,9 +621,10 @@ gf256 gf256_mul(const gf256 a,
     return tmp;
 }
 
-/// a*b without a lookup table
+/// \return a*b without a lookup table
+static inline
 gf256 gf256_mul_v2(const gf256 a,
-                  const gf256 b) {
+                   const gf256 b) {
     gf256 r;
     r = (-(b>>7u     ) & a);
     r = (-(b>>6u & 1u) & a) ^ (-(r>>7u) & MODULUS) ^ (r+r);
@@ -627,6 +637,7 @@ gf256 gf256_mul_v2(const gf256 a,
 }
 
 /// \return a**2
+static inline
 gf256 gf256_squ(const gf256 a) {
     gf256 r8 = a&1u;
     r8 ^=  (a<<1u)&4u;            // x^1 -> x^2
@@ -640,17 +651,31 @@ gf256 gf256_squ(const gf256 a) {
 }
 
 
-// addition and subtraction are always easy
+/// addition and subtraction are always easy
+/// \param a[in]: [a_0, ..., a_7]
+/// \param b[in]: [b_0, ..., b_7]
+/// \return [a_0 + b_0 mod 256, ..., a_7 + b_7 mod 256]
+static inline
 uint64_t gf256v_add_u64(const uint64_t a,
                         const uint64_t b) {
     return a ^ b;
 }
 
+/// \param a[in]: [a_0, ..., a_7]
+/// \param b[in]: [b_0, ..., b_7]
+/// \return [a_0 - b_0 mod 256, ..., a_7 - b_7 mod 256]
+static inline
 uint64_t gf256v_sub_64(const uint64_t a,
                        const uint64_t b) {
     return a ^ b;
 }
 
+/// NOTE: not really parallel, this is just a plain simple wrapper around 8 
+/// calls to `gf256`
+/// \param a[in]: [a_0, ..., a_7]
+/// \param b[in]: [b_0, ..., b_7]
+/// \return [a_0 * b_0 mod 256, ..., a_7 * b_7 mod 256]
+static inline
 uint64_t gf256v_mul_u64(const uint64_t a,
                         const uint64_t b) {
     uint64_t ret = 0;
@@ -661,9 +686,10 @@ uint64_t gf256v_mul_u64(const uint64_t a,
     return ret;
 }
 
-/// \param a \in gf256
-/// \param b \in gf16
+/// \param a[in] \in gf256
+/// \param b[in] \in gf16
 /// \return a*b
+static inline
 uint64_t gf256_mul_gf16(const gf256 a, 
                         const uint8_t b) {
     const gf256 t2 = gf256_expand_tab[b];
@@ -672,7 +698,12 @@ uint64_t gf256_mul_gf16(const gf256 a,
 
 /// vector*constant multiplication without table look
 /// 8 GF(256) elements with a single element
-uint64_t gf256v_scalar_u64(uint64_t a, uint8_t b) {
+/// \param a[in]: [a_0, ..., a_7] 
+/// \param b[in]: \in gf256
+/// \return [a_0*b, ..., a_7*b]
+static inline
+uint64_t gf256v_scalar_u64(const uint64_t a,
+                           const uint8_t b) {
     const uint64_t mask_msb = 0x8080808080808080ULL;
     uint64_t a_msb;
     uint64_t a64 = a;
@@ -721,6 +752,7 @@ uint64_t gf256v_scalar_u64(uint64_t a, uint8_t b) {
 /// \param a vector: 8 GF(256) elements
 /// \param b constant: single GF(256) element
 /// \return a*b
+static inline
 uint64_t gf256v_scalar_u64_v2(const uint64_t a,
                               const uint8_t b) {
     const uint8_t *p = &__gf256_mulbase[b*8];
@@ -736,8 +768,8 @@ uint64_t gf256v_scalar_u64_v2(const uint64_t a,
     return tmp;
 }
 
-/// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
 /// vector square using no table lookup
+static inline
 uint64_t gf256v_squ_u64(const uint64_t a) {
     uint32_t r64 = a&0x0101010101010101ULL;
     r64 ^= (a<<1)   &0x0404040404040404ULL; // x^1 -> x^2
@@ -753,6 +785,7 @@ uint64_t gf256v_squ_u64(const uint64_t a) {
 }
 
 /// non vector reduction
+static inline
 uint8_t gf256_reduce_u64(const uint64_t a) {
     uint32_t * aa = (uint32_t *)(&a);
     uint32_t r = aa[0]^aa[1];
@@ -789,9 +822,10 @@ const uint8_t __gf256_mulbase_avx2[256] __attribute__((aligned(32))) = {
 };
 
 /// horizontal xor, but not withing a single limb, but over the 8 -32bit limbs
-/// \param in
-/// \return
-static inline uint32_t gf256v_hadd_u32_u256(const __m256i in) {
+/// \param in[in]: [a_0, ..., a_7]
+/// \return a_0 + a_1 + ... + a_7
+static inline 
+uint32_t gf256v_hadd_u32_u256(const __m256i in) {
     __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 4));
     ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
     ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
@@ -799,8 +833,10 @@ static inline uint32_t gf256v_hadd_u32_u256(const __m256i in) {
 }
 
 
-/// gf256 := gf2[X]/ (x^8+x^4+x^3+x+1)   // 0x11b , AES field
-__m256i gf256v_squ_u256(const __m256i a) {
+/// \param a[in]: [a_0, ..., a_31]
+/// \return [a_0*a_0 mod 256, ..., a_31*a_31 mod 256]
+static inline
+__m256i gf256v_sqr_u256(const __m256i a) {
 #ifdef __AVX512VL__
     return _mm256_gf2p8mul_epi8(a,a);
 #else
@@ -822,17 +858,48 @@ __m256i gf256v_squ_u256(const __m256i a) {
 #endif
 }
 
+
+/// this function is slightly faster (1.5.25)
+/// BM_gf256_mul_u256                      14.7 ns         14.7 ns     47784168
+/// BM_gf256_mul_u256_v2                   16.6 ns         16.6 ns     42156859
+/// \param a: [a_0, a_1, ..., a_31]
+/// \param b: [b_0, b_1, ..., b_31]
+/// \return [a_0 * b_0 mod 256, ..., a_31*b_31 mod 256]
+static inline
+__m256i gf256v_mul_u256(const __m256i a,
+                        const __m256i b) {
+#ifdef USE_AVX512
+    return _mm256_gf2p8mul_epi8(a, b);
+#endif
+    const __m256i zero = _mm256_set1_epi32(0),
+            mask = _mm256_set1_epi8(0x1B);
+    __m256i r;
+
+    r = _mm256_blendv_epi8(zero, a, b);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 5)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 7)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
+    return r;
+}
+
 /// full multiplication:
-static inline __m256i gf256v_mul_u256_v2(const __m256i c,
-                                      const __m256i b) {
-//#ifdef __AVX512VL__
-//    return _mm256_gf2p8mul_epi8(c, b);
-//#endif
+/// \param a: [a_0, a_1, ..., a_31]
+/// \param b: [b_0, b_1, ..., b_31]
+/// \return [a_0 * b_0 mod 256, ..., a_31*b_31 mod 256]
+static inline __m256i gf256v_mul_u256_v2(const __m256i a_,
+                                         const __m256i b) {
+#ifdef __AVX512VL__
+    return _mm256_gf2p8mul_epi8(c, b);
+#endif
     const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
     const __m256i zero      = _mm256_set1_epi8(0x00);
     const __m256i mask      = _mm256_set1_epi8(0x1b);
     const __m256i bit       = _mm256_set1_epi8(0x01);
-    __m256i a = c;
+    __m256i a = a_;
     __m256i tmp = a&bit, a_msb;
     // 0
     __m256i r = _mm256_sign_epi8(tmp, tmp) & b;
@@ -890,11 +957,17 @@ static inline __m256i gf256v_mul_u256_v2(const __m256i c,
     return r;
 }
 
-
-/// same as above, but only sse
+/// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
 /// NOTE: uses scatter instruction based on b.
-static inline __m128i gf256v_mul_u128(const __m128i a,
-                                     const __m128i b) {
+/// memory is loaded depending on b. So unsafe if its secret
+/// \param a: [a_0, a_1, ..., a_15]
+/// \param b: [b_0, b_1, ..., b_7]
+/// \return [   a_0 * b_0 mod 256, ... ,
+///             a_3*b_0 mod 256, ..., 
+///             a_15*b_7 mod 256]
+static inline 
+__m128i gf256v_mul_u32_u128(const __m128i a,
+                            const __m128i b) {
     // bitselection masks
     const __m128i mask1 = _mm_set1_epi8(0x01);
 
@@ -928,98 +1001,16 @@ static inline __m128i gf256v_mul_u128(const __m128i a,
 }
 
 
-/// TODO bench
-/// full multiplication:
-static inline __m256i gf256_full_mul_simd(__m256i a, const __m256i b) {
-    const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
-    const __m256i zero      = _mm256_set1_epi8(0x00);
-    const __m256i mask      = _mm256_set1_epi8(0x1b);
-    const __m256i bit       = _mm256_set1_epi8(0x01);
-    __m256i tmp = a&bit, a_msb;
-    // 0
-    __m256i r = _mm256_sign_epi8(tmp, tmp) & b;
-
-    // 1
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6));
-
-    // 2
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    tmp = _mm256_slli_epi16(b, 5);
-    r = r ^ _mm256_blendv_epi8(zero, a, tmp);
-
-    // 3
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4));
-
-    // 4
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3));
-
-    // 5
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2));
-
-    // 6
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1));
-
-    // 7
-    a_msb = a & mask_msb;
-    a = a ^ a_msb;
-    a = _mm256_slli_epi16(a, 1);
-    a = a ^ _mm256_blendv_epi8(zero, mask, a_msb);
-    r = r ^ _mm256_blendv_epi8(zero, a, b);
-
-    return r;
-}
-
-/// \param a
-/// \param b
-/// \return
-__m256i gf256v_mul_u256(const __m256i a,
-                        const __m256i b) {
-#ifdef USE_AVX512
-    return _mm256_gf2p8mul_epi8(a, b);
-#endif
-    const __m256i zero = _mm256_set1_epi32(0),
-            mask = _mm256_set1_epi8(0x1B);
-    __m256i r;
-
-    r = _mm256_blendv_epi8(zero, a, b);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 1)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 2)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 3)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 4)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 5)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 6)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    r = _mm256_blendv_epi8(zero, a, _mm256_slli_epi16(b, 7)) ^ _mm256_blendv_epi8(zero, mask, r) ^ _mm256_add_epi8(r, r);
-    return r;
-}
-
-
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
 /// (8 limbs in 32bit in a) * 8 limbs multiplication
 /// this is the avx version of `gf256v_scalar_u64_v2`.
 /// memory is loaded depending on b. So unsafe if its secret
+/// \param a: [a_0, a_1, ..., a_31]
+/// \param b: [b_0, b_1, ..., b_7]
+/// \return [   a_0 * b_0 mod 256, ... ,
+///             a_3*b_0 mod 256, ..., 
+///             a_31*b_7 mod 256]
+static inline
 __m256i gf256v_mul_u32_u256(__m256i a, __m256i b) {
 #ifdef USE_AVX512
     return _mm256_gf2p8mul_epi8(a, b);
@@ -1057,31 +1048,37 @@ __m256i gf256v_mul_u32_u256(__m256i a, __m256i b) {
 #endif
 }
 
-// 6 instructions
+/// 6 instructions:
+///  https://godbolt.org/#g:!((g:!((g:!((h:codeEditor,i:(filename:'1',fontScale:14,fontUsePx:'0',j:1,lang:___c,selection:(endColumn:1,endLineNumber:2,positionColumn:1,positionLineNumber:2,selectionStartColumn:1,selectionStartLineNumber:2,startColumn:1,startLineNumber:2),source:'%23include+%3Cimmintrin.h%3E%0A%0A__m256i+gf256_linear_transform_8x8_256b(const+__m256i+tab_l,%0A++++++++++++++++++++++++++++++++++++++++const+__m256i+tab_h,%0A++++++++++++++++++++++++++++++++++++++++const+__m256i+v,%0A++++++++++++++++++++++++++++++++++++++++const+__m256i+mask_f)+%7B%0A++++return+_mm256_shuffle_epi8(tab_l,+v+%26+mask_f)+%5E%0A+++++++++++_mm256_shuffle_epi8(tab_h,+_mm256_srli_epi16(v,+4)+%26+mask_f)%3B%0A%7D%0A'),l:'5',n:'0',o:'C+source+%231',t:'0')),k:32.88510881137773,l:'4',n:'0',o:'',s:0,t:'0'),(g:!((h:compiler,i:(compiler:cclang2010,filters:(b:'0',binary:'1',binaryObject:'1',commentOnly:'0',debugCalls:'1',demangle:'0',directives:'0',execute:'1',intel:'0',libraryCode:'0',trim:'1',verboseDemangling:'0'),flagsViewOpen:'1',fontScale:14,fontUsePx:'0',j:2,lang:___c,libs:!(),options:'-O3+-mavx+-mavx2+',overrides:!(),selection:(endColumn:1,endLineNumber:1,positionColumn:1,positionLineNumber:1,selectionStartColumn:1,selectionStartLineNumber:1,startColumn:1,startLineNumber:1),source:1,wantOptInfo:'1'),l:'5',n:'0',o:'+x86-64+clang+20.1.0+(Editor+%231)',t:'0')),k:33.78155785528896,l:'4',n:'0',o:'',s:0,t:'0'),(g:!((h:tool,i:(args:'',argsPanelShown:'1',compilerName:'x86-64+clang+20.1.0',editorid:1,fontScale:14,fontUsePx:'0',j:2,monacoEditorHasBeenAutoOpened:'1',monacoEditorOpen:'1',monacoStdin:'1',stdin:'',stdinPanelShown:'1',toolId:llvm-mcatrunk,wrap:'1'),l:'5',n:'0',o:'llvm-mca+(trunk)+x86-64+clang+20.1.0+(Editor+%231,+Compiler+%232)',t:'0')),k:33.33333333333333,l:'4',n:'0',o:'',s:0,t:'0')),l:'2',n:'0',o:'',t:'0')),version:4
+/// \param tab_l[in]: lower 4 bits of the precomputation table
+/// \param tab_h[in]: upper 4 bits of the precomputation table
+/// \param v[in]: [v_0, ..., v_31] values to multiply the precomputed table with
+/// \param mask_f[in]: [0xf, ..., 0xf] 32times
+/// \return v*precomputation table
 static inline
-__m256i gf256_linear_transform_8x8_256b(__m256i tab_l,
-                                        __m256i tab_h,
-                                        __m256i v,
-                                        __m256i mask_f) {
+__m256i gf256_linear_transform_8x8_256b(const __m256i tab_l,
+                                        const __m256i tab_h,
+                                        const __m256i v,
+                                        const __m256i mask_f) {
     return _mm256_shuffle_epi8(tab_l, v & mask_f) ^
            _mm256_shuffle_epi8(tab_h, _mm256_srli_epi16(v, 4) & mask_f);
 }
 
-/// TODO doc
-/// \param tab_l
-/// \param tab_h
-/// \param v
-/// \param mask_f
-/// \return
+/// \param tab_l[in]: lower 4 bits of the precomputation table
+/// \param tab_h[in]: upper 4 bits of the precomputation table
+/// \param v[in]: [v_0, ..., v_15] values to multiply the precomputed table with
+/// \param mask_f[in]: [0xf, ..., 0xf] 15 times
+/// \return v*precomputation table
 static inline
-__m128i gf256_linear_transform_8x8_128b(__m128i tab_l,
-                                        __m128i tab_h,
-                                        __m128i v,
-                                        __m128i mask_f) {
+__m128i gf256_linear_transform_8x8_128b(const __m128i tab_l,
+                                        const __m128i tab_h,
+                                        const __m128i v,
+                                        const __m128i mask_f) {
     return _mm_shuffle_epi8(tab_l, v & mask_f) ^
 		   _mm_shuffle_epi8(tab_h, _mm_srli_epi16(v, 4) & mask_f);
 }
 
+/// 
 static inline
 __m256i gf256v_generate_multab_16_single_element_u256(const uint8_t a) {
     __m256i bx = _mm256_set1_epi16(a);
@@ -1143,12 +1140,12 @@ __m128i gf256v_generate_multab_16_single_element_u128(const uint8_t a) {
            ^ (tab7 & _mm_cmpgt_epi16(b1&mask_64 , mask_0));
 }
 
-/// TODO doc
-/// \param a
-/// \param _b
-/// \return
-__m256i gf256v_mul_scalar_u256(__m256i a,
-                               uint8_t _b) {
+/// \param a[in]: [a_0, ...., a_31]
+/// \param _b[in]: gf256 element
+/// \return [a_0 * _b mod 256, ...,. a_1 *_b mod 256]
+static inline
+__m256i gf256v_mul_scalar_u256(const __m256i a,
+                               const uint8_t _b) {
     const __m256i tab = gf256v_generate_multab_16_single_element_u256(_b);
     const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
     const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
@@ -1156,12 +1153,13 @@ __m256i gf256v_mul_scalar_u256(__m256i a,
     return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
 
-/// TODO doc
-/// \param a
-/// \param _b
-/// \return
-__m256i gf256v_mul_scalar_u256_non_ct(__m256i a,
-                                     uint8_t _b) {
+/// NOTE: NOT CT, loads values depending on b
+/// \param a[in]: [a_0, ...., a_31]
+/// \param _b[in]: gf256 element
+/// \return [a_0 * _b mod 256, ...,. a_1 *_b mod 256]
+static inline
+__m256i gf256v_mul_scalar_u256_non_ct(const __m256i a,
+                                      const uint8_t _b) {
     const __m256i tab = _mm256_load_si256((__m256i const *) (__gf256_mul + (_b*32)));
     const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
     const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
@@ -1169,19 +1167,20 @@ __m256i gf256v_mul_scalar_u256_non_ct(__m256i a,
     return gf256_linear_transform_8x8_256b(ml, mh, a, mask);
 }
 
-/// \param a
-/// \param b in gf2, not compresses: a single bit in
-/// \return
-static inline __m256i gf256v_mul_gf2_u256(const __m256i a,
-                                          const __m256i b) {
+/// \param a[in]: [a_0, ..., a_31], a_i \in gf256
+/// \param b[in]: [b_0, ..., b_31], b_i in gf2, not compresses: a single bit in
+/// \return [a_0 * b_0, ..., a_31*b_31]
+static inline 
+__m256i gf256v_mul_gf2_u256(const __m256i a,
+                            const __m256i b) {
     const __m256i m1 = _mm256_set1_epi8(-1);
     const __m256i t1 = _mm256_sign_epi8(b, m1);
     return a & t1;
 }
 
-/// \param a
-/// \param b in gf2, not compresses: a single bit in
-/// \return
+/// \param a[in]: [a_0, ..., a_15], a_i \in gf256
+/// \param b[in]: [b_0, ..., b_15], b_i in gf2, not compresses: a single bit in
+/// \return [a_0 * b_0, ..., a_15*b_15]
 static inline __m128i gf256v_mul_gf2_u128(const __m128i a,
                                           const __m128i b) {
     const __m128i m1 = _mm_set1_epi8(-1);
@@ -1256,6 +1255,7 @@ void gf256v_generate_multab_le16_u256(__m256i *multabs,
 }
 
 /// NOTE: ncols1 <= 16
+static inline
 void gf256mat_prod_small_avx2(uint8_t *c, 
                               const uint8_t *a,
                               const uint8_t *b,
@@ -1282,6 +1282,37 @@ typedef union {
     uint64_t v64[4];
     uint8x16_t v[2];
 } vec256_t;
+
+uint8x16_t gf256v_add_u128(const uint8x16_t a,
+                         const uint8x16_t b) {
+    return veorq_u8(a, b);
+}
+
+vec256_t gf256v_add_u256(const vec256_t a,
+                         const vec256_t b) {
+    vec256_t ret;
+    ret.[0] = veorq_u8(a.v[0], b.v[0]);
+    ret.[1] = veorq_u8(a.v[1], b.v[1]);
+    return ret;
+}
+
+uint8x16_t gf256v_mul_u128(const uint8x16_t a,
+                           const uint8x16_t b) {
+    return vmulq_p8(a, b);
+}
+
+vec256_t gf256v_mul_u256(const vec256_t a,
+                         const vec256_t b) {
+    vec256_t ret;
+    const poly8x16 a1 = a.v[0];
+    const poly8x16 a2 = a.v[1];
+    const poly8x16 b1 = a.v[0];
+    const poly8x16 b2 = a.v[1];
+
+    ret.v[0] = vmulq_p8(a1, b1);
+    ret.v[1] = vmulq_p8(a2, b2);
+    return ret;
+}
 #endif /// end USE_AVX2
 #undef MODULUS
 

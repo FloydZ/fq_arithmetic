@@ -11,6 +11,18 @@ const uint32_t nrows = 22;
 const uint32_t ncols = 6;
 const uint32_t ncols2= 16;
 
+
+static long long cpucycles(void) noexcept {
+#ifdef USE_AVX2
+    unsigned long long result;
+    asm volatile(".byte 15;.byte 49;shlq $32,%%rdx;orq %%rdx,%%rax"
+            : "=a"(result)::"%rdx");
+    return result;
+#else
+    return 0;
+#endif
+}
+
 static void BM_gf256_mul_u64(benchmark::State& state) {
     uint64_t a = 1;
     uint8_t b = 2;
@@ -137,22 +149,45 @@ static void BM_gf256_matrix_product_gf16_2(benchmark::State& state) {
 
 #ifdef USE_AVX2
 
-static void BM_gf256_mul_u256(benchmark::State& state) {
-    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
+static void BM_gf256_sqr_u256(benchmark::State& state) {
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, one = {1,13,2,5,3,12,18,9};
+    // uint64_t c = 0;
     for (auto _ : state) {
-        a.v256 = gf256v_mul_u256(a.v256, b.v256);
+        // c -= cpucycles();
+        a.v256 = gf256v_sqr_u256(a.v256);
+        //c += cpucycles();
         a.v256 = _mm256_add_epi32(a.v256, one.v256);
         benchmark::DoNotOptimize(a.v256);
     }
+    // state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
+static void BM_gf256_mul_u256(benchmark::State& state) {
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
+
+    uint64_t c = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        a.v256 = gf256v_mul_u256(a.v256, b.v256);
+        c += cpucycles();
+        a.v256 = _mm256_add_epi32(a.v256, one.v256);
+        benchmark::DoNotOptimize(a.v256);
+    }
+    state.counters["cycles"] = (double)c/(double)state.iterations();
 }
 
 static void BM_gf256_mul_u256_v2(benchmark::State& state) {
     v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
+
+    uint64_t c = 0;
     for (auto _ : state) {
+        c -= cpucycles();
         a.v256 = gf256v_mul_u256_v2(a.v256, b.v256);
+        c += cpucycles();
         a.v256 = _mm256_add_epi32(a.v256, one.v256);
 		benchmark::DoNotOptimize(a.v256); 
     }
+    state.counters["cycles"] = (double)c/(double)state.iterations();
 }
 
 static void BM_gf256v_mul_scalar_avx2(benchmark::State& state) {
@@ -287,9 +322,11 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
     }
 }
 
-// BENCHMARK(BM_gf256_mul_u256);
-// BENCHMARK(BM_gf256_mul_u256_v2);
-// BENCHMARK(BM_gf256v_mul_scalar_avx2);
+BENCHMARK(BM_gf256_sqr_u256);
+BENCHMARK(BM_gf256_mul_u256);
+BENCHMARK(BM_gf256_mul_u256_v2);
+BENCHMARK(BM_gf256v_mul_scalar_avx2);
+
 // BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256   )->RangeMultiplier(2)->Range(15, LIST_SIZE);
@@ -302,7 +339,7 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 // BENCHMARK(BM_gf256_matrix_product_gf16_2_u256);
 // BENCHMARK(BM_gf256_matrix_product_8x8xC_u256);
 // BENCHMARK(BM_gf256_matrix_product_16x16xC_u256);
-BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
+// BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
 #endif
 
 #ifdef USE_NEON
