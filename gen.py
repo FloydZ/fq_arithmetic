@@ -10,7 +10,7 @@ from typing import List
 
 
 list_of_arguments = ["c", "a", "b"]
-list_of_variables = ["t1", "t2", "t3", "t4"]
+list_of_variables = ["t" + str(i) for i in range(10)]
 
 
 def static_vars(**kwargs):
@@ -24,7 +24,9 @@ def static_vars(**kwargs):
 
 @static_vars(ctr=0)
 def get_var_name():
-    """ TODO """
+    """
+    :return the next free name of a variable.
+    """
     ret = list_of_variables[get_var_name.ctr]
     get_var_name.ctr += 1
     return ret
@@ -32,6 +34,10 @@ def get_var_name():
 
 def generate_function_declaration(name: str, typ: str, nr_args: int) -> str:
     """generates a simple C function header
+    :param name: name of the function 
+    :param typ: type of the input arguments
+    :param nr_args: number of input arguments
+    :return `void {name}({typ} *arg1);`
     """
     assert nr_args <= len(list_of_arguments)
     ret = f"void {name}(\n"
@@ -78,30 +84,71 @@ def bits_to_type_str(n: int) -> str:
     return f"uint{n}_t"
 
 
-class AVX:
-    @staticmethod
-    def decl(regs: List[str]) -> str:
-        return "__m256i " + ", ".join(regs) + ";\n"
+class NEON:
+    def __init__(self, q: int) -> None:
+        self.q_str = str(q)
+        self.q = q
+        n = ceil_power_of_2(ceil(log2(q)))
+        if n not in [8, 16, 32, 64]:
+            raise ValueError("not in range")
+        self.register_width = 128
+        t =  self.register_width // n
+        self.register_name = f"uint{n}x{t}_t"
 
-    @staticmethod
-    def load(out_var: str, in_var: str) -> str:
+
+    def decl(self, regs: List[str]) -> str:
+        """
+        :param regs: list of registers the declare 
+        :return a string containing the register declaration
+        """
+        return self.register_name + " " + ", ".join(regs) + ";\n"
+
+
+class AVX:
+    def __init__(self, q:int) -> None:
+        self.q_str = str(q)
+        self.q = q
+        self.register_width = 256
+        self.register_name = "__m256i"
+
+
+    def decl(self, regs: List[str]) -> str:
+        """
+        :param regs: list of registers the declare 
+        :return a string containing the register declaration
+        """
+        return self.register_name + " " + ", ".join(regs) + ";\n"
+
+    def load(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var:
+        :param in_var:
+        """
         return f"{out_var} = _mm256_loadu_si256((__m256i *)({in_var}));\n"
 
-    @staticmethod
-    def load_multiple(out_vars: List[str],
+    def load_multiple(self,
+                      out_vars: List[str],
                       in_var: str,
                       stride: int) -> str:
+        """
+        :param out_vars:
+        :param in_var:
+        :param stride:
+        """
         ret = ""
         for i, out_var in enumerate(out_vars):
             ret += f"{out_var} = _mm256_loadu_si256((__m256i *)({in_var} + {i}*{stride}));\n"
         return ret
 
-    @staticmethod
-    def store(out_var: str, in_var: str) -> str:
+    def store(self,
+              out_var: str,
+              in_var: str) -> str:
         return f"_mm256_storeu_si256((__m256i *)({out_var}), {in_var});\n"
     
-    @staticmethod
-    def store_multiple(out_var: str,
+    def store_multiple(self,
+                       out_var: str,
                        in_vars: List[str],
                        stride: int) -> str:
         ret = ""
@@ -109,19 +156,33 @@ class AVX:
             ret += f"_mm256_storeu_si256((__m256i *)({out_var} + {i}*{stride}), {in_var});\n"
         return ret
 
-    @staticmethod
-    def xor(oreg: str, ireg1: str, ireg2: str) -> str:
-        return f"{oreg} = _mm256_xor_si256({ireg1}, {ireg2});\n"
+    def add(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        """
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_add_u256({ireg1}, {ireg2});\n"
 
-    @staticmethod
-    def xor_multiple(oregs: List[str],
+    def add_multiple(self,
+                     oregs: List[str],
                      iregs1: List[str], 
                      iregs2: List[str]) -> str:
+        """
+        :param oreg: output Registers
+        :param ireg1: first input registers
+        :param ireg2: second input registers
+        :return: a string containing the call to multiple vectorized addition function
+        """
         assert len(oregs) == len(iregs1) == len(iregs2)
         ret = ""
         for i in range(len(oregs)):
             oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
-            ret += f"{oreg} = _mm256_xor_si256({ireg1}, {ireg2});\n"
+            ret += f"{oreg} = gf{self.q_str}v_add_u256({ireg1}, {ireg2});\n"
         return ret
 
 
@@ -222,18 +283,18 @@ class Vector(Shape):
 
     def gen_add(self) -> str:
         """
+        :return a string contain the vector addition
         """
         SIMD = AVX
-        total_number_of_simd = 2*self.number_limbs_q_mu 
         in1_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
         in2_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
 
-        ret = generate_function_declaration("add", self.limb_type_str, 3)
+        ret = generate_function_declaration("vector_add", self.limb_type_str, 3)
         ret += "{\n"
         ret += SIMD.decl(in1_simd_names + in2_simd_names)
         ret += SIMD.load_multiple(in1_simd_names, "a", self.limb_per_simd_q_mu)
         ret += SIMD.load_multiple(in2_simd_names, "b", self.limb_per_simd_q_mu)
-        ret += SIMD.xor_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
+        ret += SIMD.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names, self.q)
         ret += SIMD.store_multiple("c", in1_simd_names, self.limb_per_simd_q_mu)
         
 
