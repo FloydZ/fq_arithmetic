@@ -5,12 +5,12 @@ from math import log2, ceil
 from typing import List
 
 # TODO: implement the following flags:
-#   - perload_matrix)into_registers
+#   - perload_matrix_into_registers (load everything into registers and then do the math)
 #   - 
 
 
 list_of_arguments = ["c", "a", "b"]
-list_of_variables = ["t" + str(i) for i in range(10)]
+list_of_variables = ["t" + str(i) for i in range(100)]
 
 
 def static_vars(**kwargs):
@@ -64,7 +64,7 @@ def ceil_mutliple_of(a: int, n: int) -> int:
 def ceil_power_of_2(a: int) -> int:
     """
     :param a: input value
-    :return tha smallest power of two (>= 8) s.t. >= a
+    :return the smallest power of two (>= 8) s.t. >= a
     """
     tmp = [8, 16, 32, 64]
     for t in tmp:
@@ -76,32 +76,12 @@ def ceil_power_of_2(a: int) -> int:
 
 def bits_to_type_str(n: int) -> str:
     """
-    :param n:
-    :return 
+    :param n: integer in [8, 16, 32, 64]
+    :return: `uint{n}_t`
     """
     if n not in [8, 16, 32, 64]:
         raise ValueError("not in range")
     return f"uint{n}_t"
-
-
-class NEON:
-    def __init__(self, q: int) -> None:
-        self.q_str = str(q)
-        self.q = q
-        n = ceil_power_of_2(ceil(log2(q)))
-        if n not in [8, 16, 32, 64]:
-            raise ValueError("not in range")
-        self.register_width = 128
-        t =  self.register_width // n
-        self.register_name = f"uint{n}x{t}_t"
-
-
-    def decl(self, regs: List[str]) -> str:
-        """
-        :param regs: list of registers the declare 
-        :return a string containing the register declaration
-        """
-        return self.register_name + " " + ", ".join(regs) + ";\n"
 
 
 class AVX:
@@ -110,6 +90,7 @@ class AVX:
         self.q = q
         self.register_width = 256
         self.register_name = "__m256i"
+        self.aligned_instructions = False
 
 
     def decl(self, regs: List[str]) -> str:
@@ -123,9 +104,11 @@ class AVX:
              out_var: str,
              in_var: str) -> str:
         """
-        :param out_var:
-        :param in_var:
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
         """
+        if self.aligned_instructions:
+            return f"{out_var} = _mm256_load_si256((__m256i *)({in_var}));\n"
         return f"{out_var} = _mm256_loadu_si256((__m256i *)({in_var}));\n"
 
     def load_multiple(self,
@@ -133,27 +116,38 @@ class AVX:
                       in_var: str,
                       stride: int) -> str:
         """
-        :param out_vars:
-        :param in_var:
-        :param stride:
+        :param out_vars: list of register variables to store the result
+        :param in_var: name of the memory variable
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
         """
         ret = ""
         for i, out_var in enumerate(out_vars):
-            ret += f"{out_var} = _mm256_loadu_si256((__m256i *)({in_var} + {i}*{stride}));\n"
+            ret += self.load(out_var, f"{in_var} + {i}*{stride}")
         return ret
 
     def store(self,
               out_var: str,
               in_var: str) -> str:
+        """
+        :param out_var: variable name containing pointer to memory
+        :param in_var: register variable
+        """
+        if self.aligned_instructions:
+            return f"_mm256_store_si256((__m256i *)({out_var}), {in_var});\n"
         return f"_mm256_storeu_si256((__m256i *)({out_var}), {in_var});\n"
     
     def store_multiple(self,
                        out_var: str,
                        in_vars: List[str],
                        stride: int) -> str:
+        """
+        :param out_var: name of variable containing memory location
+        :param in_vars: names of registers to store
+        :param stride: number of Fq limbs between two stores. NOTE: not bytes.
+        """
         ret = ""
         for i, in_var in enumerate(in_vars):
-            ret += f"_mm256_storeu_si256((__m256i *)({out_var} + {i}*{stride}), {in_var});\n"
+            ret += self.store(f"{out_var} + {i}*{stride}", in_var)
         return ret
 
     def add(self,
@@ -182,8 +176,27 @@ class AVX:
         ret = ""
         for i in range(len(oregs)):
             oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
-            ret += f"{oreg} = gf{self.q_str}v_add_u256({ireg1}, {ireg2});\n"
+            ret += self.add(oreg, ireg1, ireg2)
         return ret
+
+
+class NEON:
+    def __init__(self, q: int) -> None:
+        self.q_str = str(q)
+        self.q = q
+        n = ceil_power_of_2(ceil(log2(q)))
+        if n not in [8, 16, 32, 64]:
+            raise ValueError("not in range")
+        self.register_width = 128
+        t =  self.register_width // n
+        self.register_name = f"uint{n}x{t}_t"
+
+    def decl(self, regs: List[str]) -> str:
+        """
+        :param regs: list of registers the declare 
+        :return a string containing the register declaration
+        """
+        return self.register_name + " " + ", ".join(regs) + ";\n"
 
 
 class Shape:
@@ -278,14 +291,14 @@ class Vector(Shape):
             the vector is a multiple (in terms of gf elements) of `simd_width`.
         """
         super().__init__(n, q, mu, simd_width, padding)
-        # print(self.__dict__)
-
 
     def gen_add(self) -> str:
         """
         :return a string contain the vector addition
         """
-        SIMD = AVX
+        SIMD = AVX(self.q)
+        print(SIMD.__dict__)
+        print(self.__dict__)
         in1_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
         in2_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
 
@@ -294,10 +307,8 @@ class Vector(Shape):
         ret += SIMD.decl(in1_simd_names + in2_simd_names)
         ret += SIMD.load_multiple(in1_simd_names, "a", self.limb_per_simd_q_mu)
         ret += SIMD.load_multiple(in2_simd_names, "b", self.limb_per_simd_q_mu)
-        ret += SIMD.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names, self.q)
+        ret += SIMD.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
         ret += SIMD.store_multiple("c", in1_simd_names, self.limb_per_simd_q_mu)
-        
-
         ret += "}\n"
         return ret
 
@@ -335,7 +346,7 @@ class Matrix(Vector):
 
 if __name__ == "__main__":
     #v = Vector(31, 127, 2, 256, padding=True)
-    v = Vector(31, 2, 1, 256, padding=True)
+    v = Vector(257, 2, 1, 256, padding=True)
     print("""
 #include <immintrin.h>
 #include <stdint.h>
