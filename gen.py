@@ -84,7 +84,93 @@ def bits_to_type_str(n: int) -> str:
     return f"uint{n}_t"
 
 
-class AVX:
+class SIMD:
+    def load(self,
+             out_var: str,
+             in_var: str) -> str:
+        raise NotImplemented
+    
+    def load_multiple(self,
+                      out_vars: List[str],
+                      in_var: str,
+                      stride: int) -> str:
+        """
+        :param out_vars: list of register variables to store the result
+        :param in_var: name of the memory variable
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
+        """
+        ret = ""
+        for i, out_var in enumerate(out_vars):
+            ret += self.load(out_var, f"{in_var} + {i}*{stride}")
+        return ret
+
+    def store(self,
+              out_var: str,
+              in_var: str) -> str:
+        raise NotImplemented
+
+    def store_multiple(self,
+                       out_var: str,
+                       in_vars: List[str],
+                       stride: int) -> str:
+        """
+        :param out_var: name of variable containing memory location
+        :param in_vars: names of registers to store
+        :param stride: number of Fq limbs between two stores. NOTE: not bytes.
+        """
+        ret = ""
+        for i, in_var in enumerate(in_vars):
+            ret += self.store(f"{out_var} + {i}*{stride}", in_var)
+        return ret
+
+    def add(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        raise NotImplemented
+
+    def add_multiple(self,
+                     oregs: List[str],
+                     iregs1: List[str], 
+                     iregs2: List[str]) -> str:
+        """
+        :param oreg: output Registers
+        :param ireg1: first input registers
+        :param ireg2: second input registers
+        :return: a string containing the call to multiple vectorized addition function
+        """
+        assert len(oregs) == len(iregs1) == len(iregs2)
+        ret = ""
+        for i in range(len(oregs)):
+            oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
+            ret += self.add(oreg, ireg1, ireg2)
+        return ret
+    
+    def mul(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        raise NotImplemented
+
+    def mul_multiple(self,
+                     oregs: List[str],
+                     iregs1: List[str], 
+                     iregs2: List[str]) -> str:
+        """
+        :param oreg: output Registers
+        :param ireg1: first input registers
+        :param ireg2: second input registers
+        :return: a string containing the call to multiple vectorized addition function
+        """
+        assert len(oregs) == len(iregs1) == len(iregs2)
+        ret = ""
+        for i in range(len(oregs)):
+            oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
+            ret += self.add(oreg, ireg1, ireg2)
+        return ret
+
+
+class AVX(SIMD):
     def __init__(self, q:int) -> None:
         self.q_str = str(q)
         self.q = q
@@ -111,20 +197,6 @@ class AVX:
             return f"{out_var} = _mm256_load_si256((__m256i *)({in_var}));\n"
         return f"{out_var} = _mm256_loadu_si256((__m256i *)({in_var}));\n"
 
-    def load_multiple(self,
-                      out_vars: List[str],
-                      in_var: str,
-                      stride: int) -> str:
-        """
-        :param out_vars: list of register variables to store the result
-        :param in_var: name of the memory variable
-        :param stride: number of Fq limbs between two loads. NOTE: not bytes
-        """
-        ret = ""
-        for i, out_var in enumerate(out_vars):
-            ret += self.load(out_var, f"{in_var} + {i}*{stride}")
-        return ret
-
     def store(self,
               out_var: str,
               in_var: str) -> str:
@@ -136,20 +208,6 @@ class AVX:
             return f"_mm256_store_si256((__m256i *)({out_var}), {in_var});\n"
         return f"_mm256_storeu_si256((__m256i *)({out_var}), {in_var});\n"
     
-    def store_multiple(self,
-                       out_var: str,
-                       in_vars: List[str],
-                       stride: int) -> str:
-        """
-        :param out_var: name of variable containing memory location
-        :param in_vars: names of registers to store
-        :param stride: number of Fq limbs between two stores. NOTE: not bytes.
-        """
-        ret = ""
-        for i, in_var in enumerate(in_vars):
-            ret += self.store(f"{out_var} + {i}*{stride}", in_var)
-        return ret
-
     def add(self,
             oreg: str,
             ireg1: str,
@@ -161,35 +219,83 @@ class AVX:
         :return: a string containing the call to the vectorized addition function
         """
         return f"{oreg} = gf{self.q_str}v_add_u256({ireg1}, {ireg2});\n"
-
-    def add_multiple(self,
-                     oregs: List[str],
-                     iregs1: List[str], 
-                     iregs2: List[str]) -> str:
+    
+    def mul(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
         """
-        :param oreg: output Registers
-        :param ireg1: first input registers
-        :param ireg2: second input registers
-        :return: a string containing the call to multiple vectorized addition function
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
         """
-        assert len(oregs) == len(iregs1) == len(iregs2)
-        ret = ""
-        for i in range(len(oregs)):
-            oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
-            ret += self.add(oreg, ireg1, ireg2)
-        return ret
+        return f"{oreg} = gf{self.q_str}v_mul_u256({ireg1}, {ireg2});\n"
 
 
-class NEON:
+class AVX512(AVX):
+    def __init__(self, q: int) -> None:
+        super().__init__(q)
+        self.register_width = 512
+        self.register_name = "__m512i"
+
+    def load(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
+        """
+        if self.aligned_instructions:
+            return f"{out_var} = _mm512_load_si512((__m512i *)({in_var}));\n"
+        return f"{out_var} = _mm512_loadu_si512((__m512i *)({in_var}));\n"
+
+    def store(self,
+              out_var: str,
+              in_var: str) -> str:
+        """
+        :param out_var: variable name containing pointer to memory
+        :param in_var: register variable
+        """
+        if self.aligned_instructions:
+            return f"_mm512_store_si512((__m512i *)({out_var}), {in_var});\n"
+        return f"_mm512_storeu_si512((__m512i *)({out_var}), {in_var});\n"
+    
+    def add(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        """
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_add_u512({ireg1}, {ireg2});\n"
+    
+    def mul(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        """
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_mul_u512({ireg1}, {ireg2});\n"
+
+
+class NEON(SIMD):
     def __init__(self, q: int) -> None:
         self.q_str = str(q)
         self.q = q
-        n = ceil_power_of_2(ceil(log2(q)))
-        if n not in [8, 16, 32, 64]:
+        self.n = ceil_power_of_2(ceil(log2(q)))
+        if self.n not in [8, 16, 32, 64]:
             raise ValueError("not in range")
         self.register_width = 128
-        t =  self.register_width // n
-        self.register_name = f"uint{n}x{t}_t"
+        t =  self.register_width // self.n
+        self.register_name = f"uint{self.n}x{t}_t"
 
     def decl(self, regs: List[str]) -> str:
         """
@@ -197,6 +303,48 @@ class NEON:
         :return a string containing the register declaration
         """
         return self.register_name + " " + ", ".join(regs) + ";\n"
+
+    def load(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
+        """
+        return f"{out_var} = vld1q_u{self.n}(({self.register_name} *)({in_var}));\n"
+
+    def store(self,
+              out_var: str,
+              in_var: str) -> str:
+        """
+        :param out_var: variable name containing pointer to memory
+        :param in_var: register variable
+        """
+        return f"vst1q_u(({self.register_name} *)({out_var}), {in_var});\n"
+    
+    def add(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        """
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_add_u128({ireg1}, {ireg2});\n"
+    
+    def mul(self,
+            oreg: str,
+            ireg1: str,
+            ireg2: str) -> str:
+        """
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized multiply function
+        """
+        return f"{oreg} = gf{self.q_str}v_mul_u128({ireg1}, {ireg2});\n"
 
 
 class Shape:
@@ -209,7 +357,7 @@ class Shape:
     def __init__(self, n: int,
                  q: int,
                  mu: int,
-                 simd_width: int,
+                 simd,
                  padding: bool = False) -> None:
         """
         Nomenclature: Example of a SSE/NEON Register and F2
@@ -235,9 +383,10 @@ class Shape:
         :param simd_width: TODO
         :param padding: TODO
         """
-        self.q, self.mu, self.n, self.simd_width, self.padding =\
-            q, mu, n, simd_width, padding
+        self.q, self.mu, self.n, self.simd, self.padding =\
+            q, mu, n, simd, padding
         self.tail = not padding
+        self.simd_width = self.simd.register_width
 
         # NOTE: well, actually thatsnot 100% correct. It could be that only 
         # 7 bits are used, so technically we need to round here
@@ -254,7 +403,8 @@ class Shape:
         self.q_mu_per_simd = (self.simd_width//self.bits_limb_q_mu) * self.q_mu_per_limb
         self.limb_per_simd_q_mu = self.simd_width//self.bits_limb_q_mu
 
-        tmp = (((n*self.bits_limb_q_mu + self.simd_width - 1) // self.simd_width)) * self.q_mu_per_simd
+        scale = self.bits_q_mu if self.use_sub_limbs_q_mu else self.bits_limb_q_mu
+        tmp = (((n*scale + self.simd_width - 1) // self.simd_width)) * self.q_mu_per_simd
         self.internal_n = n if not padding else tmp
 
         self.number_limbs_q_mu = self.internal_n // self.q_mu_per_limb
@@ -263,7 +413,7 @@ class Shape:
         self.bits = self.number_limbs_q_mu * self.bits_limb_q_mu
 
         self.limb_type_str = bits_to_type_str(self.bits_limb_q_mu)
-        self.simd_type_str = "__m256i" # TODO not generic
+        self.simd_type_str = self.simd.register_name
 
 
 class Vector(Shape):
@@ -278,37 +428,33 @@ class Vector(Shape):
     def __init__(self, n: int,
                  q: int,
                  mu: int,
-                 simd_width: int = 32,
+                 simd,
                  padding=False) -> None:
         """
         :param n: length of the vector
         :param q: base prime
         :param mu: extension degree
-        :param simd_width: TODO not sure whats correct here. Either:
-            - u8x32 as a enum (u8x16 for neon)
-            - 256: simply as a number (128 for  neon)
+        :param simd_width: SIMD type, like AVX, AVX512, NEON
         :param padding: if true the script assumes that the allocated length of
             the vector is a multiple (in terms of gf elements) of `simd_width`.
         """
-        super().__init__(n, q, mu, simd_width, padding)
+        super().__init__(n, q, mu, simd, padding)
+        print(self.__dict__)
 
     def gen_add(self) -> str:
         """
         :return a string contain the vector addition
         """
-        SIMD = AVX(self.q)
-        print(SIMD.__dict__)
-        print(self.__dict__)
         in1_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
         in2_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
 
         ret = generate_function_declaration("vector_add", self.limb_type_str, 3)
         ret += "{\n"
-        ret += SIMD.decl(in1_simd_names + in2_simd_names)
-        ret += SIMD.load_multiple(in1_simd_names, "a", self.limb_per_simd_q_mu)
-        ret += SIMD.load_multiple(in2_simd_names, "b", self.limb_per_simd_q_mu)
-        ret += SIMD.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
-        ret += SIMD.store_multiple("c", in1_simd_names, self.limb_per_simd_q_mu)
+        ret += self.simd.decl(in1_simd_names + in2_simd_names)
+        ret += self.simd.load_multiple(in1_simd_names, "a", self.limb_per_simd_q_mu)
+        ret += self.simd.load_multiple(in2_simd_names, "b", self.limb_per_simd_q_mu)
+        ret += self.simd.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
+        ret += self.simd.store_multiple("c", in1_simd_names, self.limb_per_simd_q_mu)
         ret += "}\n"
         return ret
 
@@ -345,8 +491,10 @@ class Matrix(Vector):
 
 
 if __name__ == "__main__":
-    #v = Vector(31, 127, 2, 256, padding=True)
-    v = Vector(257, 2, 1, 256, padding=True)
+    simd = AVX(127)
+    v = Vector(31, 127, 2, simd, padding=True)
+    simd = NEON(2)
+    v = Vector(257, 2, 1, simd, padding=True)
     print("""
 #include <immintrin.h>
 #include <stdint.h>
