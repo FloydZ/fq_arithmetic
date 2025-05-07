@@ -5,8 +5,11 @@ from math import log2, ceil
 from typing import List
 
 # TODO: implement the following flags:
-#   - perload_matrix_into_registers (load everything into registers and then do the math)
-#   - 
+#   - preload_matrix_into_registers (load everything into registers and then do the math)
+#   - instead of instrinsics, emit actual instructions
+#   - the shape class exports to many internal values. make them private
+#   - make the access to the `list_of_arguments` generic: like the name of the out param is always the same
+#   - make the `generate_function_declaration` more abstract, support different type for each argument.
 
 
 list_of_arguments = ["c", "a", "b"]
@@ -14,7 +17,7 @@ list_of_variables = ["t" + str(i) for i in range(100)]
 
 
 def static_vars(**kwargs):
-    """ TODO """
+    """ helper function, injecting static variables into a function """
     def decorate(func):
         for k in kwargs:
             setattr(func, k, kwargs[k])
@@ -123,6 +126,43 @@ class SIMD:
             ret += self.store(f"{out_var} + {i}*{stride}", in_var)
         return ret
 
+    def set1(self,
+            out_var: str,
+            in_var: str) -> str:
+        raise NotImplemented
+
+    def set1_multiple(self,
+                     out_vars: List[str],
+                     in_vars: List[str]) -> str:
+        """
+        :param out_vars: list of register variables to store the result
+        :param in_var: list of variables to set
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
+        """
+        ret = ""
+        for i, out_var in enumerate(out_vars):
+            ret += self.expand(out_var, in_vars[i])
+        return ret
+    
+    def expand(self,
+               out_var: str,
+               in_var: str) -> str:
+        raise NotImplemented
+
+    def expand_multiple(self,
+                        out_vars: List[str],
+                        in_var: str,
+                        stride: int) -> str:
+        """
+        :param out_vars: list of register variables to store the result
+        :param in_var: name of the memory variable
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
+        """
+        ret = ""
+        for i, out_var in enumerate(out_vars):
+            ret += self.expand(out_var, f"{in_var} + {i}*{stride}")
+        return ret
+
     def add(self,
             oreg: str,
             ireg1: str,
@@ -177,6 +217,9 @@ class AVX(SIMD):
         self.register_width = 256
         self.register_name = "__m256i"
         self.aligned_instructions = False
+        self.n = ceil_power_of_2(ceil(log2(q)))
+        if self.n not in [8, 16, 32, 64]:
+            raise ValueError("not in range")
 
 
     def decl(self, regs: List[str]) -> str:
@@ -207,6 +250,24 @@ class AVX(SIMD):
         if self.aligned_instructions:
             return f"_mm256_store_si256((__m256i *)({out_var}), {in_var});\n"
         return f"_mm256_storeu_si256((__m256i *)({out_var}), {in_var});\n"
+    
+    def set1(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
+        """
+        return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
+    
+    def expand(self,
+               out_var: str,
+               in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
+        """
+        return f"{out_var} = gf{self.q_str}v_expand_u256({in_var});\n"
     
     def add(self,
             oreg: str,
@@ -388,35 +449,47 @@ class Shape:
         self.tail = not padding
         self.simd_width = self.simd.register_width
 
+        # TODO, decide which of the values should be exported
+
         # NOTE: well, actually thatsnot 100% correct. It could be that only 
         # 7 bits are used, so technically we need to round here
-        self.bits_q = ceil(log2(q)) 
+        self.bits_q = ceil(log2(q))
         self.bits_q_mu = ceil(log2(q**mu))
         # which is done here
         self.bits_limb_q = ceil_power_of_2(self.bits_q)
         self.bits_limb_q_mu = ceil_power_of_2(self.bits_q_mu)
-
         self.use_sub_limbs_q = self.bits_q <= Shape.SUB_LIMB_LIMIT
         self.use_sub_limbs_q_mu = self.bits_q_mu <= Shape.SUB_LIMB_LIMIT
 
+        self.q_per_limb = self.bits_limb_q//self.bits_q if self.use_sub_limbs_q else 1
         self.q_mu_per_limb = self.bits_limb_q_mu//self.bits_q_mu if self.use_sub_limbs_q_mu else 1
+        self.q_per_simd = (self.simd_width//self.bits_limb_q) * self.q_per_limb
         self.q_mu_per_simd = (self.simd_width//self.bits_limb_q_mu) * self.q_mu_per_limb
+        self.limb_per_simd_q = self.simd_width//self.bits_limb_q
         self.limb_per_simd_q_mu = self.simd_width//self.bits_limb_q_mu
 
         scale = self.bits_q_mu if self.use_sub_limbs_q_mu else self.bits_limb_q_mu
         tmp = (((n*scale + self.simd_width - 1) // self.simd_width)) * self.q_mu_per_simd
         self.internal_n = n if not padding else tmp
 
+        # number of limbs to represent `internal_n` fq^mu elements
         self.number_limbs_q_mu = self.internal_n // self.q_mu_per_limb
+        # number of simds to represent `internal_n` fq^mu elements
         self.number_simd_q_mu = self.internal_n // self.q_mu_per_simd
-
+        # total number of bits needed
         self.bits = self.number_limbs_q_mu * self.bits_limb_q_mu
 
+        # something like `uint8_t`, ..., `uint64_t`
         self.limb_type_str = bits_to_type_str(self.bits_limb_q_mu)
+        # something like `__m256i` or `uint8x8_t`
         self.simd_type_str = self.simd.register_name
+        
+        # number of fq_mu limbs between two consecutive expand calls. It is 
+        # basically the stride
+        self.expand_number_limbs = self.limb_per_simd_q_mu // self.q_per_limb if self.use_sub_limbs_q else self.q_mu_per_simd 
 
 
-class Vector(Shape):
+class Vector:
     """
     Vector generation class
     Assumes the existance of the following functions:
@@ -438,34 +511,55 @@ class Vector(Shape):
         :param padding: if true the script assumes that the allocated length of
             the vector is a multiple (in terms of gf elements) of `simd_width`.
         """
-        super().__init__(n, q, mu, simd, padding)
-        print(self.__dict__)
+        self.q, self.mu, self.n, self.simd, self.padding =\
+            q, mu, n, simd, padding
 
-    def gen_add(self) -> str:
+    def gen_add(self, fn_name: str = "vector_add") -> str:
         """
+        :param fn_name: name of the function to emit. Needed, as this funciton
+            is called by the `Matrix` interface
         :return a string contain the vector addition
         """
-        in1_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
-        in2_simd_names = [get_var_name() for _ in range(self.number_simd_q_mu)]
+        s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
+        in2_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
 
-        ret = generate_function_declaration("vector_add", self.limb_type_str, 3)
+        ret = generate_function_declaration(fn_name, s.limb_type_str, 3)
         ret += "{\n"
         ret += self.simd.decl(in1_simd_names + in2_simd_names)
-        ret += self.simd.load_multiple(in1_simd_names, "a", self.limb_per_simd_q_mu)
-        ret += self.simd.load_multiple(in2_simd_names, "b", self.limb_per_simd_q_mu)
+        ret += self.simd.load_multiple(in1_simd_names, "a", s.limb_per_simd_q_mu)
+        ret += self.simd.load_multiple(in2_simd_names, "b", s.limb_per_simd_q_mu)
         ret += self.simd.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
-        ret += self.simd.store_multiple("c", in1_simd_names, self.limb_per_simd_q_mu)
+        ret += self.simd.store_multiple("c", in1_simd_names, s.limb_per_simd_q_mu)
+        ret += "}\n"
+        return ret
+
+    def gen_extend(self, fn_name: str = "vector_extend") -> str:
+        """
+        :param fn_name: name of the function to emit. Needed, as this funciton
+            is called by the `Matrix` interface
+        :return a string contain the vector extention
+        """
+        s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
+
+        ret = generate_function_declaration(fn_name, s.limb_type_str, 2)
+        ret += "{\n"
+        ret += self.simd.decl(in1_simd_names)
+        ret += self.simd.expand_multiple(in1_simd_names, "a", s.expand_number_limbs)
+        ret += self.simd.store_multiple("c", in1_simd_names, s.limb_per_simd_q_mu)
         ret += "}\n"
         return ret
 
 
-class Matrix(Vector):
-    def __init__(self, q: int,
-                 mu: int, 
+class Matrix:
+    def __init__(self, 
                  n: int,
                  m: int,
                  k: int,
-                 simd_width: int = 256,
+                 q: int,
+                 mu: int, 
+                 simd: SIMD,
                  col_major=True,
                  padding=False) -> None:
         """
@@ -487,16 +581,110 @@ class Matrix(Vector):
         each col (or row if row major) is a multiple (in terms of gf elements)
         of `simd_width`.
         """
-        pass
+        self.q, self.mu, self.n, self.m, self.k, self.simd, self.padding, self.col_major =\
+            q, mu, n, m, k, simd, padding, col_major
+
+    def gen_add(self, fn_name: str = "matrix_add") -> str:
+        """
+        :return a string contain the matrix addition
+        """
+        assert self.k == self.m
+        v = Vector(self.m*self.n, self.q, self.mu, self.simd, self.padding)
+        return v.gen_add(fn_name=fn_name)
+
+    def gen_matrix_vector_mul(self, fn_name: str = "matrix_vector_mul") -> str:
+        """
+             k           m         1    
+         ┌───────┐   ┌───────┐     ┌┐
+         │       │   │       │     ││
+        n│   C   │ = │   A   │n · m││B
+         │       │   │       │     ││
+         └───────┘   └───────┘     └┘
+        :return a string contain the matrix vector mul
+        """
+        A_s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        B_s = Shape(self.m, self.q, self.mu, self.simd, self.padding)
+
+        # load B into mem
+        A_simd_names = [get_var_name() for _ in range(A_s.number_simd_q_mu)]
+        B_simd_name = get_var_name()
+
+        ret = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
+        ret += "{\n"
+        ret += A_s.simd.decl(A_simd_names)
+        ret += B_s.simd.decl([B_simd_name])
+
+        for i in range(self.m):
+            # load B into register
+            ret += self.simd.set1(B_simd_name, f"b[{i}]")
+
+            # load A into registers
+            ret += A_s.simd.load_multiple(A_simd_names, "a", A_s.limb_per_simd_q_mu)
+
+            # mul each 
+            for r in A_simd_names:
+                ret += self.simd.mul(r, r, B_simd_name)
+
+            # store into C
+            ret += self.simd.store_multiple("c", A_simd_names, A_s.limb_per_simd_q_mu)
+
+            # update the pointers 
+            ret += f"a += {A_s.limb_per_simd_q_mu};\n"
+            ret += f"c += {A_s.limb_per_simd_q_mu};\n"
+        ret += "}\n"
+        return ret
+
+    def gen_matrix_matrix_mul(self, fn_name: str = "matrix_vector_mul") -> str:
+        """
+             k           m           k    
+         ┌───────┐   ┌───────┐     ┌───────┐
+         │       │   │       │     │       │
+        n│   C   │ = │   A   │n · m│   B   │
+         │       │   │       │     │       │
+         └───────┘   └───────┘     └───────┘
+        :return a string contain the matrix vector mul
+        """
+        A_s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        B_s = Shape(self.m, self.q, self.mu, self.simd, self.padding)
+
+        # load B into mem
+        A_simd_names = [get_var_name() for _ in range(A_s.number_simd_q_mu)]
+        B_simd_name = get_var_name()
+
+        ret = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
+        ret += "{\n"
+        ret += A_s.simd.decl(A_simd_names)
+        ret += B_s.simd.decl([B_simd_name])
+
+        for i in range(self.m):
+            # TODO
+            pass
+        ret += "}\n"
+        return ret
 
 
 if __name__ == "__main__":
+    #simd = AVX(16)
+    #v = Vector(31, 16, 3, simd, padding=True)
+    #print(v.gen_extend())
+
+    #simd = AVX(127)
+    #v = Vector(31, 127, 2, simd, padding=True)
+    #print(v.gen_extend())
+
+    #simd = AVX(2)
+    #v = Vector(33, 2, 8, simd, padding=True)
+    #print(v.gen_extend())
+
+    #simd = AVX(127)
+    #v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
     simd = AVX(127)
-    v = Vector(31, 127, 2, simd, padding=True)
-    simd = NEON(2)
-    v = Vector(257, 2, 1, simd, padding=True)
+    v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
     print("""
 #include <immintrin.h>
 #include <stdint.h>
 """)
-    print(v.gen_add())
+    #print(v.gen_add())
+    #print(v.gen_extend())
+    #print(v.gen_matrix_vector_mul())
+    print(v.gen_matrix_matrix_mul())

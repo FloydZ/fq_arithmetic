@@ -890,3 +890,219 @@ static inline void gf127_matrix_transposeNx8(uint8_t *dst,
         }
     }
 }
+
+/// 
+void gf127_matrix_vector_mul(uint8_t *c, 
+                             const uint8_t *a, 
+                             const uint8_t *b, 
+                             const size_t n,
+                             const size_t m) {
+    for (uint32_t i = 0; i < m; i++) {
+        const uint8_t v = b[i];
+        for (uint32_t j = 0; j < n; j++) {
+            const uint8_t w = a[i*m + j];
+            const uint8_t a = gf127_mul(v, w);
+            c[i*m + j] = a;
+        }
+    }
+}
+
+void gf127_matrix_vector_mul_32x32x1_u256(uint8_t *c, 
+                                          const uint8_t *a, 
+                                          const uint8_t *b) {
+    __m256i t0;
+    __m256i t1;
+    t1 = _mm256_set1_epi8(b[0]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[1]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[2]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[3]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[4]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[5]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[6]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[7]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[8]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[9]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[10]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[11]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[12]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[13]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[14]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[15]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[16]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[17]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[18]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[19]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[20]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[21]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[22]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[23]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[24]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[25]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[26]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[27]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[28]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[29]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[30]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+    t1 = _mm256_set1_epi8(b[31]);
+    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
+    t0 = gf127v_mul_u256(t0, t1);
+    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
+    a += 32;
+    c += 32;
+}
+

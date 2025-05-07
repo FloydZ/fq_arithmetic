@@ -17,29 +17,41 @@ const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
 
 typedef uint8_t gf127;
 
+/// \param a[in]:
+/// \param b[in]:
+/// \return a+b % 127
 static inline
 gf127 gf127_add(const gf127 a,
                 const gf127 b) {
     return (a+b) % PRIME;
 }
 
+/// \param a[in]:
+/// \param b[in]:
+/// \return a-b % 127
 static inline
 gf127 gf127_sub(const gf127 a,
                 const gf127 b) {
     return (a+PRIME-b) % PRIME;
 }
 
+/// \param a[in]:
+/// \param b[in]:
+/// \return a*b % 127
 static inline
 gf127 gf127_mul(const gf127 a,
                 const gf127 b) {
     return (a*b)%PRIME;
 }
 
+/// \param a[in]:
+/// \return 0-a % 127
 static inline
 gf127 gf127_neg(const gf127 a) {
     return (PRIME - a) % PRIME;
 }
 
+/// \param Z
 inline static uint32_t gf127v_red_u32(uint32_t Z) {
     const uint32_t mask = 0x7F7F7F7F;
     const uint32_t one = 0x01010101;
@@ -216,6 +228,7 @@ __m256i gf127v_add_u256_v2(const __m256i a,
     return t3;
 }
 
+/// TODO optimized implementation
 /// NOTE: assumes that each gf127 element is in a single uint8_t
 /// \return [a_0 * b_0, a_1*b_1, ..., a_31 * b_31]
 __m256i gf127v_mul_u256(const __m256i a,
