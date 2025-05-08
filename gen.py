@@ -88,6 +88,22 @@ def bits_to_type_str(n: int) -> str:
 
 
 class SIMD:
+    def __init__(self, q:int) -> None:
+        self.register_name = ""
+        self.q_str = str(q)
+        self.q = q
+        self.aligned_instructions = False
+        self.n = ceil_power_of_2(ceil(log2(q)))
+        if self.n not in [8, 16, 32, 64]:
+            raise ValueError("not in range")
+
+    def decl(self, regs: List[str]) -> str:
+        """
+        :param regs: list of registers the declare 
+        :return a string containing the register declaration
+        """
+        return self.register_name + " " + ", ".join(regs) + ";\n"
+
     def load(self,
              out_var: str,
              in_var: str) -> str:
@@ -147,7 +163,11 @@ class SIMD:
     def expand(self,
                out_var: str,
                in_var: str) -> str:
-        raise NotImplemented
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
+        """
+        return f"{out_var} = gf{self.q_str}v_expand_u{self.n}({in_var});\n"
 
     def expand_multiple(self,
                         out_vars: List[str],
@@ -167,7 +187,15 @@ class SIMD:
             oreg: str,
             ireg1: str,
             ireg2: str) -> str:
-        raise NotImplemented
+        """
+        NOTE: this is the Fq addition
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_add_u{self.n}({ireg1}, {ireg2});\n"
+    
 
     def add_multiple(self,
                      oregs: List[str],
@@ -190,7 +218,14 @@ class SIMD:
             oreg: str,
             ireg1: str,
             ireg2: str) -> str:
-        raise NotImplemented
+        """
+        NOTE: this is the Fq mul
+        :param oreg: output Register
+        :param ireg1: first input register 
+        :param ireg2: second input register
+        :return: a string containing the call to the vectorized addition function
+        """
+        return f"{oreg} = gf{self.q_str}v_mul_u{self.n}({ireg1}, {ireg2});\n"
 
     def mul_multiple(self,
                      oregs: List[str],
@@ -210,24 +245,49 @@ class SIMD:
         return ret
 
 
+class SSE(SIMD):
+    def __init__(self, q: int) -> None:
+        super().__init__(q)
+        self.register_width = 128
+        self.register_name = "__m128i"
+
+    def load(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of the variable containing the memory location
+        """
+        if self.aligned_instructions:
+            return f"{out_var} = _mm_load_si128((__m128i *)({in_var}));\n"
+        return f"{out_var} = _mm_loadu_si128((__m128i *)({in_var}));\n"
+
+    def store(self,
+              out_var: str,
+              in_var: str) -> str:
+        """
+        :param out_var: variable name containing pointer to memory
+        :param in_var: register variable
+        """
+        if self.aligned_instructions:
+            return f"_mm_store_si128((__m128i *)({out_var}), {in_var});\n"
+        return f"_mm_storeu_si128((__m128i *)({out_var}), {in_var});\n"
+    
+    def set1(self,
+             out_var: str,
+             in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
+        """
+        return f"{out_var} = _mm_set1_epi{self.n}({in_var});\n"
+    
+
 class AVX(SIMD):
     def __init__(self, q:int) -> None:
-        self.q_str = str(q)
-        self.q = q
+        super().__init__(q)
         self.register_width = 256
         self.register_name = "__m256i"
-        self.aligned_instructions = False
-        self.n = ceil_power_of_2(ceil(log2(q)))
-        if self.n not in [8, 16, 32, 64]:
-            raise ValueError("not in range")
-
-
-    def decl(self, regs: List[str]) -> str:
-        """
-        :param regs: list of registers the declare 
-        :return a string containing the register declaration
-        """
-        return self.register_name + " " + ", ".join(regs) + ";\n"
 
     def load(self,
              out_var: str,
@@ -260,46 +320,13 @@ class AVX(SIMD):
         """
         return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
     
-    def expand(self,
-               out_var: str,
-               in_var: str) -> str:
-        """
-        :param out_var: name of the output variable (register)
-        :param in_var: name of the variable containing the memory location
-        """
-        return f"{out_var} = gf{self.q_str}v_expand_u256({in_var});\n"
-    
-    def add(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
-        """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized addition function
-        """
-        return f"{oreg} = gf{self.q_str}v_add_u256({ireg1}, {ireg2});\n"
-    
-    def mul(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
-        """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized addition function
-        """
-        return f"{oreg} = gf{self.q_str}v_mul_u256({ireg1}, {ireg2});\n"
-
 
 class AVX512(AVX):
     def __init__(self, q: int) -> None:
         super().__init__(q)
         self.register_width = 512
         self.register_name = "__m512i"
-
+    
     def load(self,
              out_var: str,
              in_var: str) -> str:
@@ -322,48 +349,22 @@ class AVX512(AVX):
             return f"_mm512_store_si512((__m512i *)({out_var}), {in_var});\n"
         return f"_mm512_storeu_si512((__m512i *)({out_var}), {in_var});\n"
     
-    def add(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
+    def set1(self,
+             out_var: str,
+             in_var: str) -> str:
         """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized addition function
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
         """
-        return f"{oreg} = gf{self.q_str}v_add_u512({ireg1}, {ireg2});\n"
-    
-    def mul(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
-        """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized addition function
-        """
-        return f"{oreg} = gf{self.q_str}v_mul_u512({ireg1}, {ireg2});\n"
+        return f"{out_var} = _mm512_set1_epi{self.n}({in_var});\n"
 
 
 class NEON(SIMD):
     def __init__(self, q: int) -> None:
-        self.q_str = str(q)
-        self.q = q
-        self.n = ceil_power_of_2(ceil(log2(q)))
-        if self.n not in [8, 16, 32, 64]:
-            raise ValueError("not in range")
+        super().__init__(q)
         self.register_width = 128
         t =  self.register_width // self.n
         self.register_name = f"uint{self.n}x{t}_t"
-
-    def decl(self, regs: List[str]) -> str:
-        """
-        :param regs: list of registers the declare 
-        :return a string containing the register declaration
-        """
-        return self.register_name + " " + ", ".join(regs) + ";\n"
 
     def load(self,
              out_var: str,
@@ -383,34 +384,23 @@ class NEON(SIMD):
         """
         return f"vst1q_u(({self.register_name} *)({out_var}), {in_var});\n"
     
-    def add(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
+    def set1(self,
+             out_var: str,
+             in_var: str) -> str:
         """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized addition function
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
         """
-        return f"{oreg} = gf{self.q_str}v_add_u128({ireg1}, {ireg2});\n"
-    
-    def mul(self,
-            oreg: str,
-            ireg1: str,
-            ireg2: str) -> str:
-        """
-        :param oreg: output Register
-        :param ireg1: first input register 
-        :param ireg2: second input register
-        :return: a string containing the call to the vectorized multiply function
-        """
-        return f"{oreg} = gf{self.q_str}v_mul_u128({ireg1}, {ireg2});\n"
+        return f"{out_var} = vdupq_n_u{self.n}({in_var});\n"
+
+
+class Shuffler:
+    pass
 
 
 class Shape:
     """
-    TODO
+    TODO describe
     """
 
     SUB_LIMB_LIMIT:int = 4
@@ -449,7 +439,7 @@ class Shape:
         self.tail = not padding
         self.simd_width = self.simd.register_width
 
-        # TODO, decide which of the values should be exported
+        # TODO, decide which of the values should be exported, like add `_` everywhere
 
         # NOTE: well, actually thatsnot 100% correct. It could be that only 
         # 7 bits are used, so technically we need to round here
