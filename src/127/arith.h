@@ -140,70 +140,13 @@ inline static uint32_t gf127v_scalar_sub_u32(const uint32_t a,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-/*
- * Fix width 16-bit Barrett modulo reduction Q = 127
- * c = a % q
- */
-#define barrett_red16(c, a, t, c127, c516, c1)                 \
-    t = _mm256_add_epi16(a, c1);     /* t = (a + 1) */         \
-    t = _mm256_mulhi_epu16(t, c516); /* t = (a * 516) >> 16 */ \
-    t = _mm256_mullo_epi16(t, c127); /* t = (t * Q) */         \
-    a = _mm256_sub_epi16(a, t);      /* a = (a - t)*/
 
-/*
- * Fix width 8-bit Barrett modulo reduction Q = 127
- * c = a % q
- */
-#define barrett_red8(a, t, c127, c1) \
-    t = _mm256_srli_epi16(a, 7);     \
-    t = _mm256_and_si256(t, c1);     \
-    a = _mm256_add_epi8(a, t);       \
-    a = _mm256_and_si256(a, c127);
-
-#define barrett_red8_half(a, t, c127, c1) \
-    t = _mm_srli_epi16(a, 7);             \
-    t = _mm_and_si128(t, c1);             \
-    a = _mm_add_epi8(a, t);               \
-    a = _mm_and_si128(a, c127);
-
-/*
- * Fix width 16-bit Barrett multiplication Q = 127
- * c = (a * b) % q
- */
-#define barrett_mul_u16(c, a, b, t) \
-    a = _mm256_mullo_epi16(a, b);   \
-    t = _mm256_srli_epi16(a, 7);    \
-    a = _mm256_add_epi16(a, t);     \
-    t = _mm256_slli_epi16(t, 7);    \
-    c = _mm256_sub_epi16(a, t);
-
-
-/// number of 8 bit elements in an avx register
-#define LESS_WSZ 32
-
-/// number of avx registers needed for a full row in a generator matrix
-#define NW ((N + LESS_WSZ - 1) / LESS_WSZ)
-
-/// original reduction formula
-#define W_RED127(x)                                                            \
-  {                                                                            \
-    t = _mm256_srli_epi16(x, 7);                                               \
-    t = _mm256_and_si256(t, c01);                                              \
-    x = _mm256_add_epi8(x, t);                                                 \
-    x = _mm256_and_si256(x, c7f);                                              \
-  }
-
-/// new reduction formula, catches the case where input is q=127
-#define W_RED127_(x)                                                           \
-  x = _mm256_and_si256(                                                        \
-      _mm256_add_epi8(_mm256_and_si256(                                        \
-                          _mm256_srli_epi16(_mm256_add_epi8(x, c01), 7), c01), \
-                      x),                                                      \
-      c7f);
-
-/// NOTE: assumes that each gf31 element is in a single uint8_t
+/// NOTE: the final `min` instruction can be replaced with `blendv`
 __m256i gf127v_red_u256(const __m256i a) {
-    return a;
+    const __m256i c7f = _mm256_set1_epi8(127);
+    const __m256i t1 = _mm256_sub_epi8(a, c7f);
+    const __m256i t2 = _mm256_min_epu8(t1, a);
+    return t2;
 }
                                       
 /// NOTE: assumes that each gf127 element is in a single uint8_t
@@ -228,7 +171,6 @@ __m256i gf127v_add_u256_v2(const __m256i a,
     return t3;
 }
 
-/// TODO optimized implementation
 /// NOTE: assumes that each gf127 element is in a single uint8_t
 /// \return [a_0 * b_0, a_1*b_1, ..., a_31 * b_31]
 __m256i gf127v_mul_u256(const __m256i a,
@@ -263,21 +205,10 @@ __m256i gf127v_mul_u256(const __m256i a,
     v2 = _mm256_permute4x64_epi64(v1, 0b11011000);
     w1 = _mm256_sub_epi8(v2, c7f);
     w2 = _mm256_blendv_epi8(w1, v2, w1);
+    // NOTE: both work
+    // w2 = _mm256_min_epu8(w1, v2);
 
     return w2;
-    //barrett_mul_u16(a_lo, a_lo, b_lo, t);
-    //barrett_mul_u16(a_hi, a_hi, b_hi, t);
-
-    //a_lo = _mm256_shuffle_epi8(a_lo, shuffle);
-    //a_hi = _mm256_shuffle_epi8(a_hi, shuffle);
-
-    //a_lo = _mm256_permute4x64_epi64(a_lo, 0xd8);
-    //a_hi = _mm256_permute4x64_epi64(a_hi, 0xd8);
-
-    //t = _mm256_permute2x128_si256(a_lo, a_hi, 0x20);
-
-    //barrett_red8(t, r, c8_127, c8_1);
-    //return t;
 }
 
 /// NOTE assumes each FQ element is in a 16bit limb
@@ -310,7 +241,8 @@ static inline __m256i gf127v_mul_u256_v2(const __m256i a1, const __m256i a2,
 
 
 #ifdef USE_AVX512
-/// TODO optimize
+/// \param ret[out]:
+/// \param a[in]:
 static inline void gf127v_scalar_u512_compute_table(__m512i *ret,
                                                     const gf127 a) {
 #if 1
@@ -338,6 +270,35 @@ __m512i gf127v_scalar_table_u512(const __m512i a,
     const __m512i t1 = _mm512_maskz_permutexvar_epi8(m1, a, table1);
     const __m512i t2 = _mm512_maskz_permutexvar_epi8(m2, a, table2);
     const __m512i t = t1 ^ t2;
+    return t;
+}
+
+__m512i gf127v_add_u512(const __m512i a,
+                        const __m512i b) {
+    const __m512i c7f = _mm512_set1_epi8(127);
+    const __m512i t1 = _mm512_add_epi8(a, b);
+    const __m512i t2 = _mm512_sub_epi8(t1, c7f);
+    const __m512i t3 = _mm512_min_epu8(t2, t1);
+    return t3;
+}
+
+/// \param aa[in]: aa[i] < 127 in 16 bit limb for i in range(32)
+/// \param bb[in]: bb[i] < 127 in 16 bit limb for i in range(32)
+/// \return aa[i] * bb[i] for all i in range(32)
+static inline __m256i gf127v_mul_u512(const __m512i aa,
+                                      const __m512i bb) {
+
+    __m512i c01, c7f, c516, tmp;
+    vset16_512(c01, 0x01);
+    vset16_512(c7f, 0x7F);
+    vset16_512(c516, 516);
+
+    __m512i acc = _mm512_mullo_epi16(aa, bb);
+    tmp = _mm512_add_epi16(acc, c01);
+    tmp = _mm512_mulhi_epu16(tmp, c516);
+    tmp = _mm512_mullo_epi16(tmp, c7f);
+    acc = _mm512_sub_epi16(acc, tmp);
+    const __m256i t = _mm512_cvtepi16_epi8(acc);
     return t;
 }
 #endif

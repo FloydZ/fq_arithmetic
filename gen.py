@@ -7,13 +7,35 @@ from typing import List
 # TODO: implement the following flags:
 #   - preload_matrix_into_registers (load everything into registers and then do the math)
 #   - instead of instrinsics, emit actual instructions
+# SHAPE class:
 #   - the shape class exports to many internal values. make them private
+# REGISTERS:
+#   - add neon and m4 registers
+# TESTS:
+#   - well, start adding tests. The problem is: I dont want to have string comparisons in the tests. They would be simply too naiv. 
+# GENERAL:
 #   - make the access to the `list_of_arguments` generic: like the name of the out param is always the same
 #   - make the `generate_function_declaration` more abstract, support different type for each argument.
 
 
+# global variable/configuration:
+# if this value is true, the code generators will emit pure assembly.
+# if this value is false, the code genera tors will emit C intrinsics
+use_assembly = True
+
 list_of_arguments = ["c", "a", "b"]
 list_of_variables = ["t" + str(i) for i in range(100)]
+
+# NOTE: linux x86-64 only
+list_of_arguments_asm = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+list_of_variables_asm_x86= ["r10", "r11", "r12", "r13", "r14", "r15"]
+list_of_variables_asm_x86_avx2 = ["ymm0", "ymm1", "ymm2", "ymm3", "ymm4"]
+list_of_variables_asm_x86_avx512 = ["zmm0", "zmm1", "zmm2", "zmm3", "zmm4"]
+
+
+
+# NOTE:
+global_variables = [] # TODO: add to main code generator
 
 
 def static_vars(**kwargs):
@@ -67,7 +89,7 @@ def ceil_mutliple_of(a: int, n: int) -> int:
 def ceil_power_of_2(a: int) -> int:
     """
     :param a: input value
-    :return the smallest power of two (>= 8) s.t. >= a
+    :return the smallest power of two (>= 8) which is bigger than `a`
     """
     tmp = [8, 16, 32, 64]
     for t in tmp:
@@ -288,6 +310,21 @@ class AVX(SIMD):
         super().__init__(q)
         self.register_width = 256
         self.register_name = "__m256i"
+    
+    @staticmethod
+    def __check_lanes128(p: List[int]) -> bool:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :return true of the permutation is accross the lanes
+        """
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32]
+
+        m = t // 2
+        for i in range(m):
+            if (p[i] >= m) or p[i + m] < m:
+                return True 
+        return False
 
     def load(self,
              out_var: str,
@@ -319,6 +356,62 @@ class AVX(SIMD):
         :param in_var: value to set
         """
         return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
+    
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+        :return TODO
+        """
+        ret = ""
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32]
+        if AVX.__check_lanes128(p):
+            if t == 2:
+                imm = "0b" + "000".join(str(bin(l))[2:] for l in p)
+                return f"${o} = _mm256_permute2x128_si256(${a}, ${a}, ${imm})"
+            if t == 4:
+                imm = "0b" + "".join(str(bin(l))[2:] for l in p)
+                return f"${o} = _mm256_permute4x64_epi64(${a}), ${imm})"
+            if t == 8:
+                raise NotImplementedError()
+            if t == 16:
+                raise NotImplementedError()
+            if t == 32:
+                b1 = get_var_name()
+                a2 = get_var_name()
+                c = ", ".join([str(pp % 16) for pp in p])
+                s = f"const ${self.register_name} ${b1} = _mm256_set1_epi8(${c})"
+                global global_variables
+                global_variables.append(s)
+                return f"${a2} = _mm256_permute2x128_si256(${a}, {a}, 0b0001);\n"\
+                        "${o} = _mm256_shuffle_epi8(${a2}, ${b});"
+                raise NotImplementedError()
+        
+        # easy case: all permutation are within the same 128bit lane
+        if t == 2:
+            # emit nothing
+            return ""
+        if t == 4:
+            imm = "0b" + "".join(str(bin(l))[2:] for l in p)
+            return f"${o} = _mm256_permute4x64_epi64(${a}), ${imm})"
+        if t == 8:
+            imm = "0b" + "".join(str(bin(l))[2:] for l in p)
+            return f"${o} = _mm256_shuffle_epi32(${a}, ${imm});"
+        if t == 16:
+            raise NotImplementedError()
+        if t == 32:
+            b = get_var_name()
+            c = ", ".join([str(pp) for pp in p])
+            s = f"const ${self.register_name} ${b} = _mm256_set1_epi8(${c})"
+            global global_variables
+            global_variables.append(s)
+            return f"${o} = _mm256_shuffle_epi8(${a}, ${b});"
+
+        return ret
     
 
 class AVX512(AVX):
@@ -358,6 +451,32 @@ class AVX512(AVX):
         """
         return f"{out_var} = _mm512_set1_epi{self.n}({in_var});\n"
 
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+
+        :return TODO
+        """
+        ret = ""
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32, 64]
+
+        b = get_var_name()
+        c = ", ".join([str(pp) for pp in p])
+        s = f"const ${self.register_name} ${b} = _mm512_set1_epi8(${c})"
+        global global_variables
+        global_variables.append(s)
+
+        if t == 2: # u256
+            raise NotImplementedError()
+        if t == 4: # u128
+            raise NotImplementedError()
+        return f"${o} = _mm512_permutexvar_epi${t}(${b}, ${a});"
+
 
 class NEON(SIMD):
     def __init__(self, q: int) -> None:
@@ -395,6 +514,8 @@ class NEON(SIMD):
 
 
 class Shuffler:
+    """
+    """
     pass
 
 

@@ -68,15 +68,17 @@ static inline ff_t gf16_sqr(const ff_t a) {
 }
 
 /// a*b
-static inline ff_t gf16_mul(const ff_t a,
-                            const ff_t b) {
+static inline 
+ff_t gf16_mul(const ff_t a,
+              const ff_t b) {
     return gf16_mult_table[a * 16 + b];
 }
 
 /// NOTE: b must be a single number
 /// NOTE: multiplication with a much smaller lookup table
-static inline ff_t gf16_mul_v2(const ff_t a,
-                               const ff_t b) {
+static inline 
+ff_t gf16_mul_v2(const ff_t a,
+                 const ff_t b) {
     /// row0 : 0*1, ..., 0*4
     /// row1 : 1*1, ..., 1*4
     ///     ...
