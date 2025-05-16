@@ -7,13 +7,35 @@ from typing import List
 # TODO: implement the following flags:
 #   - preload_matrix_into_registers (load everything into registers and then do the math)
 #   - instead of instrinsics, emit actual instructions
+# SHAPE class:
 #   - the shape class exports to many internal values. make them private
+# REGISTERS:
+#   - add neon and m4 registers
+# TESTS:
+#   - well, start adding tests. The problem is: I dont want to have string comparisons in the tests. They would be simply too naiv. 
+# GENERAL:
 #   - make the access to the `list_of_arguments` generic: like the name of the out param is always the same
 #   - make the `generate_function_declaration` more abstract, support different type for each argument.
 
 
+# global variable/configuration:
+# if this value is true, the code generators will emit pure assembly.
+# if this value is false, the code genera tors will emit C intrinsics
+use_assembly = True
+
 list_of_arguments = ["c", "a", "b"]
 list_of_variables = ["t" + str(i) for i in range(100)]
+
+# NOTE: linux x86-64 only
+list_of_arguments_asm = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+list_of_variables_asm_x86= ["r10", "r11", "r12", "r13", "r14", "r15"]
+list_of_variables_asm_x86_avx2 = ["ymm0", "ymm1", "ymm2", "ymm3", "ymm4"]
+list_of_variables_asm_x86_avx512 = ["zmm0", "zmm1", "zmm2", "zmm3", "zmm4"]
+
+
+
+# NOTE:
+global_variables = [] # TODO: add to main code generator
 
 
 def static_vars(**kwargs):
@@ -67,7 +89,7 @@ def ceil_mutliple_of(a: int, n: int) -> int:
 def ceil_power_of_2(a: int) -> int:
     """
     :param a: input value
-    :return the smallest power of two (>= 8) s.t. >= a
+    :return the smallest power of two (>= 8) which is bigger than `a`
     """
     tmp = [8, 16, 32, 64]
     for t in tmp:
@@ -126,7 +148,7 @@ class SIMD:
     def store(self,
               out_var: str,
               in_var: str) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     def store_multiple(self,
                        out_var: str,
@@ -145,7 +167,7 @@ class SIMD:
     def set1(self,
             out_var: str,
             in_var: str) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     def set1_multiple(self,
                      out_vars: List[str],
@@ -300,6 +322,28 @@ class SSE(SIMD):
         :param in_var: value to set
         """
         return f"{out_var} = _mm_set1_epi{self.n}({in_var});\n"
+
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+        :return TODO
+        """
+        raise NotImplementedError
+    
+    def hxor(self, p: int,
+             o: str,
+             a: str) -> str:
+        """
+        :param p: number of limbs to xor up
+        :param o: output register 
+        :param a: input register 
+        :return TODO
+        """
+        raise NotImplementedError
     
     def shuffle(self,
                 out_var: str,
@@ -316,6 +360,21 @@ class AVX(SIMD):
         super().__init__(q)
         self.register_width = 256
         self.register_name = "__m256i"
+    
+    @staticmethod
+    def __check_lanes128(p: List[int]) -> bool:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :return true of the permutation is accross the lanes
+        """
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32]
+
+        m = t // 2
+        for i in range(m):
+            if (p[i] >= m) or p[i + m] < m:
+                return True 
+        return False
 
     def load(self,
              out_var: str,
@@ -348,6 +407,150 @@ class AVX(SIMD):
         """
         return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
     
+    def setX(self,
+             out_var: str,
+             in_var: str,
+             n: int,
+             p: int) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: name of pointer to read n
+        TODO noch nicht durchgedacht
+        """
+        return f""
+    
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """ TODO implement sub byte permutaions
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+        :return a string which applies the permutation to the input register.
+            NOTE: maybe global variables are emitted.
+        """
+        ret = ""
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32]
+        if AVX.__check_lanes128(p):
+            if t == 2:
+                imm = "0b" + "000".join(['{0:02b}'.format(l) for l in p[::-1]])
+                return f"{o} = _mm256_permute2x128_si256({a}, {a}, {imm});\n"
+            if t == 4:
+                imm = "0b" + "".join(['{0:02b}'.format(l) for l in p[::-1]])
+                return f"{o} = _mm256_permute4x64_epi64({a}, {imm});\n"
+            if t == 8:
+                raise NotImplementedError()
+            if t == 16:
+                raise NotImplementedError()
+            if t == 32:
+                b1 = get_var_name()
+                a2 = get_var_name()
+                c = ", ".join([str(pp % 16) for pp in p])
+                s = f"const ${self.register_name} {b1} = _mm256_set1_epi8({c});\n"
+                global global_variables
+                global_variables.append(s)
+                return f"{a2} = _mm256_permute2x128_si256({a}, {a}, 0b0001);\n"\
+                        "{o} = _mm256_shuffle_epi8({a2}, {b});"
+        
+        # easy case: all permutation are within the same 128bit lane
+        if t == 2:
+            # emit nothing
+            return ""
+        if t == 4:
+            imm = "0b" + "".join(['{0:02b}'.format(l) for l in p[::-1]])
+            return f"{o} = _mm256_permute4x64_epi64({a}, {imm});\n"
+        if t == 8:
+            # NOTE: cheating here. Im assumesing that the two halves are symmetric
+            imm = "0b" + "".join(['{0:02b}'.format(l) for l in p[:4][::-1]])
+            return f"{o} = _mm256_shuffle_epi32({a}, {imm});\n"
+        if t == 16:
+            raise NotImplementedError()
+        if t == 32:
+            b = get_var_name()
+            c = ", ".join([str(pp) for pp in p])
+            s = f"const {self.register_name} {b} = _mm256_set1_epi8({c});\n"
+            #global global_variables
+            global_variables.append(s)
+            return f"{o} = _mm256_shuffle_epi8({a}, {b});\n"
+
+        return ret
+
+    def hxor(self, p: int,
+             o: str,
+             a: str) -> str:
+        """
+        :param p: number of limbs to xor up
+        :param o: output register 
+        :param a: input register 
+        :return TODO
+        """
+        if p not in [2, 4, 8, 16, 32, 64, 128, 256]:
+            raise ValueError
+
+        if p == 2:
+            # return __m128i
+            return f"{a} ^= _mm256_permute2x128_si256({a}, {a}, 1);\n"\
+                    "{o} = _mm256_extracti128_si256({a}, 0);\n"
+
+        if p == 256:
+            # return uint1_t (technically gf2)
+            return f"{a} ^= _mm256_permute2x128_si256({a}, {a}, 129);\n"\
+                   f"{a} ^= _mm256_srli_si256({a}, 8);\n"\
+                   f"{o} = _mm256_extract_epi64({a}, 0);\n"\
+                   f"{o} = __builtin_popcountll({o}); & 1\n"\
+
+        ret = f"{a} ^= _mm256_permute2x128_si256({a}, {a}, 1);\n"
+        if p >= 4:
+            # return uint64_t
+            ret = f"{a} ^= _mm256_srli_si256({a}, 8);\n" + ret
+            if p == 4:
+                ret += f"{o} = _mm256_extract_epi64(${a}, 0);\n"
+        if p >= 8:
+            # return uint32_t
+            ret = f"{a} ^= _mm256_srli_si256({a}, 4);\n" + ret
+            if p == 8:
+                ret += f"{o} = _mm256_extract_epi32({a}, 0);\n"
+        if p >= 16:
+            # return uint16_t
+            ret = f"{a} ^= _mm256_srli_si256({a}, 2);\n" + ret
+            if p == 16:
+                ret += f"{o} = _mm256_extract_epi16({a}, 0);\n"
+        if p >= 32:
+            # return uint8_t
+            ret = f"{a} ^= _mm256_srli_si256({a}, 1);\n" + ret
+            if p == 32:
+                ret += f"{o} = _mm256_extract_epi8({a}, 0);\n"
+        if p >= 64:
+            # return uint4_t (technically gf16)
+            ret = f"{a} ^= _mm256_srli_epi32({a}, 4);\n" + ret
+            if p == 64:
+                ret += f"{o} = _mm256_extract_epi8({a}, 0) & 0xF;\n"
+        if p >= 128:
+            # return uint2_t (technically gf4)
+            ret = f"{a} ^= _mm256_srli_epi32({a}, b);\n" + ret
+            if p == 128:
+                ret += f"{o} = _mm256_extract_epi8({a}, 0) & 0x3;\n"
+
+        return ret
+
+    @staticmethod 
+    def test():
+        a = AVX(16)
+        #print(a.hxor(4, "o", "i"))
+
+        #print(a.shuffle([1,0], "o", "i"))
+        #print(a.shuffle([0,1], "o", "i"))
+        #print(a.shuffle([1,0,3,2], "o", "i"))
+        #print(a.shuffle([3,2,1,0], "o", "i"))
+        assert not a.__check_lanes128([0, 1])
+        assert a.__check_lanes128([1, 0])
+        assert not a.__check_lanes128([1, 0, 3, 4])
+        assert a.__check_lanes128([3, 4, 1, 0])
+        print(a.shuffle([1,0,3,2, 5,4,7,6], "o", "i"))
+        t = a.shuffle([1,0,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31], "o", "i")
+        print(global_variables[0])
+        print(t)
 
 class AVX512(AVX):
     def __init__(self, q: int) -> None:
@@ -386,6 +589,90 @@ class AVX512(AVX):
         """
         return f"{out_var} = _mm512_set1_epi{self.n}({in_var});\n"
 
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+        :return a string which applies the permutation to the input register.
+            NOTE: maybe global variables are emitted.
+        """
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32, 64]
+
+        b = get_var_name()
+        c = ", ".join([str(pp) for pp in p])
+        s = f"const {self.register_name} {b} = _mm512_set1_epi8{t}({c});\n"
+        global global_variables
+        global_variables.append(s)
+
+        if t == 2: # u256
+            raise NotImplementedError()
+        if t == 4: # u128
+            raise NotImplementedError()
+        return f"${o} = _mm512_permutexvar_epi{t}({b}, {a});"
+
+
+    def hxor(self, p: int,
+             o: str,
+             a: str) -> str:
+        """
+        :param p: number of limbs to xor up
+        :param o: output register 
+        :param a: input register 
+        :return TODO
+        """
+        if p not in [2, 4, 8, 16, 32, 64, 128, 256, 512]:
+            raise ValueError
+
+        if p == 2:
+            # return __m256i
+            return f"{o} = _mm512_castsi512_si256({a}) ^ _mm512_extracti64x4_epi64({a}, 1);\n"
+
+        if p == 4:
+            # return __m128i
+            tmp = get_var_name()
+            return f"__m256i {tmp} = _mm512_castsi512_si256({a}) ^ _mm512_extracti64x4_epi64({a}, 1);\n" \
+                    "{o} = _mm256_extracti128_si256({tmp}, 0) ^ _mm256_extract32x4_epi32({tmp}, 1);\n"
+
+        if p == 512:
+            # return uint1_t (technically gf2)
+            # TODO only available with the popcnt extension
+            return f"{a} = _mm512_popcnt_epi64({a});\n" \
+                   f"{o} = _mm512_reduce_add_epi64({a}) & 1;\n"
+
+        # first shuffle low 256 with high, next shuffle low 128 with high 128
+        ret = f"{a} ^= _mm512_permutexvar_epi64({a}, _mm512_setr_epi64(4,5,6,7,0,1,2,3));\n"\
+              f"{a} ^= _mm512_permutex_epi64({a}, 0b01001110)"
+        if p >= 8:
+            # return uint64_t
+            ret = f"{a} ^= _mm512_bsrli_epi128({a}, 4);\n" + ret
+            if p == 8:
+                ret += f"{o} = _mm256_extract_epi64(_mm512_castsi512_si256({a}), 0);\n"
+        if p >= 16:
+            # return uint32_t
+            ret = f"{a} ^= _mm512_bsrli_epi128({a}, 2);\n" + ret
+            if p == 16:
+                ret += f"{o} = _mm256_extract_epi32(_mm512_castsi512_si256({a}), 0);\n"
+        if p >= 32:
+            # return uint16_t
+            ret = f"{a} ^= _mm512_bsrli_epi128({a}, 1);\n" + ret
+            if p == 32:
+                ret += f"{o} = _mm256_extract_epi16(_mm512_castsi512_si256({a}), 0);\n"
+        if p >= 64:
+            # return uint8_t (technically gf16)
+            ret = f"{a} ^= _mm512_bsrli_epi128({a}, 4);\n" + ret
+            if p == 64:
+                ret += f"{o} = _mm256_extract_epi8(_mm512_castsi512_si256({a}), 0) & 0xF;\n"
+        if p >= 128:
+            # return uint4_t (technically gf4)
+            ret = f"{a} ^= _mm512_bsrli_epi128({a}, b);\n" + ret
+            if p == 128:
+                ret += f"{o} = _mm256_extract_epi8(_mm512_castsi512_si256({a}, 0) & 0x3;\n"
+
+        return ret
 
 class NEON(SIMD):
     def __init__(self, q: int) -> None:
@@ -420,10 +707,28 @@ class NEON(SIMD):
         :param in_var: value to set
         """
         return f"{out_var} = vdupq_n_u{self.n}({in_var});\n"
+    
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param p: a permutation of length 32/16/8/4/2
+        :param o: output register 
+        :param a: input register 
+
+        :return TODO
+        """
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32, 64]
+        tmp = "{" + ",".join([str(a) for a in p]) + "}"
+        return f"{o} = __builtin_shufflevector({a}, {a}, {tmp});"
 
 
 class Shuffler:
-    pass
+    """
+    """
+    def __init__(self) -> None:
+        pass
 
 
 class Shape:
@@ -673,17 +978,27 @@ class Matrix:
         ret += "{\n"
         ret += A_s.simd.decl(A_simd_names)
         ret += B_s.simd.decl([B_simd_name])
-
-        for i in range(self.m):
+        
+        # NOTE: this is the implementation which unrolls the code over k
+        for i in range(self.k):
             # TODO
             pass
         ret += "}\n"
         return ret
 
 
+def test():
+    AVX.test()
+
+
+
 if __name__ == "__main__":
-    #simd = AVX(16)
+    test()
+    exit(0)
+
+    simd = AVX(16)
     #v = Vector(31, 16, 3, simd, padding=True)
+    v = Matrix(16, 4, 12, 16, 1, simd, padding=True)
     #print(v.gen_extend())
 
     #simd = AVX(127)
@@ -696,8 +1011,8 @@ if __name__ == "__main__":
 
     #simd = AVX(127)
     #v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
-    simd = AVX(127)
-    v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
+    #simd = AVX(127)
+    #v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
     print("""
 #include <immintrin.h>
 #include <stdint.h>
