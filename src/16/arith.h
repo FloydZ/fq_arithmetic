@@ -164,6 +164,13 @@ static inline __m256i gf16_hadd_avx2_32(const __m256i in) {
     return ret;
 }
 
+/// horizontal xor, but over 4-64 bit limbs
+static inline uint64_t gf16_hadd_u256_64(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return _mm256_extract_epi64(ret, 0);
+}
+
 /// vectorized squaring of 64 values at once.
 static inline __m256i gf16_sqrv_u256(const __m256i a) {
     const __m256i mask1 = _mm256_set1_epi8(0x11);

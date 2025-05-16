@@ -1,4 +1,4 @@
-#pragma once
+
 
 #include <string.h>
 
@@ -234,10 +234,52 @@ void matrix_mul(uint8_t *C,
 	}
 }
 
+/// column major
+/// \param result
+/// \param matrix1
+/// \param matrix2
+/// \param n_rows1
+/// \param n_cols1
+/// \param n_cols2
+static
+void gf16_matrix_product(ff_t *result,
+                         const ff_t *matrix1,
+                         const ff_t *matrix2,
+                         const uint32_t n_rows1,
+                         const uint32_t n_cols1,
+                         const uint32_t n_cols2) {
+    uint32_t i, j, k;
+    ff_t entry_i_k, entry_k_j, entry_i_j;
+
+    const uint32_t matrix_height =  gf16_matrix_bytes_per_column(n_rows1);
+    const uint32_t matrix_height_x = matrix_height -  1;
+
+    for (i = 0; i < n_rows1; i++) {
+        for (j = 0; j < n_cols2; j++) {
+            entry_i_j = 0;
+
+            for (k = 0; k < n_cols1; k++) {
+                entry_i_k = gf16_matrix_get(matrix1, n_rows1, i, k);
+                entry_k_j = gf16_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf16_mul(entry_i_k, entry_k_j);
+            }
+
+            gf16_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
+    }
+
+    if (n_rows1 & 1) {
+        for (i = 0; i < n_cols2; i++) {
+            result[i * matrix_height + matrix_height_x] &= 0x0f;
+        }
+    }
+}
+
 /// \param B[out]
 /// \param A[in]
 /// \param nrows[in]
 /// \param ncols[in]
+static
 void gf16_matrix_tranpose(uint8_t *B,
                           const uint8_t *const A,
 				          const size_t nrows,
@@ -734,6 +776,7 @@ void gf16_solve_row_transpose(uint8_t *A,
 
 /// returns 1 on error, 0 else
 /// solves Ax=b
+static inline
 uint32_t gf16_solve(uint8_t *A,
                     uint8_t *b,
                     const uint32_t nrows,
@@ -1461,6 +1504,33 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
     // write the last element in a sane and memory safe way
     for (uint32_t i = 0; i < column_A_bytes; i++) {
         c[(nr_cols_B - 1)*column_A_bytes + i] = (uint8_t)(rdata>>(i*8));
+    }
+}
+
+void gf16mat_prod_16x4xk(uint8_t *__restrict c,
+                         const uint8_t *__restrict__ a,
+                         const uint8_t *__restrict__ b, 
+                         const uint32_t nr_cols_B) {
+    // fully load A into a register 
+    const __m256i A = _mm256_loadu_si256((const __m256i *)a);
+    uint64_t *c64 = (uint64_t *)c;
+    const uint32_t bytes_per_col_B = 2;
+
+    // some helper variables
+    const __m256i one = _mm256_set1_epi8(0x11);
+    for (uint32_t i = 0; i < nr_cols_B; i++) {
+        // extend a single column to an avx register
+        const uint16_t t1 = *((uint16_t *)(b + i*bytes_per_col_B));
+        const uint64_t t2 = _pdep_u64(t1, 0xF000F000F000F);
+        const __m128i t3 = _mm_set_epi64x(0, t2);
+        const __m256i t4 = _mm256_cvtepu16_epi64(t3);
+        const __m256i t5 = _mm256_mul_epu32(t4, one);
+        const __m256i t6 = t5^_mm256_slli_si256(t5, 4);
+
+        const __m256i c1 = gf16v_mul_full_u256(t6, A);
+        const uint64_t c2 = gf16_hadd_u256_64(c1);
+
+        c64[i] = c2;
     }
 }
 
