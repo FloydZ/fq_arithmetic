@@ -183,6 +183,25 @@ class SIMD:
             ret += self.expand(out_var, f"{in_var} + {i}*{stride}")
         return ret
 
+    def shuffle(self,
+               out_var: str,
+               in_var: str) -> str:
+        return NotImplemented
+
+    def shuffle_multiple(self,
+                        out_vars: List[str],
+                        in_var: str,
+                        stride: int) -> str:
+        """
+        :param out_vars: list of register variables to store the result
+        :param in_var: name of the memory variable
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
+        """
+        ret = ""
+        for i, out_var in enumerate(out_vars):
+            ret += self.shuffle(out_var, f"{in_var} + {i}*{stride}")
+        return ret
+
     def add(self,
             oreg: str,
             ireg1: str,
@@ -276,6 +295,15 @@ class SSE(SIMD):
     def set1(self,
              out_var: str,
              in_var: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
+        """
+        return f"{out_var} = _mm_set1_epi{self.n}({in_var});\n"
+    
+    def shuffle(self,
+                out_var: str,
+                in_var: str) -> str:
         """
         :param out_var: name of the output variable (register)
         :param in_var: value to set
