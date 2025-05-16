@@ -1,5 +1,4 @@
-
-
+#pragma once
 #include <string.h>
 
 #include "arith.h"
