@@ -94,7 +94,8 @@ static inline uint64_t gf2_read8rows(const uint8_t *ptr,
 /// \return a new matrix
 static inline gf2* gf2_matrix_alloc(const uint32_t n_rows, 
                                     const uint32_t n_cols) {
-    return (gf2 *)calloc(1, gf2_matrix_bytes_size(n_rows, n_cols));
+    const uint32_t size = gf2_matrix_bytes_size(n_rows, n_cols);
+    return (gf2 *)calloc(1, size);
 }
 
 /// \return a new matrix, with 256 cols

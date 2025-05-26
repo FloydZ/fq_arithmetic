@@ -6,18 +6,19 @@
 #include "../2/arith.h"
 
 /// Representation:
-/// the generic base type is `uint64_t` called a `limb`. Each `limb` can store 
-/// up to 64 bits or coordinates mod 2.
-
+/// the generic base type is `__uint128` called a `limb`. Each `limb` can store
+/// up to 128 bits or coordinates mod 2.
 typedef __uint128_t gf2to128;
 
+// choose whatever you like more
 // using irreducible polynomial x^128+x^7+x^2+x+1
-// We need only the last word
-#define MODULUS 0b10000111
+//#define MODULUS 0b10000111
+// using irreducible polynomial x^128+x^7+1
+#define MODULUS 0b10000001
 
 /// \param a[in]: 
 /// \param b[in]: 
-/// \param return:
+/// \param a + b mod 2**128:
 static inline
 gf2to128 gf2to128_add(const gf2to128 a, 
                       const gf2to128 b) {
@@ -26,7 +27,7 @@ gf2to128 gf2to128_add(const gf2to128 a,
 
 /// \param a[in]: 
 /// \param b[in]: 
-/// \param return:
+/// \param a - b mod 2**128:
 static inline
 gf2to128 gf2to128_sub(const gf2to128 a, 
                       const gf2to128 b) {
@@ -37,11 +38,12 @@ gf2to128 gf2to128_sub(const gf2to128 a,
 static inline
 gf2to128 gf2to128_mul(const gf2to128 a,
                       const gf2to128 b) {
-    gf2to128 shifted=a, result=0,m=MODULUS;
+    gf2to128 shifted=a, result=0;
 
     for (size_t i = 0; i < 2; ++i) {
+        const uint64_t bb = (b >> (i*64));
         for (size_t j = 0; j < 64; ++j) {
-            if (b & (1ull << j)) {
+            if (bb & (1ull << j)) {
                 result ^= shifted;
             }
 
@@ -109,7 +111,7 @@ gf2to128 gf2to128v_expand_gf2_x1(const uint8_t in) {
 }
 
 static inline
-gf2to128 gf2to128_mul_avx2(const gf2to128 a,
+gf2to128 gf2to128_mul_u128(const gf2to128 a,
                            const gf2to128 b) {
     const __m128i modulus = _mm_setr_epi32(MODULUS, 0, 0, 0);
 
@@ -182,7 +184,9 @@ __m256i gf2to128v_mul_u256(const __m256i a,
     return ret;
 }
 
-/// roughly 5 times slower then the function above (Intel N97:word):
+/// NOTE: uses the REDUCTION POLY: #define MODULUS 0b10000111
+///     otherwise it does not work
+/// roughly 5 times slower than the function above (Intel N97:word):
 /// -------------------------------------------------------------------------------
 /// Benchmark                     Time             CPU   Iterations UserCounters...
 /// -------------------------------------------------------------------------------
@@ -192,8 +196,8 @@ __m256i gf2to128v_mul_u256(const __m256i a,
 /// \param b[in]: 
 /// \return a*b
 static inline
-gf2to128 gf2to128_mul_slow(const gf2to128 a,
-                           const gf2to128 b) {
+gf2to128 gf2to128_mul_u128_slow(const gf2to128 a,
+                                const gf2to128 b) {
 	uint64_t tmp[4] = {0};
 #ifdef USE_AVX512
     *(__m256 *) = _mm256_clmulepi64_epi128(a, b);
@@ -232,11 +236,11 @@ static inline __m256i gf2to128v_mul_gf2_u256(const __m256i a,
 /// \param a
 /// \param b in gf2, not compresses: a single bit in
 /// \return
-static inline __m128i gf2to128v_mul_gf2_u128(const __m128i a,
-                                             const __m128i b) {
+static inline gf2to128 gf2to128v_mul_gf2_u128(const gf2to128 a,
+                                              const gf2to128 b) {
     const __m128i m1 = _mm_set1_epi16(-1);
-    const __m128i t1 = _mm_sign_epi16(b, m1);
-    return a & t1;
+    const __m128i t1 = _mm_sign_epi16((__m128i)b, m1);
+    return (gf2to128)(a & (gf2to128)t1);
 }
 
 /// \param a
