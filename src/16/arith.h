@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <stdio.h>
-
 #include "../helper.h"
 
 #define SWAP(a, b) { a^=b; b^=a; a^=b; }

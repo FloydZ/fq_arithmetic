@@ -86,12 +86,24 @@ def ceil_mutliple_of(a: int, n: int) -> int:
     return ((a + n - 1) // n) * n
 
 
+def ceil_power_of_2_for_type(a: int) -> int:
+    """ NOTE: always returns atleast 8
+    :param a: input value
+    :return the smallest power of two (>= 8) which is bigger than `a`
+    """
+    tmp = [8, 16, 32, 64]
+    for t in tmp:
+        if t >= a:
+            return t
+        continue
+    raise ValueError("Input to big")
+
 def ceil_power_of_2(a: int) -> int:
     """
     :param a: input value
     :return the smallest power of two (>= 8) which is bigger than `a`
     """
-    tmp = [8, 16, 32, 64]
+    tmp = [1, 2, 4, 8, 16, 32, 64]
     for t in tmp:
         if t >= a:
             return t
@@ -104,8 +116,10 @@ def bits_to_type_str(n: int) -> str:
     :param n: integer in [8, 16, 32, 64]
     :return: `uint{n}_t`
     """
-    if n not in [8, 16, 32, 64]:
+    if n not in [1, 2, 4, 8, 16, 32, 64]:
         raise ValueError("not in range")
+    if n < 8:
+        n = 8
     return f"uint{n}_t"
 
 
@@ -114,9 +128,10 @@ class SIMD:
         self.register_name = ""
         self.q_str = str(q)
         self.q = q
+        self.bits_q = ceil_power_of_2(ceil(log2(q)))
         self.aligned_instructions = False
-        self.n = ceil_power_of_2(ceil(log2(q)))
-        if self.n not in [8, 16, 32, 64]:
+        self.n = ceil_power_of_2_for_type(ceil(log2(q)))
+        if self.n not in [1, 2, 4, 8, 16, 32, 64]:
             raise ValueError("not in range")
 
     def decl(self, regs: List[str]) -> str:
@@ -203,6 +218,25 @@ class SIMD:
         ret = ""
         for i, out_var in enumerate(out_vars):
             ret += self.expand(out_var, f"{in_var} + {i}*{stride}")
+        return ret
+
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        raise NotImplementedError()
+
+    def shuffle_multiple(self, p: List[int],
+                         out_vars: List[str],
+                         in_var: str,
+                         stride: int) -> str:
+        """
+        :param out_vars: list of register variables to store the result
+        :param in_var: name of the memory variable
+        :param stride: number of Fq limbs between two loads. NOTE: not bytes
+        """
+        ret = ""
+        for i, out_var in enumerate(out_vars):
+            ret += self.shuffle(p, out_var, f"{in_var} + {i}*{stride}")
         return ret
 
     def add(self,
@@ -304,9 +338,11 @@ class SSE(SIMD):
         """
         return f"{out_var} = _mm_set1_epi{self.n}({in_var});\n"
 
-    def shuffle(self, p: List[int],
-                o: str,
-                a: str) -> str:
+    def setX(self,
+             out_var: str,
+             in_var: str,
+             n: int,
+             p: int) -> str:
         """
         :param p: a permutation of length 32/16/8/4/2
         :param o: output register 
@@ -314,6 +350,15 @@ class SSE(SIMD):
         :return TODO
         """
         raise NotImplementedError
+    
+    def shuffle(self, p: List[int],
+                o: str,
+                a: str) -> str:
+        """
+        :param out_var: name of the output variable (register)
+        :param in_var: value to set
+        """
+        return f"TODO"
     
     def hxor(self, p: int,
              o: str,
@@ -380,21 +425,39 @@ class AVX(SIMD):
         return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
     
     def setX(self,
-             out_var: str,
-             in_var: str,
-             n: int,
-             p: int) -> str:
+             o: str,
+             a: str,
+             n: int) -> str:
         """
-        :param out_var: name of the output variable (register)
-        :param in_var: name of pointer to read n
-        TODO noch nicht durchgedacht
+        :param o: name of the output variable (register)
+        :param a: name of pointer to read n elements from 
+        :param n: number of elements to extend
         """
+        if self.bits_q < 8:
+            # sub limb case: 
+            nr_of_bits = self.bits_q * n
+            load_type = bits_to_type_str(nr_of_bits)
+            # integer type
+            t1 = get_var_name()
+            assert nr_of_bits <= 64
+
+            # output sublimb type within a register
+            out_sublimb_type_simd = 256//n
+
+            ret = f"uint64_t {t1} = *(({load_type} *)({a}));\n"
+            mask_ = "0b" + ("0"*(nr_of_bits - self.bits_q)  + "1"*self.bits_q)*n
+            mask = hex(int(mask_, 2))
+            ret += f"{t1} = _pdep_u64({t1}, {mask});\n"
+            ret += f"_mm256_cvtepu{nr_of_bits}_epi{out_sublimb_type_simd}(t3);"
+            # TODO not finished
+ 
+            return ret
         return f""
     
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
-        """ TODO implement sub byte permutaions
+        """ TODO implement sub byte permutation
         :param p: a permutation of length 32/16/8/4/2
         :param o: output register 
         :param a: input register 
@@ -519,10 +582,11 @@ class AVX(SIMD):
         assert a.__check_lanes128([1, 0])
         assert not a.__check_lanes128([1, 0, 3, 4])
         assert a.__check_lanes128([3, 4, 1, 0])
-        print(a.shuffle([1,0,3,2, 5,4,7,6], "o", "i"))
-        t = a.shuffle([1,0,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31], "o", "i")
-        print(global_variables[0])
-        print(t)
+        #print(a.shuffle([1,0,3,2, 5,4,7,6], "o", "i"))
+        #t = a.shuffle([1,0,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31], "o", "i")
+        #print(global_variables[0])
+        #print(t)
+        print(a.setX("o", "i", 4))
 
 class AVX512(AVX):
     def __init__(self, q: int) -> None:
@@ -751,8 +815,8 @@ class Shape:
         self.bits_q = ceil(log2(q))
         self.bits_q_mu = ceil(log2(q**mu))
         # which is done here
-        self.bits_limb_q = ceil_power_of_2(self.bits_q)
-        self.bits_limb_q_mu = ceil_power_of_2(self.bits_q_mu)
+        self.bits_limb_q = ceil_power_of_2_for_type(self.bits_q)
+        self.bits_limb_q_mu = ceil_power_of_2_for_type(self.bits_q_mu)
         self.use_sub_limbs_q = self.bits_q <= Shape.SUB_LIMB_LIMIT
         self.use_sub_limbs_q_mu = self.bits_q_mu <= Shape.SUB_LIMB_LIMIT
 
@@ -816,6 +880,7 @@ class Vector:
         :return a string contain the vector addition
         """
         s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        print(s.__dict__)
         in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
         in2_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
 
@@ -836,6 +901,7 @@ class Vector:
         :return a string contain the vector extention
         """
         s = Shape(self.n, self.q, self.mu, self.simd, self.padding)
+        print(s.__dict__)
         in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
 
         ret = generate_function_declaration(fn_name, s.limb_type_str, 2)
@@ -968,18 +1034,18 @@ if __name__ == "__main__":
     test()
     exit(0)
 
-    simd = AVX(16)
+    #simd = AVX(16)
     #v = Vector(31, 16, 3, simd, padding=True)
-    v = Matrix(16, 4, 12, 16, 1, simd, padding=True)
+    #v = Matrix(16, 4, 12, 16, 1, simd, padding=True)
     #print(v.gen_extend())
 
     #simd = AVX(127)
     #v = Vector(31, 127, 2, simd, padding=True)
-    #print(v.gen_extend())
+    #print(v.gen_add())
 
-    #simd = AVX(2)
-    #v = Vector(33, 2, 8, simd, padding=True)
-    #print(v.gen_extend())
+    simd = AVX(2)
+    v = Vector(33, 2, 8, simd, padding=True)
+    print(v.gen_extend())
 
     #simd = AVX(127)
     #v = Matrix(32, 32, 32, 127, 1, simd, padding=True)
@@ -992,4 +1058,4 @@ if __name__ == "__main__":
     #print(v.gen_add())
     #print(v.gen_extend())
     #print(v.gen_matrix_vector_mul())
-    print(v.gen_matrix_matrix_mul())
+    #print(v.gen_matrix_matrix_mul())
