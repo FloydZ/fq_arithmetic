@@ -174,6 +174,9 @@ gf2to128 gf2to128_vector_mul_acc(const gf2to128 *a,
 
 #ifdef USE_AVX2 
 
+/// \param out[out]: vector of length n: = += in
+/// \param in[in]: vector of length n
+/// \param n[in]: size of the vector, number of elements
 static inline
 void gf2to128_vector_add_u256(gf2to128 *out,
                               const gf2to128 *in,

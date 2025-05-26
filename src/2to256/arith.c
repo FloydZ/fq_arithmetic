@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "arith.h"
+#include "vector.h"
 
 #ifdef USE_AVX2
 uint32_t test_vector_add() {
