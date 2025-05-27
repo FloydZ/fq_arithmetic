@@ -449,7 +449,6 @@ static void gf2to12_matrix_add_scalar_u256(gf2to12 *matrix1,
     gf2to12_vector_scalar_add_u256(matrix1, scalar, matrix2, n_rows*n_cols);
 }
 
-
 /// \brief matrix1 = matrix2 + scalar * matrix3
 /// \param[out] matrix1 Matrix over gf2to12
 /// \param[in] matrix2 Matrix over gf2to12
@@ -950,6 +949,7 @@ static inline void gf2to12_matrix_add_mul_u256(gf2to12 *result,
                                                const uint32_t n_rows1,
                                                const uint32_t n_cols1, 
                                                const uint32_t n_cols2) {
+    // TODO
 }
 
 

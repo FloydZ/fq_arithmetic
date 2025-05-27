@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <stdio.h>
-
 #include "../helper.h"
 
 #define SWAP(a, b) { a^=b; b^=a; a^=b; }
@@ -68,15 +66,17 @@ static inline ff_t gf16_sqr(const ff_t a) {
 }
 
 /// a*b
-static inline ff_t gf16_mul(const ff_t a,
-                            const ff_t b) {
+static inline 
+ff_t gf16_mul(const ff_t a,
+              const ff_t b) {
     return gf16_mult_table[a * 16 + b];
 }
 
 /// NOTE: b must be a single number
 /// NOTE: multiplication with a much smaller lookup table
-static inline ff_t gf16_mul_v2(const ff_t a,
-                               const ff_t b) {
+static inline 
+ff_t gf16_mul_v2(const ff_t a,
+                 const ff_t b) {
     /// row0 : 0*1, ..., 0*4
     /// row1 : 1*1, ..., 1*4
     ///     ...
@@ -160,6 +160,13 @@ static inline __m256i gf16_hadd_avx2_32(const __m256i in) {
     ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
     ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
     return ret;
+}
+
+/// horizontal xor, but over 4-64 bit limbs
+static inline uint64_t gf16_hadd_u256_64(const __m256i in) {
+    __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 8));
+    ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
+    return _mm256_extract_epi64(ret, 0);
 }
 
 /// vectorized squaring of 64 values at once.

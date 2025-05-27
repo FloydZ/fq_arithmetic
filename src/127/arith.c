@@ -2,6 +2,8 @@
 #include "arith.h"
 #include "matrix.h"
 
+#define N (1u << 10u)
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 uint32_t test_gf127v_red_u256() {
@@ -24,6 +26,41 @@ uint32_t test_gf127v_red_u256() {
         }
     }
 
+    return 0;
+}
+
+uint32_t test_gf127_matrix_vector_32x32_mul() {
+    const uint32_t n = 32;
+    const uint32_t m = 32;
+
+    uint8_t *A = (uint8_t *)malloc(n*m);
+    uint8_t *B = (uint8_t *)malloc(m);
+    uint8_t *C1 = (uint8_t *)malloc(n*m);
+    uint8_t *C2 = (uint8_t *)malloc(n*m);
+    for (uint32_t t = 0; t < N; t++) {
+        gf127_matrix_rng(A, n, m);
+        gf127_matrix_rng(B, 1, m);
+        
+        gf127_matrix_vector_mul(C1, A, B, n, n);
+        gf127_matrix_vector_mul_32x32x1_u256(C2, A, B);
+
+        for (uint32_t i = 0; i < n; i++) {
+            for (uint32_t j = 0; j < m; j++) {
+                const uint8_t v = C1[i*m + j];
+                const uint8_t w = C2[i*m + j];
+                if (v != w) {
+                    printf("error test_gf127_matrix_vector_32x32_mul\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
+exit_:
+    free(A);
+    free(B);
+    free(C1);
+    free(C2);
     return 0;
 }
 #endif
@@ -293,6 +330,7 @@ int main() {
 #endif
 #ifdef USE_AVX2
     if (test_gf127v_red_u256()) { return 1; }
+    if (test_gf127_matrix_vector_32x32_mul()) { return 1; }
 #endif
 
 #ifdef USE_AVX512

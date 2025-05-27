@@ -15,14 +15,14 @@ static long long cpucycles(void) noexcept {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-static void BM_gf2to128_mul_avx(benchmark::State& state) {
+static void BM_gf2to128_mul_u128(benchmark::State& state) {
     uint64_t c = 0;
     gf2to128 a = 1, b = 2;
     for (auto _ : state) {
         c -= cpucycles();
-        a ^= gf2to128_mul_avx2(a, b);
-        b ^= gf2to128_mul_avx2(a, b);
-        a ^= gf2to128_mul_avx2(a, b);
+        a ^= gf2to128_mul_u128(a, b);
+        b ^= gf2to128_mul_u128(a, b);
+        a ^= gf2to128_mul_u128(a, b);
         c += cpucycles();
         a += c;
         benchmark::DoNotOptimize(a+=1);
@@ -47,9 +47,10 @@ static void BM_gf2to128_mul_u256(benchmark::State& state) {
 
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
+
+BENCHMARK(BM_gf2to128_mul_u128);
+BENCHMARK(BM_gf2to128_mul_u256);
 #endif
 
-BENCHMARK(BM_gf2to128_mul_avx);
-BENCHMARK(BM_gf2to128_mul_u256);
 BENCHMARK_MAIN();
 
