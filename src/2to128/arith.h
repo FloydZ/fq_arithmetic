@@ -186,7 +186,7 @@ __m256i gf2to128v_mul_u256(const __m256i a,
 
 /// NOTE: uses the REDUCTION POLY: #define MODULUS 0b10000111
 ///     otherwise it does not work
-/// roughly 5 times slower than the function above (Intel N97:word):
+/// roughly 5 times slower than the function above (Intel N97):
 /// -------------------------------------------------------------------------------
 /// Benchmark                     Time             CPU   Iterations UserCounters...
 /// -------------------------------------------------------------------------------

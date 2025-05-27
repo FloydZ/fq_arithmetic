@@ -23,6 +23,15 @@ void gf2to256_set_zero(gf2to256 r) {
     }
 }
 
+
+/// \param r[out]: = rand()
+static inline
+void gf2to256_set_random(gf2to256 r) {
+    for (uint32_t i = 0; i < 4; i++) {
+        r[i] = rand() ^ ((uint64_t)rand() << 32u);
+    }
+}
+
 /// \param r[out]: = a + b
 /// \param a[in]:
 /// \param b[int]:
@@ -99,8 +108,9 @@ void gf2to256_mul_gf2(gf2to256 r,
 /// \param in[in]:
 /// \return nothing
 static inline void gf2to256v_expand_gf2_x8_u256(__m256i *out,
-                                                const uint8_t in) {
-    for (uint32_t i = 0; i < 8; i++) {
+                                                const uint8_t in,
+                                                const uint32_t limit) {
+    for (uint32_t i = 0; i < limit; i++) {
         out[i] = _mm256_set1_epi64x(-((in >> i) & 1u));
     }
 }
@@ -249,11 +259,15 @@ __m256i gf2to256v_mul_u256_v2(const __m256i a,
     /* here we compute the same c as in Karatsuba, but by just naively
        multiplying all pairs of limbs of the operands and adding together
        the results that correspond to the same shift. */
-    const __m128i a_low = _mm_loadu_si128((const __m128i*) &(a[0]));
-    const __m128i a_high = _mm_loadu_si128((const __m128i*) &(a[2]));
-    const __m128i b_low = _mm_loadu_si128((const __m128i*) &(b[0]));
-    const __m128i b_high = _mm_loadu_si128((const __m128i*) &(b[2]));
-    const __m128i modulus = _mm_set_epi64x(MODULUS, MODULUS);
+    //const __m128i a_low     = _mm_loadu_si128((const __m128i*) &(a[0]));
+    //const __m128i a_high    = _mm_loadu_si128((const __m128i*) &(a[2]));
+    //const __m128i b_low     = _mm_loadu_si128((const __m128i*) &(b[0]));
+    //const __m128i b_high    = _mm_loadu_si128((const __m128i*) &(b[2]));
+    const __m128i a_low     = _mm256_castsi256_si128(a);
+    const __m128i a_high    = _mm256_extracti128_si256(b, 1);
+    const __m128i b_low     = _mm256_castsi256_si128(b);
+    const __m128i b_high    = _mm256_extracti128_si256(a, 1);
+    const __m128i modulus   = _mm_set_epi64x(MODULUS, MODULUS);
 
     __m128i m00 = _mm_clmulepi64_si128(a_low, b_low, 0x00);
     __m128i m01 = _mm_clmulepi64_si128(a_low, b_low, 0x10);

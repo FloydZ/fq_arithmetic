@@ -47,9 +47,10 @@ static void BM_gf2to128_mul_u256(benchmark::State& state) {
 
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
-#endif
 
 BENCHMARK(BM_gf2to128_mul_u128);
 BENCHMARK(BM_gf2to128_mul_u256);
+#endif
+
 BENCHMARK_MAIN();
 
