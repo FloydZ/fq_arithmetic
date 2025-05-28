@@ -12,9 +12,9 @@ typedef __uint128_t gf2to128;
 
 // choose whatever you like more
 // using irreducible polynomial x^128+x^7+x^2+x+1
-//#define MODULUS 0b10000111
+#define MODULUS 0b10000111
 // using irreducible polynomial x^128+x^7+1
-#define MODULUS 0b10000001
+//#define MODULUS 0b10000001
 
 /// \param a[in]: 
 /// \param b[in]: 
@@ -34,10 +34,27 @@ gf2to128 gf2to128_sub(const gf2to128 a,
 	return a ^ b;
 }
 
-/// original correct multiplication
+
+
+/// this is ct
+/// \param a
+/// \param b
+/// \return
 static inline
 gf2to128 gf2to128_mul(const gf2to128 a,
                       const gf2to128 b) {
+    gf2to128 r = (-(b>>127u) & a);
+    for (int i = 126; i >= 0; --i) {
+        r = (-(b>>i & 1u) & a) ^ (-(r>>127) & MODULUS) ^ (r+r);
+    }
+    return r;
+}
+
+/// original correct multiplication
+/// non ct
+static inline
+gf2to128 gf2to128_mul_v2(const gf2to128 a,
+                         const gf2to128 b) {
     gf2to128 shifted=a, result=0;
 
     for (size_t i = 0; i < 2; ++i) {
@@ -60,9 +77,10 @@ gf2to128 gf2to128_mul(const gf2to128 a,
 }
 
 /// \return a*b
+static inline
 gf2to128 gf2to128_mul_gf2(const gf2to128 a,
                           const gf2 b) {
-    gf2to128 c = ((gf2to128)-1ull)*b;
+    const gf2to128 c = ((gf2to128)-1ull)*b;
     return a & c;
 }
 
@@ -110,6 +128,10 @@ gf2to128 gf2to128v_expand_gf2_x1(const uint8_t in) {
     return (gf2to128)(in & 1u);
 }
 
+/// works for every modulus
+/// \param a
+/// \param b
+/// \return
 static inline
 gf2to128 gf2to128_mul_u128(const gf2to128 a,
                            const gf2to128 b) {

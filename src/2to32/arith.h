@@ -121,18 +121,38 @@ __m256i gf2to32v_mul_u256(const __m256i a,
     return r;
 }
 
+///
+/// @param a1
+/// @param c1
+/// @return
+static inline
+__m128i gf2to32v_mul_u256_helper(__m128i a1,
+                                 __m128i c1) {
+    const __m128i mod = _mm_setr_epi64((__m64)MODULUS, (__m64)0ll);
+    const __m128i m1  = _mm_setr_epi32(0xFFFFFFFF, 0, 0xFFFFFFFF, 0);
+
+    __m128i a1c1t0 = _mm_clmulepi64_si128(a1, c1, 0);
+    a1c1t0 ^= _mm_bslli_si128(_mm_clmulepi64_si128(a1, c1, 0x11), 8);
+    __m128i a1c1t1 = _mm_srli_epi64(a1c1t0, 32);
+    a1c1t0 = a1c1t0&m1;
+    __m128i a1c1t2 = _mm_clmulepi64_si128(mod, a1c1t1, 0);
+    a1c1t2 ^= _mm_bslli_si128(_mm_clmulepi64_si128(mod, a1c1t1, 0x10), 8);
+    __m128i a1c1t3 = (a1c1t0 ^ a1c1t2) & m1;
+
+    __m128i a1c1t4 = _mm_srli_epi64(a1c1t2, 32);
+    __m128i a1c1t5 = _mm_clmulepi64_si128(mod, a1c1t4, 0);
+    a1c1t5 ^= _mm_bslli_si128(_mm_clmulepi64_si128(mod, a1c1t4, 0x10), 8);
+    return a1c1t3 ^ a1c1t5;
+}
+
 /// based on clmulepi_64
 /// \param a
 /// \param b
 /// \return
+static inline
 __m256i gf2to32v_mul_u256_v2(const __m256i a,
                              const __m256i b) {
-
-    const __m128i mod = _mm_setr_epi64((__m64)MODULUS, (__m64)0ll);
-    const __m128i m1  = _mm_setr_epi32(0xFFFFFFFF, 0, 0, 0);
-    const __m128i m2  = _mm_setr_epi32(0, 0xFFFFFFFF, 0, 0);
-    const __m128i m3  = _mm_setr_epi32(0, 0, 0xFFFFFFFF, 0);
-    const __m128i m4  = _mm_setr_epi32(0, 0, 0, 0xFFFFFFFF);
+    const __m128i m1  = _mm_setr_epi32(0xFFFFFFFF, 0, 0xFFFFFFFF, 0);
 
     const __m128i al1 = _mm256_castsi256_si128(a);
     const __m128i bl1 = _mm256_castsi256_si128(b);
@@ -140,36 +160,27 @@ __m256i gf2to32v_mul_u256_v2(const __m256i a,
     const __m128i bh1 = _mm256_extracti128_si256(b, 0x1);
 
     const __m128i a1 = al1 & m1;
-    const __m128i a2 = al1 & m2;
-    const __m128i a3 = al1 & m3;
-    const __m128i a4 = al1 & m4;
+    const __m128i a3 = _mm_srli_epi64(al1, 32) & m1;
 
     const __m128i b1 = ah1 & m1;
-    const __m128i b2 = ah1 & m2;
-    const __m128i b3 = ah1 & m3;
-    const __m128i b4 = ah1 & m4;
+    const __m128i b3 = _mm_srli_epi64(ah1, 32) & m1;
 
 
     const __m128i c1 = bl1 & m1;
-    const __m128i c2 = bl1 & m2;
-    const __m128i c3 = bl1 & m3;
-    const __m128i c4 = bl1 & m4;
+    const __m128i c3 = _mm_srli_epi64(bl1, 32) & m1;
 
     const __m128i d1 = bh1 & m1;
-    const __m128i d2 = bh1 & m2;
-    const __m128i d3 = bh1 & m3;
-    const __m128i d4 = bh1 & m4;
+    const __m128i d3 = _mm_srli_epi64(bh1, 32) & m1;
 
-    const __m128i a1c1 = _mm_clmulepi64_si128(a1, c1, 0);
-    const __m128i a1c1t1 = _mm_srli_epi64(a1c1, 32);
-    const __m128i a1c1t2 = _mm_clmulepi64_si128(mod, a1c1t1, 0);
-    const __m128i a1c1t3 = (a1c1&m1) ^ a1c1t2;
 
-    const __m128i a1c1t4 = _mm_srli_epi64(a1c1t2, 32);
-    const __m128i a1c1t5 = _mm_clmulepi64_si128(mod, a1c1t4, 0);
-    const __m128i a1c1t6 = (a1c1t3&m1) ^ a1c1t5;
+    __m128i a1c1 = gf2to32v_mul_u256_helper(a1, c1);
+    __m128i a3c3 = _mm_slli_epi64(gf2to32v_mul_u256_helper(a3, c3), 32);
+    __m128i b1d1 = gf2to32v_mul_u256_helper(b1, d1);
+    __m128i b3d3 = _mm_slli_epi64(gf2to32v_mul_u256_helper(b1, d1), 32);
 
-    const __m256i ret = _mm256_set_m128i(a1c1t3, a1c1t6);
+    a1c1 ^= a3c3;
+    b1d1 ^= b3d3;
+    const __m256i ret = _mm256_set_m128i(b1d1, a1c1);
     return ret;
 }
 #endif

@@ -36,12 +36,18 @@ int test_vector_mul() {
         const gf2to128 a = rand() ^ ((gf2to128)rand() << 64u);
         const gf2to128 b = rand() ^ ((gf2to128)rand() << 64u);
 
-        const gf2to128 c1 = gf2to128_mul_u128(a, b);
-        const gf2to128 c2 = gf2to128_mul(a, b);
-
+        const gf2to128 c1 = gf2to128_mul(a, b);
+        const gf2to128 c2 = gf2to128_mul_u128(a, b);
         if (c1 != c2) {
             printf("test_vector_mul: %llx %llx\n",
-                   (unsigned long long)c1, (unsigned long long)c2);
+               (unsigned long long)c1, (unsigned long long)c2);
+            return 1;
+        }
+
+        const gf2to128 c3 = gf2to128_mul_v2(a, b);
+        if (c3 != c1) {
+            printf("test_vector_mul(v2): %llx %llx\n",
+                   (unsigned long long)c1, (unsigned long long)c3);
             return 1;
         }
     }

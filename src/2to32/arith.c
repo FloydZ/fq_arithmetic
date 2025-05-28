@@ -55,7 +55,7 @@ uint32_t test_vector_mul() {
             const __m256i c3 = gf2to32v_mul_u256_v2(aa, bb);
             _mm256_storeu_si256((__m256i *)tmp1, c3);
 
-            for (uint32_t k = 0; k < 1; ++k) {
+            for (uint32_t k = 0; k < 8; ++k) {
                 if (c1 != tmp1[k]){
                     printf("error: test vector mul (2): %d %d\n", c1, tmp1[k]);
                     return 1;
