@@ -13,7 +13,6 @@ static long long cpucycles(void) noexcept {
 }
 
 
-
 static void BM_gf2to128_mul(benchmark::State& state) {
     uint64_t c = 0;
     gf2to128 a = 1, b = 2;

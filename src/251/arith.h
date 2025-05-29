@@ -24,6 +24,7 @@ ff_t gf251_neg(const ff_t a) {
 
 /// NOTE: assumes that each gf251 element is in a single uint8_t
 /// TODO not finished
+static inline
 __m256i gf251v_red_u256(const __m256i a) {
     const __m256i Q = _mm256_set1_epi8((int8_t)251);
     const __m256i mask = _mm256_set1_epi8(7u);
@@ -37,6 +38,7 @@ __m256i gf251v_red_u256(const __m256i a) {
 
 /// NOTE: assumes that each gf251 element is in a single uint8_t
 /// TODO not finished
+static inline
 __m256i gf251v_add_u256(const __m256i a,
                        const __m256i b) {
     const __m256i c = _mm256_add_epi8(a, b);
@@ -45,6 +47,7 @@ __m256i gf251v_add_u256(const __m256i a,
 
 /// NOTE: assumes reduced inputs
 /// TODO not finished
+static inline
 __m256i gf251v_mul_u256(const __m256i a,
                         const __m256i b) {
     __m256i tl, th, sl, sh, r;

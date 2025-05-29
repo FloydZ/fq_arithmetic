@@ -1,19 +1,22 @@
+#pragma once
+
 #include <stdint.h>
+#include "../2/arith.h"
 
 /// main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
 // GF(2)/[x^32 + x^22 + x^2 + x^1 + 1]
 //#define MODULUS 0b100000000010000000000000000000111
+// NOTE: the following modulus is better as its speeds up the reduction in 'gf2to32v_mul_u256_v2'
 // GF(2)/[x^32 + x^15 + x^7 + x^1 + 1]
 #define MODULUS 0b000000000000000010000000100000011ull
 typedef uint32_t gf2to32;
 
-///
 /// \param a
 /// \param b
-/// \return
+/// \return a + b \mod 2**32
 static inline
 gf2to32 gf2to32_add(const gf2to32 a,
-                 const gf2to32 b) {
+                    const gf2to32 b) {
     return a ^ b;
 }
 
@@ -23,7 +26,7 @@ gf2to32 gf2to32_add(const gf2to32 a,
 /// \return
 static inline
 gf2to32 gf2to32_sub(const gf2to32 a,
-                 const gf2to32 b) {
+                    const gf2to32 b) {
     return a ^ b;
 }
 
@@ -33,7 +36,7 @@ gf2to32 gf2to32_sub(const gf2to32 a,
 /// \return
 static inline
 gf2to32 gf2to32_mul_v2(const gf2to32 a,
-                 const gf2to32 b) {
+                       const gf2to32 b) {
     uint32_t result = 0;
     uint32_t shifted = a;
 
@@ -59,30 +62,38 @@ gf2to32 gf2to32_mul_v2(const gf2to32 a,
 /// \return
 static inline
 gf2to32 gf2to32_mul(const gf2to32 a,
-                       const gf2to32 b) {
-    uint32_t r;
-    r = (-(b>>31u     ) & a);
+                    const gf2to32 b) {
+    gf2to32 r = (-(b>>31u) & a);
     for (int i = 30; i >= 0; --i) {
         r = (-(b>>i & 1u) & a) ^ (-(r>>31) & MODULUS) ^ (r+r);
     }
+
     return r;
 }
 
-///
 /// \param a
-/// \return
+/// \return -a
 static inline
 gf2to32 gf2to32_neg(const gf2to32 a) {
     return ~a;
 }
 
+/// \param a[in]:
+/// \param b[in]:
+/// \return a*b
+static inline
+gf2to32 gf2to32_mul_gf2(const gf2to32 a,
+                        const gf2 b) {
+    return a & (-b);
+}
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-///
 /// \param a
 /// \param b
 /// \return
+static inline
 __m256i gf2to32v_add_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
@@ -92,6 +103,7 @@ __m256i gf2to32v_add_u256(const __m256i a,
 /// \param a
 /// \param b
 /// \return
+static inline
 __m256i gf2to32v_sub_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
@@ -102,6 +114,7 @@ __m256i gf2to32v_sub_u256(const __m256i a,
 /// \param a
 /// \param b
 /// \return
+static inline
 __m256i gf2to32v_mul_u256(const __m256i a,
                           const __m256i b) {
     const __m256i zero = _mm256_set1_epi8(0);
@@ -121,10 +134,12 @@ __m256i gf2to32v_mul_u256(const __m256i a,
     return r;
 }
 
-///
-/// @param a1
-/// @param c1
-/// @return
+/// helper function computing the multiplication and reduction of
+/// two input values < 2**32.
+///                0   32  64   96  128
+/// \param a1[in]: [a1_1, 0, a1_2, 0]
+/// \param c1[in]: [b1_1, 0, b1_2, 0]
+/// \return
 static inline
 __m128i gf2to32v_mul_u256_helper(__m128i a1,
                                  __m128i c1) {
@@ -146,9 +161,9 @@ __m128i gf2to32v_mul_u256_helper(__m128i a1,
 }
 
 /// based on clmulepi_64
-/// \param a
-/// \param b
-/// \return
+/// \param a[in]: [a_0, ..., a_7]
+/// \param b[in]: [b_0, ..., b_7]
+/// \return [a_0*b_0 mod 2**32, ..., a_7*b_7 mod 2**32]
 static inline
 __m256i gf2to32v_mul_u256_v2(const __m256i a,
                              const __m256i b) {
@@ -161,26 +176,50 @@ __m256i gf2to32v_mul_u256_v2(const __m256i a,
 
     const __m128i a1 = al1 & m1;
     const __m128i a3 = _mm_srli_epi64(al1, 32) & m1;
-
     const __m128i b1 = ah1 & m1;
     const __m128i b3 = _mm_srli_epi64(ah1, 32) & m1;
 
-
     const __m128i c1 = bl1 & m1;
     const __m128i c3 = _mm_srli_epi64(bl1, 32) & m1;
-
     const __m128i d1 = bh1 & m1;
     const __m128i d3 = _mm_srli_epi64(bh1, 32) & m1;
-
 
     __m128i a1c1 = gf2to32v_mul_u256_helper(a1, c1);
     __m128i a3c3 = _mm_slli_epi64(gf2to32v_mul_u256_helper(a3, c3), 32);
     __m128i b1d1 = gf2to32v_mul_u256_helper(b1, d1);
-    __m128i b3d3 = _mm_slli_epi64(gf2to32v_mul_u256_helper(b1, d1), 32);
+    __m128i b3d3 = _mm_slli_epi64(gf2to32v_mul_u256_helper(b3, d3), 32);
 
     a1c1 ^= a3c3;
     b1d1 ^= b3d3;
     const __m256i ret = _mm256_set_m128i(b1d1, a1c1);
     return ret;
+}
+
+/// \param in[in]: 8bits = [in_0, ..., in_7]
+///         0    32         255
+/// \return [in_0, ..., in_7];
+static inline
+__m256i gf2to32v_expand_gf2_x8_u256(const uint8_t in) {
+    const uint64_t t1 = _pdep_u64(in, 0x0101010101010101ull);
+    const __m128i t2 = _mm_set1_epi64x(t1);
+    return _mm256_cvtepi8_epi32(t2);
+}
+
+/// \param in[in]: 8bits = [in_0, ..., in_7]
+///         0    32         255
+/// \return [in_0, ..., in_7]; // bit extended
+static inline
+__m256i gf2to32v_expand_gf2_x8_ext_u256(const uint8_t in) {
+    const __m256i t = gf2to32v_expand_gf2_x8_u256(in);
+    return _mm256_cmpgt_epi32(t, _mm256_setzero_si256());
+}
+
+/// \param a[in]: [a_0, ..., a_7] \in (F2^32)^8
+/// \param b[in]: [b_0, ..., b_7] \in (F2)^8 already bit extended
+/// \return [a_0*b_0, ..., a]
+static inline
+__m256i gf2to32v_mul_gf2_u256(const __m256i a,
+                              const __m256i b) {
+    return a & b;
 }
 #endif

@@ -12,6 +12,35 @@ static long long cpucycles(void) noexcept {
 #endif
 }
 
+static void BM_gf2to256_mul(benchmark::State& state) {
+    uint64_t c = 0;
+    gf2to256 a, b, d;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf2to256_mul(d, a, b);
+        gf2to256_mul(a, b, d);
+        gf2to256_mul(b, d, a);
+        c += cpucycles();
+        a[0] += c;
+        benchmark::DoNotOptimize(a[0]+=1);
+    }
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
+static void BM_gf2to256_mul_v2(benchmark::State& state) {
+    uint64_t c = 0;
+    gf2to256 a, b, d;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf2to256_mul_v2(d, a, b);
+        gf2to256_mul_v2(a, b, d);
+        gf2to256_mul_v2(b, d, a);
+        c += cpucycles();
+        a[0] += c;
+        benchmark::DoNotOptimize(a[0]+=1);
+    }
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
 
 #ifdef USE_AVX2
 #include <immintrin.h>
@@ -49,8 +78,11 @@ static void BM_gf2to256_mul_u256_v2(benchmark::State& state) {
 
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
-#endif
 
 BENCHMARK(BM_gf2to256_mul_u256);
 BENCHMARK(BM_gf2to256_mul_u256_v2);
+#endif
+
+BENCHMARK(BM_gf2to256_mul);
+BENCHMARK(BM_gf2to256_mul_v2);
 BENCHMARK_MAIN();
