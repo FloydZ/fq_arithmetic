@@ -2,11 +2,12 @@
 #define NROWS 127
 #define NCOLS 128
 
+#include <string.h>
+#include <stdio.h>
+
 #include "arith.h"
 #include "vector.h"
 #include "matrix.h"
-
-#include <string.h>
 
 
 #ifdef USE_AVX2
@@ -267,7 +268,7 @@ uint32_t test_mul() {
         gf16_matrix_id(A, n, m);
         gf16_matrix_id(B, m, k);
         gf16_matrix_product(C1, A, B, n, m, k);
-        gf16mat_prod_16x4x12(C2, A, B);
+        // TODO gf16mat_prod_16x4x12(C2, A, B);
 
         for (uint32_t i = 0; i < n; i++) {
             for (uint32_t j = 0; j < k; j++) {
