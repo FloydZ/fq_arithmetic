@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "../2/vector.h"
 
@@ -16,6 +17,7 @@
 
 typedef uint64_t gf2to256[4];
 
+/// \param r[in/out] = 0
 static inline
 void gf2to256_set_zero(gf2to256 r) {
     for (uint32_t i = 0; i < 4; i++) {
@@ -23,8 +25,7 @@ void gf2to256_set_zero(gf2to256 r) {
     }
 }
 
-
-/// \param r[out]: = rand()
+/// \param r[in/out]: = rand()
 static inline
 void gf2to256_set_random(gf2to256 r) {
     for (uint32_t i = 0; i < 4; i++) {
@@ -55,15 +56,17 @@ void gf2to256_sub(gf2to256 r,
     gf2to256_add(r, a, b);
 }
 
+/// NOTE: non ct
 /// \param r[out]: = a * b
 /// \param a[in]:
 /// \param b[int]:
 static inline
-void gf2to256_mul(gf2to256 r,
-                  const gf2to256 a,
-                  const gf2to256 b) {
+void gf2to256_mul_v2(gf2to256 r,
+                     const gf2to256 a,
+                     const gf2to256 b) {
     /// Slow, but straight-forward
     uint64_t shifted[4] = {a[0], a[1], a[2], a[3]};
+    gf2to256_set_zero(r);
     for (size_t i = 0; i < 4; ++i){
         for (size_t j = 0; j < 64; ++j) {
             if (b[i] & (1ull << j)) {
@@ -73,17 +76,69 @@ void gf2to256_mul(gf2to256 r,
                 r[3] ^= shifted[3];
             }
 
-            uint32_t reduce = (shifted[3] & (1ull << 63));
-
-            shifted[3] = (shifted[3] << 1) | (shifted[2] >> 63);
-            shifted[2] = (shifted[2] << 1) | (shifted[1] >> 63);
-            shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
-            shifted[0] = shifted[0] << 1;
-
-            if (reduce) {
-                shifted[0] ^= MODULUS;
+            if (shifted[3] & (1ull << 63)) {
+                shifted[3] = (shifted[3] << 1) | (shifted[2] >> 63);
+                shifted[2] = (shifted[2] << 1) | (shifted[1] >> 63);
+                shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+                shifted[0] = (shifted[0] << 1) ^ MODULUS;
+            } else {
+                shifted[3] = (shifted[3] << 1) | (shifted[2] >> 63);
+                shifted[2] = (shifted[2] << 1) | (shifted[1] >> 63);
+                shifted[1] = (shifted[1] << 1) | (shifted[0] >> 63);
+                shifted[0] = shifted[0] << 1;
             }
         }
+    }
+}
+
+/// small helper function, which masks a into r if bit is set.
+/// If b is not set, r will be set to zero.
+/// \param r[out]: output number
+/// \param a[in]: value to mask
+/// \param bit[in]: bit which selects the mask
+static inline
+void gf2to256_mul_helper(gf2to256 r,
+                         const gf2to256 a,
+                         const uint64_t bit) {
+    const uint64_t b = -bit;
+    for (uint32_t i = 0; i < 4; i++) {
+        r[i] = a[i] & b;
+    }
+}
+
+/// Adds two 4-limb big integers a and b, stores result in r.
+static inline
+void gf2to256_mul_addition(gf2to256 r,
+                           const gf2to256 a,
+                           const gf2to256 b) {
+    __uint128_t carry = 0;
+
+    for (uint32_t i = 0; i < 4; i++) {
+        const __uint128_t sum = (__uint128_t)a[i] + (__uint128_t)b[i] + carry;
+        r[i] ^= sum;
+        carry = (sum >> 64);
+        assert(carry <= 1);
+    }
+}
+
+/// this is ct
+/// \param r[out]: a*b
+/// \param a[in]: first value
+/// \param b[in]: second value
+static inline
+void gf2to256_mul(gf2to256 r,
+                  const gf2to256 a,
+                  const gf2to256 b) {
+    gf2to256 t1;
+    gf2to256_mul_helper(r, a, b[3]>>63);
+    for (int i = 254; i >= 0; --i) {
+        const uint32_t limb = i / 64;
+        const uint32_t pos = i % 64;
+
+        gf2to256_mul_helper(t1, a, (b[limb] >> pos) & 1ull);
+        t1[0] ^= (-(r[3] >> 63)) & MODULUS;
+        gf2to256_mul_addition(t1, r, r);
+        for (uint32_t j = 0; j < 4; j++) { r[j] = t1[j]; }
     }
 }
 
@@ -183,7 +238,7 @@ __m256i gf2to256v_mul_u256(const __m256i a,
     const __m128i ab2 = _mm256_extracti128_si256(t1, 1);
     const __m128i ab3 = _mm256_extracti128_si256(t2, 1);
     // const __m128i modulus = _mm_loadl_epi64((const __m128i*) &(this->modulus_));
-    const __m128i modulus = _mm_set_epi64x(MODULUS, 0);
+    const __m128i modulus = _mm_set_epi64x(0, MODULUS);
     __m128i c0 = _mm_clmulepi64_si128(ab0, ab0, 0x01); /* multiply low and high halves */
     __m128i c6 = _mm_clmulepi64_si128(ab3, ab3, 0x01);
 
@@ -250,8 +305,8 @@ __m256i gf2to256v_mul_u256(const __m256i a,
     return (__m256i)_mm256_set_m128((__m128)d1, (__m128)d0);
 }
 
-/// \param a[in]:
-/// \param b[in]:
+/// \param a[in]: first value
+/// \param b[in]: second value
 /// \return a * b
 static inline
 __m256i gf2to256v_mul_u256_v2(const __m256i a,
@@ -264,10 +319,10 @@ __m256i gf2to256v_mul_u256_v2(const __m256i a,
     //const __m128i b_low     = _mm_loadu_si128((const __m128i*) &(b[0]));
     //const __m128i b_high    = _mm_loadu_si128((const __m128i*) &(b[2]));
     const __m128i a_low     = _mm256_castsi256_si128(a);
-    const __m128i a_high    = _mm256_extracti128_si256(b, 1);
+    const __m128i a_high    = _mm256_extracti128_si256(a, 1);
     const __m128i b_low     = _mm256_castsi256_si128(b);
-    const __m128i b_high    = _mm256_extracti128_si256(a, 1);
-    const __m128i modulus   = _mm_set_epi64x(MODULUS, MODULUS);
+    const __m128i b_high    = _mm256_extracti128_si256(b, 1);
+    const __m128i modulus   = _mm_set_epi64x(0, MODULUS);
 
     __m128i m00 = _mm_clmulepi64_si128(a_low, b_low, 0x00);
     __m128i m01 = _mm_clmulepi64_si128(a_low, b_low, 0x10);
@@ -328,6 +383,21 @@ __m256i gf2to256v_mul_u256_v2(const __m256i a,
     // _mm_storeu_si128((__m128i*) &r[0], d0);
     // _mm_storeu_si128((__m128i*) &r[2], d1);
     return (__m256i)_mm256_set_m128((__m128)d1, (__m128)d0);
+}
+
+/// \param r[out]: a*b mod 2**256
+/// \param a[in]:
+/// \param b[in]:
+static inline
+void gf2to256v_mul_u256_(gf2to256 r,
+                         const gf2to256 a,
+                         const gf2to256 b) {
+    const __m256i aa = _mm256_loadu_si256((const __m256i *)a);
+    const __m256i bb = _mm256_loadu_si256((const __m256i *)b);
+    // choose which one is faster
+    const __m256i cc = gf2to256v_mul_u256(aa, bb);
+    // const __m256i cc = gf2to256v_mul_u256_v2(aa, bb);
+    _mm256_storeu_si256((__m256i *)r, cc);
 }
 
 /// \param a \in gf2to256

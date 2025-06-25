@@ -2,37 +2,38 @@
 """ generator script for finite field matrix and vector arithmetic """
 
 from math import log2, ceil
-from typing import List
+from typing import List, Union, Tuple
 
 # TODO: implement the following flags:
 #   - preload_matrix_into_registers (load everything into registers and then do the math)
-#   - instead of instrinsics, emit actual instructions
 # SHAPE class:
 #   - the shape class exports to many internal values. make them private
-# REGISTERS:
-#   - add neon and m4 registers
 # TESTS:
 #   - well, start adding tests. The problem is: I dont want to have string comparisons in the tests. They would be simply too naiv. 
-# GENERAL:
-#   - make the access to the `list_of_arguments` generic: like the name of the out param is always the same
-#   - make the `generate_function_declaration` more abstract, support different type for each argument.
 
 
+# NOTE: this will not be implemented, otherwise we needed to keep track of all 
+# kinds of register allocation, for example memory loads needed to always use 
+# the rcx register as a memory offset in a loop. 
 # global variable/configuration:
 # if this value is true, the code generators will emit pure assembly.
-# if this value is false, the code genera tors will emit C intrinsics
-use_assembly = True
+# if this value is false, the code generators will emit C intrinsics
+# use_assembly = True
 
-list_of_arguments = ["c", "a", "b"]
+list_of_arguments = ["a", "b", "c", "d", "e", "f", "g"]
 list_of_variables = ["t" + str(i) for i in range(100)]
 
-# NOTE: linux x86-64 only
 list_of_arguments_asm = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
 list_of_variables_asm_x86= ["r10", "r11", "r12", "r13", "r14", "r15"]
 list_of_variables_asm_x86_avx2 = ["ymm0", "ymm1", "ymm2", "ymm3", "ymm4"]
 list_of_variables_asm_x86_avx512 = ["zmm0", "zmm1", "zmm2", "zmm3", "zmm4"]
 
 
+list_of_variables_asm_armv7_32 = [f"r{i}" for i in range(0, 16)] # 32bit regs
+list_of_variables_asm_armv7_64 = [f"d{i}" for i in range(0, 32)] # 64bit regs
+list_of_variables_asm_aarch64_32 = [f"w{i}" for i in range(0, 31)] # 32bit regs
+list_of_variables_asm_aarch64_64 = [f"x{i}" for i in range(0, 31)] # 64bit regs
+list_of_variables_asm_aarch64_neon = [f"v{i}" for i in range(0, 32)] # 128bit regs
 
 # NOTE:
 global_variables = [] # TODO: add to main code generator
@@ -57,23 +58,38 @@ def get_var_name():
     return ret
 
 
-def generate_function_declaration(name: str, typ: str, nr_args: int) -> str:
-    """generates a simple C function header
+def generate_function_declaration(name: str, 
+                                  typ: Union[str, List[str]], 
+                                  nr_args: int) -> Tuple[str, List[str]]:
+    """generates a simple C function header of the form:
+        {name}({typ} *out_var, {typ} *in_var1, {typ} *in_var2,..., {typ} *in_var_n-2, const size_t t)
     :param name: name of the function 
-    :param typ: type of the input arguments
+    :param typ: type of the input arguments, either a single string/type, than 
+        all input/output arguments will have the same type. Or a list of types,
+        than the arguments can have a different 
     :param nr_args: number of input arguments
-    :return `void {name}({typ} *arg1);`
+    :return [
+        `void {name}({typ} *arg1, {typ} *arg2);`, 
+        ["arg1", "arg2"]
+    ]
     """
     assert nr_args <= len(list_of_arguments)
+    if isinstance(typ, List):
+        assert len(typ) == nr_args
+
+    if isinstance(typ, str):
+        typ = [typ] *nr_args
+
     ret = f"void {name}(\n"
     for i in range(nr_args):
+        t = typ[i]
         tmp = list_of_arguments[i]
-        ret += f"{typ} *{tmp}, "
+        ret += f"{t} *{tmp}, "
         # if i < (nr_args - 1): ret += ","
         ret += "\n"
     ret += "const size_t n\n"
     ret += ")\n"
-    return ret
+    return ret, list_of_arguments[:nr_args]
 
 
 def ceil_mutliple_of(a: int, n: int) -> int:
@@ -101,7 +117,7 @@ def ceil_power_of_2_for_type(a: int) -> int:
 def ceil_power_of_2(a: int) -> int:
     """
     :param a: input value
-    :return the smallest power of two (>= 8) which is bigger than `a`
+    :return the smallest power of two which is bigger than `a`
     """
     tmp = [1, 2, 4, 8, 16, 32, 64]
     for t in tmp:
@@ -144,6 +160,7 @@ class SIMD:
     def load(self,
              out_var: str,
              in_var: str) -> str:
+        del out_var; del in_var;
         raise NotImplemented
     
     def load_multiple(self,
@@ -163,6 +180,7 @@ class SIMD:
     def store(self,
               out_var: str,
               in_var: str) -> str:
+        del out_var; del in_var;
         raise NotImplementedError
 
     def store_multiple(self,
@@ -182,6 +200,7 @@ class SIMD:
     def set1(self,
             out_var: str,
             in_var: str) -> str:
+        del out_var; del in_var;
         raise NotImplementedError
 
     def set1_multiple(self,
@@ -223,6 +242,7 @@ class SIMD:
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
+        del p; del o; del a;
         raise NotImplementedError()
 
     def shuffle_multiple(self, p: List[int],
@@ -349,6 +369,7 @@ class SSE(SIMD):
         :param a: input register 
         :return TODO
         """
+        del out_var; del in_var; del n; del p;
         raise NotImplementedError
     
     def shuffle(self, p: List[int],
@@ -358,18 +379,64 @@ class SSE(SIMD):
         :param out_var: name of the output variable (register)
         :param in_var: value to set
         """
-        return f"TODO"
+        ret = ""
+        t = len(p)
+        assert t in [2, 4, 8, 16, 32]
+        if t == 2:
+            if p[0] == 0:
+                # emit nothing
+                return ""
+            return f"{o} = ({self.register_name})_mm_shuffle_pd((__m128){a}, (__m128){a}, 0b01);"
+        if t == 4:
+            imm = "0b" + "".join(['{0:02b}'.format(l) for l in p[::-1]])
+            return f"{o} = _mm_shuffle_pd((__m128){a}, {imm});\n"
+        if t == 8:
+            raise NotImplementedError()
+        if t == 16:
+            b = get_var_name()
+            c = ", ".join([str(pp) for pp in p])
+            s = f"const {self.register_name} {b} = _mm256_set1_epi8({c});\n"
+            #global global_variables
+            global_variables.append(s)
+            return f"{o} = _mm256_shuffle_epi8({a}, {b});\n"
+
+        return ret;
     
     def hxor(self, p: int,
              o: str,
              a: str) -> str:
-        """
+        """ computes the horizonatl xor of all limbs within the given register.
         :param p: number of limbs to xor up
         :param o: output register 
         :param a: input register 
         :return TODO
         """
-        raise NotImplementedError
+        if p not in [2, 4, 8, 16, # normal limb operations
+                     32, 64, 128]: # sub limb operations
+            raise ValueError
+        if p == 2:
+            # return uint64_t 
+            return f"{0} = _mm_extract_epi64({a}, 0) ^ _mm_extract_epi64({a}, 1);\n"
+        ret = f"{a} ^= (__m128i)_mm_shuffle_pd((__m128){a}, (__m128){a}, 0b01);\n"
+        if p >= 4:
+            ret += f"{a} ^= _mm_shuffle_epi32({a}, {a}, 0b01001110);\n"
+            if p == 4:
+                return ret + f"{o} = _mm_extract_epi32({a}, 0);\n"
+        if p >= 8:
+            raise NotImplemented
+
+        if p >= 16:
+            ret += self.shuffle([1, 0, 2, 3, 4, 5, 6, 7], "a", "a")
+            if p == 4:
+                return ret + f"{o} = _mm_extract_epi8({a}, 0);\n"
+        # TODO sublimb xor
+        raise NotImplemented
+
+    @staticmethod 
+    def test():
+        a = SSE(16)
+        print(a.shuffle([0,1,2,3], "a", "o"))
+        print(a.shuffle([2,3,0,1], "a", "o"))
     
 
 class AVX(SIMD):
@@ -504,21 +571,22 @@ class AVX(SIMD):
         if t == 32:
             b = get_var_name()
             c = ", ".join([str(pp) for pp in p])
-            s = f"const {self.register_name} {b} = _mm256_set1_epi8({c});\n"
+            s = f"const {self.register_name} {b} = _mm_set1_epi8({c});\n"
             #global global_variables
             global_variables.append(s)
-            return f"{o} = _mm256_shuffle_epi8({a}, {b});\n"
+            return f"{o} = _mm_shuffle_epi8({a}, {b});\n"
 
         return ret
 
     def hxor(self, p: int,
              o: str,
              a: str) -> str:
-        """
+        """ computes the horizonatl xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output register 
+        :param o: output register. NOTE: is some cases this must be a variable 
+                name, and not a register.
         :param a: input register 
-        :return TODO
+:return TODO
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256]:
             raise ValueError
@@ -654,7 +722,7 @@ class AVX512(AVX):
     def hxor(self, p: int,
              o: str,
              a: str) -> str:
-        """
+        """ computes the horizonatl xor of all limbs within the given register.
         :param p: number of limbs to xor up
         :param o: output register 
         :param a: input register 
@@ -707,8 +775,15 @@ class AVX512(AVX):
             ret = f"{a} ^= _mm512_bsrli_epi128({a}, b);\n" + ret
             if p == 128:
                 ret += f"{o} = _mm256_extract_epi8(_mm512_castsi512_si256({a}, 0) & 0x3;\n"
-
         return ret
+
+    @staticmethod 
+    def test():
+        a = AVX512(16)
+        print(a.shuffle([0,1], "a", "o"))
+        print(a.shuffle([1,0], "a", "o"))
+        print(a.shuffle([1,0,3,2], "a", "o"))
+
 
 class NEON(SIMD):
     def __init__(self, q: int) -> None:
@@ -723,6 +798,7 @@ class NEON(SIMD):
         """
         :param out_var: name of the output variable (register)
         :param in_var: name of the variable containing the memory location
+        :return a string with a single instruction
         """
         return f"{out_var} = vld1q_u{self.n}(({self.register_name} *)({in_var}));\n"
 
@@ -732,6 +808,7 @@ class NEON(SIMD):
         """
         :param out_var: variable name containing pointer to memory
         :param in_var: register variable
+        :return a string with a single instruction
         """
         return f"vst1q_u(({self.register_name} *)({out_var}), {in_var});\n"
     
@@ -741,27 +818,34 @@ class NEON(SIMD):
         """
         :param out_var: name of the output variable (register)
         :param in_var: value to set
+        :return a string with a single instruction
         """
         return f"{out_var} = vdupq_n_u{self.n}({in_var});\n"
     
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
-        """
+        """ NOTE: cheating with `__builtin_shufflevector()`
         :param p: a permutation of length 32/16/8/4/2
         :param o: output register 
         :param a: input register 
-
-        :return TODO
+        :return a string with a single instruction
         """
         t = len(p)
         assert t in [2, 4, 8, 16, 32, 64]
         tmp = "{" + ",".join([str(a) for a in p]) + "}"
         return f"{o} = __builtin_shufflevector({a}, {a}, {tmp});"
 
+    @staticmethod 
+    def test():
+        a = NEON(16)
+        a.shuffle([0,1], "a", "o")
+        a.shuffle([1,0], "a", "o")
+        a.shuffle([1,0,3,2], "a", "o")
+
 
 class Shuffler:
-    """
+    """ TODO was war hier nochmal die IDEE?
     """
     def __init__(self) -> None:
         pass
@@ -884,13 +968,13 @@ class Vector:
         in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
         in2_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
 
-        ret = generate_function_declaration(fn_name, s.limb_type_str, 3)
+        ret, arguments = generate_function_declaration(fn_name, s.limb_type_str, 3)
         ret += "{\n"
         ret += self.simd.decl(in1_simd_names + in2_simd_names)
-        ret += self.simd.load_multiple(in1_simd_names, "a", s.limb_per_simd_q_mu)
-        ret += self.simd.load_multiple(in2_simd_names, "b", s.limb_per_simd_q_mu)
+        ret += self.simd.load_multiple(in1_simd_names, arguments[1], s.limb_per_simd_q_mu)
+        ret += self.simd.load_multiple(in2_simd_names, arguments[2], s.limb_per_simd_q_mu)
         ret += self.simd.add_multiple(in1_simd_names, in1_simd_names, in2_simd_names)
-        ret += self.simd.store_multiple("c", in1_simd_names, s.limb_per_simd_q_mu)
+        ret += self.simd.store_multiple(arguments[0], in1_simd_names, s.limb_per_simd_q_mu)
         ret += "}\n"
         return ret
 
@@ -904,11 +988,11 @@ class Vector:
         print(s.__dict__)
         in1_simd_names = [get_var_name() for _ in range(s.number_simd_q_mu)]
 
-        ret = generate_function_declaration(fn_name, s.limb_type_str, 2)
+        ret, arguments = generate_function_declaration(fn_name, s.limb_type_str, 2)
         ret += "{\n"
         ret += self.simd.decl(in1_simd_names)
-        ret += self.simd.expand_multiple(in1_simd_names, "a", s.expand_number_limbs)
-        ret += self.simd.store_multiple("c", in1_simd_names, s.limb_per_simd_q_mu)
+        ret += self.simd.expand_multiple(in1_simd_names, arguments[1], s.expand_number_limbs)
+        ret += self.simd.store_multiple(arguments[0], in1_simd_names, s.limb_per_simd_q_mu)
         ret += "}\n"
         return ret
 
@@ -970,7 +1054,7 @@ class Matrix:
         A_simd_names = [get_var_name() for _ in range(A_s.number_simd_q_mu)]
         B_simd_name = get_var_name()
 
-        ret = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
+        ret, arguments = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
         ret += "{\n"
         ret += A_s.simd.decl(A_simd_names)
         ret += B_s.simd.decl([B_simd_name])
@@ -980,14 +1064,14 @@ class Matrix:
             ret += self.simd.set1(B_simd_name, f"b[{i}]")
 
             # load A into registers
-            ret += A_s.simd.load_multiple(A_simd_names, "a", A_s.limb_per_simd_q_mu)
+            ret += A_s.simd.load_multiple(A_simd_names, arguments[1], A_s.limb_per_simd_q_mu)
 
             # mul each 
             for r in A_simd_names:
                 ret += self.simd.mul(r, r, B_simd_name)
 
             # store into C
-            ret += self.simd.store_multiple("c", A_simd_names, A_s.limb_per_simd_q_mu)
+            ret += self.simd.store_multiple(arguments[0], A_simd_names, A_s.limb_per_simd_q_mu)
 
             # update the pointers 
             ret += f"a += {A_s.limb_per_simd_q_mu};\n"
@@ -1012,7 +1096,7 @@ class Matrix:
         A_simd_names = [get_var_name() for _ in range(A_s.number_simd_q_mu)]
         B_simd_name = get_var_name()
 
-        ret = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
+        ret, arguments = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
         ret += "{\n"
         ret += A_s.simd.decl(A_simd_names)
         ret += B_s.simd.decl([B_simd_name])
@@ -1026,8 +1110,10 @@ class Matrix:
 
 
 def test():
+    SSE.test()
     AVX.test()
-
+    AVX512.test()
+    NEON.test()
 
 
 if __name__ == "__main__":

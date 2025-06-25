@@ -692,7 +692,7 @@ static inline void gf2to12_matrix_mul_gf2_full_v1_u256(gf2to12 *result,
                                                         const uint32_t n_cols1,
                                                         const uint32_t n_cols2) {
     // NOTE: set this value to n_rows/8
-    __m128i A[4];
+    __m128i A[8];
     const uint32_t gf2_col_bytes = gf2_matrix_bytes_per_column(n_rows1);
 
     // for each col in A

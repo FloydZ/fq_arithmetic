@@ -32,6 +32,7 @@ void gf2to192_set_random(gf2to192 r) {
 /// \param a[in]:
 /// \param b[in]:
 /// \return a + b
+static inline
 void gf2to192_add(gf2to192 r, 
                   const gf2to192 a,
                   const gf2to192 b) {
@@ -43,18 +44,21 @@ void gf2to192_add(gf2to192 r,
 /// \param a[in]:
 /// \param b[in]:
 /// \return a - b
-void gf2to192_sub(gf2to192 r, 
+static inline
+void gf2to192_sub(gf2to192 r,
                   const gf2to192 a,
                   const gf2to192 b) {
     gf2to192_add(r, a, b);
 }
 
+/// NOTE: non ct
+/// \param r[out] = a*b mod 2to192
 /// \param a[in]:
 /// \param b[in]:
-/// \return a * b mod 2**192
-void gf2to192_mul(gf2to192 r, 
-                  const gf2to192 a,
-                  const gf2to192 b) {
+static inline
+void gf2to192_mul_v2(gf2to192 r,
+                     const gf2to192 a,
+                     const gf2to192 b) {
     uint64_t shifted[3] = {a[0], a[1], a[2]};
     gf2to192_set_zero(r);
     for (size_t i = 0; i < 3; ++i) {
@@ -75,6 +79,56 @@ void gf2to192_mul(gf2to192 r,
                 shifted[0] = shifted[0] << 1;
             }
         }
+    }
+}
+
+/// small helper function, which masks a into r if b is set.
+/// If b is not set, r will be set to zero.
+/// \param r[out]: output number
+/// \param a[in]: value to mask
+/// \param bit[in]: bit which selects the mask
+static inline
+void gf2to192_mul_helper(gf2to192 r,
+                         const gf2to192 a,
+                         const uint64_t bit) {
+    const uint64_t b = -bit;
+    for (uint32_t i = 0; i < 3; i++) {
+        r[i] = a[i] & b;
+    }
+}
+
+/// Adds two 3-limb big integers a and b, stores result in r.
+static inline
+void gf2to192_mul_addition(gf2to192 r,
+                           const gf2to192 a,
+                           const gf2to192 b) {
+    __uint128_t carry = 0;
+
+    for (uint32_t i = 0; i < 3; i++) {
+        const __uint128_t sum = (__uint128_t)a[i] + (__uint128_t)b[i] + carry;
+        r[i] ^= sum;
+        carry = (sum >> 64);
+    }
+}
+
+/// this is ct
+/// \param r
+/// \param a
+/// \param b
+static inline
+void gf2to192_mul(gf2to192 r,
+                  const gf2to192 a,
+                  const gf2to192 b) {
+    gf2to192 t1;
+    gf2to192_mul_helper(r, a, b[2]>>63);
+    for (int i = 190; i >= 0; --i) {
+        const uint32_t limb = i / 64;
+        const uint32_t pos = i % 64;
+
+        gf2to192_mul_helper(t1, a, (b[limb] >> pos) & 1ull);
+        t1[0] ^= (-(r[2] >> 63)) & MODULUS;
+        gf2to192_mul_addition(t1, r, r);
+        for (uint32_t j = 0; j < 3; j++) { r[j] = t1[j]; }
     }
 }
 
@@ -125,7 +179,10 @@ __m256i gf2to192v_sub_u256(const __m256i a,
     return a ^ b;
 }
 
-
+/// \param a
+/// \param b
+/// \return a*b
+static inline
 __m256i gf2to192v_mul_u256(const __m256i a,
                            const __m256i b) {
     //const __m128i ab0 = _mm_set_epi64x(a[0], b[0]);
@@ -197,7 +254,11 @@ __m256i gf2to192v_mul_u256(const __m256i a,
     return _mm256_set_m128i(d1, d0);
 }
 
-void gf2to192v_mul_u256_(gf2to192 r, 
+/// \param r = a*b
+/// \param a
+/// \param b
+static inline
+void gf2to192v_mul_u256_(gf2to192 r,
                          const gf2to192 a,
                          const gf2to192 b) {
     /* load the two operands and the modulus into 128-bit registers.
