@@ -886,6 +886,25 @@ __m256i gf256v_mul_u256(const __m256i a,
     return r;
 }
 
+
+static inline
+__m128i gf256v_mul_u128(const __m128i a,
+                        const __m128i b) {
+    const __m128i zero = _mm_set1_epi32(0),
+                  mask = _mm_set1_epi8(0x1B);
+    __m128i r;
+
+    r = _mm_blendv_epi8(zero, a, b);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 1)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 2)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 3)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 4)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 5)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 6)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 7)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    return r;
+}
+
 /// full multiplication:
 /// \param a: [a_0, a_1, ..., a_31]
 /// \param b: [b_0, b_1, ..., b_31]

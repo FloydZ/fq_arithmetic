@@ -250,7 +250,7 @@ static inline void gf2to12_vector_add_gf2_u256(gf2to12 *__restrict__ out,
     }
 
     if (i) {
-        uint16_t tmp[8] __attribute__((aligned(16))) = {0};
+        uint16_t tmp[16] __attribute__((aligned(16))) = {0};
         for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
         const __m128i m1 = _mm_loadu_si128((__m128i *)tmp);
 
@@ -461,7 +461,7 @@ static inline void gf2to12_vector_scalar_add_gf2_u256_v3(gf2to12 *__restrict__ o
     }
 
     if (i) {
-        uint16_t tmp[8] = {0};
+        uint16_t tmp[16] = {0};
 
         uint64_t mask = (1ul << (i * 8)) - 1ul;
         for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
