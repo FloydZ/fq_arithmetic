@@ -893,7 +893,7 @@ __m256i gf256v_mul_u256(const __m256i a,
 static inline __m256i gf256v_mul_u256_v2(const __m256i a_,
                                          const __m256i b) {
 #ifdef __AVX512VL__
-    return _mm256_gf2p8mul_epi8(c, b);
+    return _mm256_gf2p8mul_epi8(a, b);
 #endif
     const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
     const __m256i zero      = _mm256_set1_epi8(0x00);
@@ -955,6 +955,36 @@ static inline __m256i gf256v_mul_u256_v2(const __m256i a_,
     r = r ^ _mm256_blendv_epi8(zero, a, b);
 
     return r;
+}
+
+// taken from https://github.com/mqom/mqom-v2/blob/main/fields/fields_avx2.h
+static inline 
+__m256i gf256v_mul_u256_v3(__m256i _a, __m256i _b){
+        uint32_t j;
+        /* Our reduction polynomial */
+        const __m256i red_poly = _mm256_set_epi64x(0x1B1B1B1B1B1B1B1B, 0x1B1B1B1B1B1B1B1B, 0x1B1B1B1B1B1B1B1B, 0x1B1B1B1B1B1B1B1B);
+        const __m256i lsb      = _mm256_set_epi64x(0x0101010101010101, 0x0101010101010101, 0x0101010101010101, 0x0101010101010101);
+        const __m256i rm_lsb   = _mm256_set_epi64x(0xfefefefefefefefe, 0xfefefefefefefefe, 0xfefefefefefefefe, 0xfefefefefefefefe);
+        const __m256i msb      = _mm256_set_epi64x(0x8080808080808080, 0x8080808080808080, 0x8080808080808080, 0x8080808080808080);
+        const __m256i rm_msb   = _mm256_set_epi64x(0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f, 0x7f7f7f7f7f7f7f7f);
+        const __m256i zero     = _mm256_setzero_si256();
+	__m256i accu = _mm256_setzero_si256();
+
+        /* Compute the vectorized multiplication in GF(256) */
+        for(j = 0; j < 8; j++){
+                __m256i mask_lsb = _mm256_slli_epi64(_b & lsb, 7);
+                __m256i mask_msb = _a & msb;
+                /* Conditionally xor with a or 0 */
+                accu ^= _mm256_blendv_epi8(zero, _a, mask_lsb);
+                /* Shift right of _a by 1 is simply a global shit right with a AND 0x80 */
+                _a = _mm256_slli_epi64(_a, 1) & rm_lsb;
+                /* Conditionally xor with polynomial reduction or not */
+                _a ^= _mm256_blendv_epi8(zero, red_poly, mask_msb);
+                /* Shift left of _b by 1 is simply a global shift left with a AND 0x01 */
+                _b = _mm256_srli_epi64(_b, 1) & rm_msb;
+        }
+
+        return accu;
 }
 
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256
