@@ -10,14 +10,14 @@ jobs:
       matrix:
         arch: [armv6l, armv7l, aarch64]
         include:
-        - arch: armv6l
-          cpu: arm1176
-          base_image: raspios_lite:latest
-          cpu_info: raspberrypi_zero_w
-        - arch: armv7l
-          cpu: cortex-a7
-          base_image: raspios_lite:latest
-          cpu_info: raspberrypi_3b
+#        - arch: armv6l
+#          cpu: arm1176
+#          base_image: raspios_lite:latest
+#          cpu_info: raspberrypi_zero_w
+#        - arch: armv7l
+#          cpu: cortex-a7
+#          base_image: raspios_lite:latest
+#          cpu_info: raspberrypi_3b
         - arch: aarch64
           cpu: cortex-a53
           base_image: raspios_lite_arm64:latest
