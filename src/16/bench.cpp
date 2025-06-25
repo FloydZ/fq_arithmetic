@@ -214,9 +214,9 @@ static void BM_gf16mat_prod_16x4x12(benchmark::State& state) {
     uint64_t c = 0, a = 0;
     for (auto _ : state) {
         c -= cpucycles();
-        gf16mat_prod_16x4x12(C, A, B);
-        gf16mat_prod_16x4x12(A, B, C);
-        gf16mat_prod_16x4x12(B, A, C);
+        gf16mat_prod_16x4xk(C, A, B, 12);
+        gf16mat_prod_16x4xk(A, B, C, 12);
+        gf16mat_prod_16x4xk(B, A, C, 12);
         c += cpucycles();
 
         a += B[8];
