@@ -2,11 +2,12 @@
 #define NROWS 127
 #define NCOLS 128
 
+#include <string.h>
+#include <stdio.h>
+
 #include "arith.h"
 #include "vector.h"
 #include "matrix.h"
-
-#include <string.h>
 
 
 #ifdef USE_AVX2
@@ -253,18 +254,58 @@ uint32_t test_solve() {
     free(A); free(b); free(AT);
     return 0;
 }
+
+
+uint32_t test_mul() {
+    const size_t n = 16, m = 4, k = 12;
+    uint8_t *C1 = gf16_matrix_alloc(n, k);
+    uint8_t *C2 = gf16_matrix_alloc(n, k);
+    uint8_t *A = gf16_matrix_alloc(n, m);
+    uint8_t *B = gf16_matrix_alloc(m, k);
+
+    uint32_t ret = 0;
+    for (uint32_t t = 0; t < 1; t++) {
+        gf16_matrix_id(A, n, m);
+        gf16_matrix_id(B, m, k);
+        gf16_matrix_product(C1, A, B, n, m, k);
+        // TODO gf16mat_prod_16x4x12(C2, A, B);
+
+        for (uint32_t i = 0; i < n; i++) {
+            for (uint32_t j = 0; j < k; j++) {
+                const gf16 t1 = gf16_matrix_get(C1, n, i, j);
+                const gf16 t2 = gf16_matrix_get(C2, n, i, j);
+                if (t1 != t2) {
+                    gf16_matrix_print(C1, n, k);
+                    printf("\n");
+                    gf16_matrix_print(C2, n, k);
+                    printf("error test_prod_16x4x12: %d %d\n", i, j);
+                    ret = 1;
+                    goto finish;
+                }
+            }
+        }
+
+    }
+
+finish:
+    free(C1); free(C2); free(A); free(B);
+    return ret;
+}
+
+
 #endif
 
 int main() {
 #ifdef USE_AVX2
     // if (test_transpose_32x32()) { return 1; }
     // if (test_transpose_64x64()) { return 1; }
-    if (test_transpose2()) { return 1; }
+    // if (test_transpose2()) { return 1; }
     // if (test_matrix_gaus_compressed()) { return 1; }
     // if (test_matrix_gaus()) { return 1; }
     // if (test_solve()) { return 1; }
 
     // if (test_vector_mul()) { return 1; }
+    if (test_mul()) { return 1; }
 #endif
 
     printf("all good\n");

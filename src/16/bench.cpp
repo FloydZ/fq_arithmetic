@@ -1,7 +1,12 @@
 #include <benchmark/benchmark.h>
+
 #include "arith.h"
 #include "vector.h"
 #include "matrix.h"
+
+uint32_t n = 16, 
+         m = 4, 
+         k = 12;
 
 static long long cpucycles(void) noexcept {
 #ifdef USE_AVX2
@@ -88,6 +93,29 @@ static void BM_gf16_solve(benchmark::State& state) {
     state.counters["cycles"] = (double)c/(double)state.iterations();
     free(A); free(b);
 }
+
+static void BM_gf16_mat_mul(benchmark::State& state) {
+    auto *A = gf16_matrix_alloc(16, 16);
+    auto *B = gf16_matrix_alloc(16, 16);
+    auto *C = gf16_matrix_alloc(16, 16);
+    gf16_matrix_random(A, n, m);
+    gf16_matrix_random(B, n, m);
+    uint64_t c = 0, a = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf16_matrix_product(C, A, B, n, m, k);
+        gf16_matrix_product(A, B, C, n, m, k);
+        gf16_matrix_product(B, A, C, n, m, k);
+        c += cpucycles();
+
+        a += B[8];
+        benchmark::DoNotOptimize(a+=1);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+    free(A); free(B); free(C);
+}
+
 #ifdef USE_AVX2
 
 static void BM_gf16v_mul_u128(benchmark::State& state) {
@@ -177,16 +205,40 @@ static void BM_gf16_solve_transpose(benchmark::State& state) {
     free(A); free(b); free(AT);
 }
 
+static void BM_gf16mat_prod_16x4x12(benchmark::State& state) {
+    auto *A = gf16_matrix_alloc(16, 16);
+    auto *B = gf16_matrix_alloc(16, 16);
+    auto *C = gf16_matrix_alloc(16, 16);
+    gf16_matrix_random(A, n, m);
+    gf16_matrix_random(B, n, m);
+    uint64_t c = 0, a = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        gf16mat_prod_16x4x12(C, A, B);
+        gf16mat_prod_16x4x12(A, B, C);
+        gf16mat_prod_16x4x12(B, A, C);
+        c += cpucycles();
+
+        a += B[8];
+        benchmark::DoNotOptimize(a+=1);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+    free(A); free(B); free(C);
+}
+
 BENCHMARK(BM_gf16v_mul_u128);
 BENCHMARK(BM_gf16v_mul_u256);
 BENCHMARK(BM_gf16v_mul_full_u256);
-BENCHMARK(BM_gf16_matrix_transpose_64x64_avx2);
-BENCHMARK(BM_gf16_solve_transpose);
+BENCHMARK(BM_gf16mat_prod_16x4x12);
+//BENCHMARK(BM_gf16_matrix_transpose_64x64_avx2);
+//BENCHMARK(BM_gf16_solve_transpose);
 #endif
 
-BENCHMARK(BM_gf16v_mul);
-BENCHMARK(BM_gf16_matrix_transpose_16x16);
-BENCHMARK(BM_gf16_matrix_transpose_64x64);
-BENCHMARK(BM_gf16_solve);
+BENCHMARK(BM_gf16_mat_mul);
+//BENCHMARK(BM_gf16v_mul);
+//BENCHMARK(BM_gf16_matrix_transpose_16x16);
+//BENCHMARK(BM_gf16_matrix_transpose_64x64);
+//BENCHMARK(BM_gf16_solve);
 BENCHMARK_MAIN();
 

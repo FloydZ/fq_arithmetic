@@ -163,31 +163,53 @@ static void BM_gf256_sqr_u256(benchmark::State& state) {
 }
 
 static void BM_gf256_mul_u256(benchmark::State& state) {
-    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9}, c;
 
-    uint64_t c = 0;
+    uint64_t cc = 0;
     for (auto _ : state) {
-        c -= cpucycles();
-        a.v256 = gf256v_mul_u256(a.v256, b.v256);
-        c += cpucycles();
-        a.v256 = _mm256_add_epi32(a.v256, one.v256);
-        benchmark::DoNotOptimize(a.v256);
+        cc -= cpucycles();
+        c.v256 = gf256v_mul_u256(a.v256, b.v256);
+        a.v256 = gf256v_mul_u256(b.v256, c.v256);
+        b.v256 = gf256v_mul_u256(b.v256, a.v256);
+        cc += cpucycles();
+        b.v256 = _mm256_add_epi32(b.v256, one.v256);
+		benchmark::DoNotOptimize(c.v256); 
     }
-    state.counters["cycles"] = (double)c/(double)state.iterations();
+    state.counters["cycles"] = (double)cc/(double)state.iterations();
 }
 
-static void BM_gf256_mul_u256_v2(benchmark::State& state) {
-    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9};
 
-    uint64_t c = 0;
+
+static void BM_gf256_mul_u256_v2(benchmark::State& state) {
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9}, c;
+
+    uint64_t cc = 0;
     for (auto _ : state) {
-        c -= cpucycles();
-        a.v256 = gf256v_mul_u256_v2(a.v256, b.v256);
-        c += cpucycles();
-        a.v256 = _mm256_add_epi32(a.v256, one.v256);
-		benchmark::DoNotOptimize(a.v256); 
+        cc -= cpucycles();
+        c.v256 = gf256v_mul_u256_v2(a.v256, b.v256);
+        a.v256 = gf256v_mul_u256_v2(b.v256, c.v256);
+        b.v256 = gf256v_mul_u256_v2(b.v256, a.v256);
+        cc += cpucycles();
+        b.v256 = _mm256_add_epi32(b.v256, one.v256);
+		benchmark::DoNotOptimize(c.v256); 
     }
-    state.counters["cycles"] = (double)c/(double)state.iterations();
+    state.counters["cycles"] = (double)cc/(double)state.iterations();
+}
+
+static void BM_gf256_mul_u256_v3(benchmark::State& state) {
+    v256 a = {0, 1, 2, 3, 4, 5, 6, 7}, b = {2, 12, 4, 18, 6, 17, 1, 9}, one = {1,13,2,5,3,12,18,9}, c;
+
+    uint64_t cc = 0;
+    for (auto _ : state) {
+        cc -= cpucycles();
+        c.v256 = gf256v_mul_u256_v3(a.v256, b.v256);
+        a.v256 = gf256v_mul_u256_v3(b.v256, c.v256);
+        b.v256 = gf256v_mul_u256_v3(b.v256, a.v256);
+        cc += cpucycles();
+        b.v256 = _mm256_add_epi32(b.v256, one.v256);
+		benchmark::DoNotOptimize(c.v256); 
+    }
+    state.counters["cycles"] = (double)cc/(double)state.iterations();
 }
 
 static void BM_gf256v_mul_scalar_avx2(benchmark::State& state) {
@@ -328,8 +350,9 @@ static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
 }
 
 // BENCHMARK(BM_gf256_sqr_u256);
-// BENCHMARK(BM_gf256_mul_u256);
-// BENCHMARK(BM_gf256_mul_u256_v2);
+BENCHMARK(BM_gf256_mul_u256_v3);
+BENCHMARK(BM_gf256_mul_u256);
+BENCHMARK(BM_gf256_mul_u256_v2);
 // BENCHMARK(BM_gf256v_mul_scalar_avx2);
 
 // BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);

@@ -21,15 +21,15 @@ static inline void gf2to11_vector_print(gf2to11 *v,
     printf("\n");
 }
 
-/// \param v = 0
-/// \param n size of vector
+/// \param v[out]; = 0
+/// \param n[in]: size of vector (number of elements)
 static inline void gf2to11_vector_zero(gf2to11 *v,
                                        const uint32_t n) {
     memset(v, 0, n*sizeof(gf2to11));
 }
 
 /// \param v v[i] = rand()
-/// \param n size of vector
+/// \param n size of vector (number of elements)
 static inline void gf2to11_vector_random(gf2to11 *v,
                                          const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
@@ -40,7 +40,7 @@ static inline void gf2to11_vector_random(gf2to11 *v,
 ///
 /// \param v1 = v2
 /// \param v2
-/// \param n size of the two vectors
+/// \param n size of the two vectors (number of elements)
 static inline void gf2to11_vector_copy(gf2to11 *__restrict__ v1,
                                        const gf2to11 *__restrict__ v2,
                                        const uint32_t n) {
@@ -50,6 +50,7 @@ static inline void gf2to11_vector_copy(gf2to11 *__restrict__ v1,
 }
 
 /// a = b
+/// \param n[in]: size of vector (number of elements)
 static inline void gf2to11_vector_set_to_gf2(gf2to11 *a,
                                              const gf2 *b,
                                              const uint32_t n) {

@@ -11,18 +11,22 @@
 
 typedef uint8_t ff_t;
 
+static inline
 ff_t gf31_add(ff_t a, ff_t b) {
     return (a+b) % PRIME;
 }
 
+static inline
 ff_t gf31_sub(ff_t a, ff_t b) {
     return (a+PRIME-b) % PRIME;
 }
 
+static inline
 ff_t gf31_mul(ff_t a, ff_t b) {
     return (a*b)%PRIME;
 }
 
+static inline
 ff_t gf31_neg(ff_t a) {
     return (PRIME - a) % PRIME;
 }
@@ -33,6 +37,7 @@ ff_t gf31_neg(ff_t a) {
 
 /// NOTE: assumes that each gf31 element is in a single uint8_t
 /// NOTE: not really a full reduction, as 31 is not going to be reduced
+static inline
 __m256i gf31v_red_u256(const __m256i a) {
     const __m256i Q = _mm256_set1_epi8(31);
     const __m256i mask = _mm256_set1_epi8(7u);
@@ -45,6 +50,7 @@ __m256i gf31v_red_u256(const __m256i a) {
 }
 
 /// NOTE: assumes that each gf31 element is in a single uint8_t
+static inline
 __m256i gf31v_full_red_u256(const __m256i a) {
     const __m256i mod = _mm256_set1_epi8(31u);
     const __m256i one = _mm256_set1_epi8(1u);
@@ -60,12 +66,14 @@ __m256i gf31v_full_red_u256(const __m256i a) {
 
 /// NOTE: assumes that each gf31 element is in a single uint8_t
 /// NOTE: not really a full reduction, as 31 is not going to be reduced
+static inline
 __m256i gf31v_add_u256(const __m256i a,
                        const __m256i b) {
     const __m256i c = _mm256_add_epi8(a, b);
     return gf31v_red_u256(c);
 }
 
+static inline
 __m256i gf31v_full_add_u256(const __m256i a,
                             const __m256i b) {
     const __m256i c = _mm256_add_epi8(a, b);
@@ -74,6 +82,7 @@ __m256i gf31v_full_add_u256(const __m256i a,
 
 /// NOTE: assumes reduced inputs
 /// NOTE: not full recution
+static inline
 __m256i gf31v_mul_u256(const __m256i a,
                        const __m256i b) {
     __m256i tl, th, sl, sh, r;
@@ -105,6 +114,7 @@ __m256i gf31v_mul_u256(const __m256i a,
 }
 
 /// full
+static inline
 __m256i gf31v_full_mul_u256(const __m256i a,
                             const __m256i b) {
     return gf31v_red_u256(gf31v_mul_u256(a, b));
