@@ -899,7 +899,6 @@ void gf127_matrix_transpose_64x64_u512(uint8_t* dst_origin,
     }
 }
 #endif // end USE_AVX512
-#endif // end USE_AVX2
 
 
 /// \param dst
@@ -920,6 +919,7 @@ void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
         }
     }
 }
+#endif // end USE_AVX2
 
 ///
 static inline
@@ -1067,6 +1067,9 @@ void gf127_matrix_vector_mul(uint8_t *c,
     }
 }
 
+#ifdef USE_AVX2
+/// this is a test for the auto generated code
+/// \param c[out]:
 void gf127_matrix_vector_mul_32x32x1_u256(uint8_t *c, 
                                           const uint8_t *a, 
                                           const uint8_t *b) {
@@ -1265,4 +1268,4 @@ void gf127_matrix_vector_mul_32x32x1_u256(uint8_t *c,
     a += 32;
     c += 32;
 }
-
+#endif

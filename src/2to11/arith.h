@@ -67,6 +67,32 @@ gf2to11 gf2to11_mul_gf2(const gf2to11 a,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
+
+/// \param in[in]: 2bytes which will be extended to a avx2 register
+///     = [in0, ..., in_15], where in_i is just a single bit
+/// \return [in_0, ..., in_15], extened to 16bit limbs
+static inline __m256i mirath_ff_mu_expand_ff_x16_u256(const uint8_t *in) {
+    const uint8_t t11 = *(in + 0);
+    const uint8_t t12 = *(in + 1);
+
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const uint64_t t22 = _pdep_u64(t12, 0x0101010101010101);
+
+    const __m128i t1 = _mm_set_epi64x(t22, t21);
+    return _mm256_cvtepu8_epi16(t1);
+}
+
+/// \param in[in]: bytes which will be extended to a sse register
+///     = [in0, ..., in_7], where in_i is just a single bit
+/// \return [in_0, ..., in_7], extened to 16bit limbs
+static inline __m128i mirath_ff_mu_expand_ff_x8_u256(const uint8_t *in) {
+    const uint32_t t11 = *in;
+    const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
+    const __m128i t1 = _mm_set_epi64x(0, t21);
+    return _mm_cvtepi8_epi16(t1);
+}
+
+
 /// horizontal xor, but not withing a single limb, but over the 16 -16bit limbs
 /// \param in
 /// \return
@@ -231,8 +257,46 @@ static inline __m128i gf2to11v_mul_gf2_u128(const __m128i a,
     return a & t1;
 }
 #elif defined(USE_NEON)
+
 #include <arm_neon.h>
 
+/// TODO
+/// @param in
+/// @return
+static inline
+uint16x8_t gf2to11v_expand_ff_x8_u128(const uint8_t *in) {
+    const uint8_t t = *in;
+    const uint8x8_t m = vdup_n_u8(0x01);
+    const uint8x8_t shift = {0, -1, -2, -3, -4, -5, -7};
+    const uint8x8_t t1 = vdup_n_u8(t);
+    const uint8x8_t t2 = vshl_u8(t1, shift);
+    const uint8x8_t t3 = t2 & m;
+    uint16x8_t result = vmovl_u8(t3);
+    return result;
+}
+
+///
+/// @param in
+/// @return
+static inline
+uint16x8x2_t gf2to11v_expand_ff_x16_u256(const uint8_t *in) {
+    const uint16_t t = *((uint16_t *)in);
+    const uint8x16_t m = vdupq_n_u8(0x01);
+    const uint8x16_t shift = {0, -1, -2, -3, -4, -5, -7, 0, -1, -2, -3, -4, -5, -7};
+    const uint16x8_t t1 = vdupq_n_u16(t);
+    const uint8x16_t t2 = vshlq_u8(t1, shift);
+    const uint8x16_t t3 = t2 & m;
+
+    const uint16x8_t l = vmovl_u8(vget_low_u8(t3));
+    const uint16x8_t h = vmovl_u8(vget_high_u8(t3));
+    const uint16x8x2_t r = { l, h };
+    return r;
+}
+
+/// TODO
+/// @param a
+/// @param b
+/// @return
 static inline uint16x8_t gf2to11v_mul_u128(const uint16x8_t a,
                                            const uint16x8_t b) {
     uint16x8_t m = vdupq_n_u16(MODULUS), r;

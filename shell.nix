@@ -10,7 +10,7 @@ let
     myPythonPackages.ipython
     myPythonPackages.pip
     myPythonPackages.wheel
-    ruff
+    # ruff
     jetbrains.pycharm-community
 
     # needed for running the C code

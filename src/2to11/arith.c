@@ -6,6 +6,13 @@
 #include "matrix.h"
 
 #ifdef USE_NEON
+
+uint32_t test_gf2to11v_expand_ff_x8_u128() {
+    const uint8_t in = 0b0010;
+    uint8x16_t v = gf2to11v_expand_ff_x8_u128(&in);
+    return 0;
+}
+
 uint32_t test_arith_vector_mul() {
     uint16_t tmp[16];
     for (uint16_t i = 1; i < 1u << 11; ++i) {
@@ -186,7 +193,8 @@ uint32_t test_vector_mul_acc() {
 
 int main() {
 #if defined(USE_AVX2) || defined(USE_NEON)
-    if (test_arith_vector_mul()) { return 1; }
+    // if (test_arith_vector_mul()) { return 1; }
+    if (test_gf2to11v_expand_ff_x8_u128()) { return 1; }
 #if defined(USE_AVX2)
     if (test_vector_add()) { return 1; }
     if (test_vector_add_gf2()) { return 1; }

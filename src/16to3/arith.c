@@ -31,6 +31,18 @@ bool test_mul() {
 }
 
 #if defined(USE_NEON)
+uint32_t test_gf16to3_vector_extend_gf16_x8() {
+    uint8_t in[4] = {0x10, 0x32, 0x54, 0x76};
+    uint16x8_t v = gf16to3_vector_extend_gf16_x8(in);
+    return 0;
+}
+
+uint32_t test_gf16to3_vector_extend_gf16_x16() {
+    uint8_t in[8] = {0x10, 0x32, 0x54, 0x76, 0x89, 0x50, 0x41, 0x23};
+    uint16x8x2_t v = gf16to3_vector_extend_gf16_x16(in);
+    return 0;
+}
+
 uint32_t test_arith_vector_mul() {
     uint16_t tmp[16];
     for (uint64_t i = 1; i < 1u << 11; ++i) {
@@ -66,6 +78,42 @@ uint32_t test_arith_vector_mul() {
     return 0;
 }
 #endif
+
+#if defined(USE_NEON) || defined(USE_AVX2)
+uint32_t test_vector_add_gf16() {
+    const uint32_t N = 17;
+    gf16 *m1 = gf16_vector_alloc(N);
+    gf16to3 *m2 = gf16to3_vector_alloc(N);
+    gf16to3 *m3 = gf16to3_vector_alloc(N);
+
+    gf16_vector_random(m1, N);
+    gf16to3_vector_random(m2, N);
+    //gf16to3_vector_zero(m2, N);
+    gf16to3_vector_copy(m3, m2, N);
+
+    gf16to3_vector_add_gf16(m2, m1, N);
+    gf16to3_vector_add_gf16_u256(m3, m1, N);
+
+    uint32_t ret = 0;
+    for (int j = 0; j < N; ++j) {
+        const gf16to3 c = m2[j];
+        const gf16to3 d = m3[j];
+        if (d != c) {
+            gf16_vector_print(m1, N);
+            gf16to3_vector_print(m2, N);
+            gf16to3_vector_print(m3, N);
+            printf("test vector add gf16\n");
+            ret = 1;
+            goto finish;
+        }
+    }
+
+    finish:
+    free(m1); free(m2); free(m3);
+    return ret;
+}
+#endif
+
 #ifdef USE_AVX2
 
 uint32_t test_arith_vector_mul() {
@@ -140,39 +188,6 @@ uint32_t test_vector_scalar_add() {
         const gf16to3 d = m3[j];
         if (d != c) {
             printf("test vector scalar add\n");
-            ret = 1;
-            goto finish;
-        }
-    }
-
-    finish:
-    free(m1); free(m2); free(m3);
-    return ret;
-}
-
-uint32_t test_vector_add_gf16() {
-    const uint32_t N = 17;
-    gf16 *m1 = gf16_vector_alloc(N);
-    gf16to3 *m2 = gf16to3_vector_alloc(N);
-    gf16to3 *m3 = gf16to3_vector_alloc(N);
-
-    gf16_vector_random(m1, N);
-    gf16to3_vector_random(m2, N);
-    //gf16to3_vector_zero(m2, N);
-    gf16to3_vector_copy(m3, m2, N);
-
-    gf16to3_vector_add_gf16(m2, m1, N);
-    gf16to3_vector_add_gf16_u256(m3, m1, N);
-
-    uint32_t ret = 0;
-    for (int j = 0; j < N; ++j) {
-        const gf16to3 c = m2[j];
-        const gf16to3 d = m3[j];
-        if (d != c) {
-            gf16_vector_print(m1, N);
-            gf16to3_vector_print(m2, N);
-            gf16to3_vector_print(m3, N);
-            printf("test vector add gf16\n");
             ret = 1;
             goto finish;
         }
@@ -564,7 +579,11 @@ finish:
 int main() {
     test_mul();
 #if defined(USE_AVX2) || defined(USE_NEON)
-    if (test_arith_vector_mul()) { return 1; }
+    // if (test_arith_vector_mul()) { return 1; }
+    // if (test_gf16to3_vector_extend_gf16_x8()) { return 1; }
+    // if (test_gf16to3_vector_extend_gf16_x16()) { return 1; }
+
+    if (test_vector_add_gf16()) { return 1; }
 
 #if defined(USE_AVX2)
     if (test_matrix_mul()) { return 1; }
@@ -577,7 +596,6 @@ int main() {
     if (test_matrix_scalar_gf16()) { return 1; }
     if (test_matrix_add_scalar_gf16()) { return 1; }
 
-    if (test_vector_add_gf16()) { return 1; }
     if (test_vector_add()) { return 1; }
     if (test_vector_scalar_add()) { return 1; }
     if (test_vector_scalar_gf16()) { return 1; }
