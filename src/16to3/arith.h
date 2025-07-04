@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "../helper.h"
 #include "../16/arith.h"
@@ -119,6 +117,48 @@ static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
                                              const uint8_t b) {
     const __m128i bb = _mm_set1_epi16(b);
     return gf16v_mul_u128(a, bb);
+}
+
+
+/// \param a[in]: [a_0, ..., a_15], a_i in gf16^3
+/// \param b[in]: [b_0, ..., b_15], b_i in gf16
+/// \return: [a_0*b_0, ..., a_15*_15]
+static inline __m256i gf16to3v_mul_gf16v_u256(const __m256i a,
+                                              const __m256i b) {
+    const __m256i c = b ^ _mm256_slli_epi16(b, 8);
+    return gf16v_mul_u256(a, c);
+}
+
+/// loads 8 elements/ 4 bytes and extends them to gf256
+static inline __m128i mirath_vector_extend_gf16_x8(const ff_t *in) {
+    const uint32_t t11 = *((uint32_t *)(in + 0));
+    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    const __m128i t1 = _mm_set_epi64x(0, t21);
+    return _mm_cvtepi8_epi16(t1);
+}
+
+/// loads 16 elements/ 8 bytes and extends them to gf256
+static inline __m256i mirath_vector_extend_gf16_x16(const ff_t *in) {
+    const uint32_t t11 = *((uint32_t *)(in + 0));
+    const uint32_t t12 = *((uint32_t *)(in + 4));
+    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+    const __m128i t1 = _mm_set_epi64x(t22, t21);
+    return _mm256_cvtepu8_epi16(t1);
+}
+
+
+static inline __m256i mirath_vector_extend_gf16_x32(const ff_t *in) {
+    const uint16_t t11 = *((uint16_t *)(in + 0));
+    const uint16_t t12 = *((uint16_t *)(in + 2));
+    const uint16_t t13 = *((uint16_t *)(in + 4));
+    const uint16_t t14 = *((uint16_t *)(in + 6));
+
+    const uint64_t t21 = _pdep_u64(t11, 0x000F000F000F000F);
+    const uint64_t t22 = _pdep_u64(t12, 0x000F000F000F000F);
+    const uint64_t t23 = _pdep_u64(t13, 0x000F000F000F000F);
+    const uint64_t t24 = _pdep_u64(t14, 0x000F000F000F000F);
+    return _mm256_setr_epi64x(t21, t22, t23, t24);
 }
 
 /// NOTE there are multiple ways to implement this:

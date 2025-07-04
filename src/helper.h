@@ -30,8 +30,9 @@ typedef union v256_t {
 /// /param bitmap
 /// /param select_bitmap
 /// /return
-inline uint64_t _pext_u64(const uint64_t bitmap,
-                          uint64_t select_bitmap) {
+static inline 
+uint64_t _pext_u64(const uint64_t bitmap,
+                   uint64_t select_bitmap) {
     uint64_t res = 0;
     for (uint64_t bp = 1; select_bitmap != 0; bp += bp) {
         if (bitmap & select_bitmap & -select_bitmap) {
