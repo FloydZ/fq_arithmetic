@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 
-// TODO not really corrext
+// NOTE: not really corrext, but enough to benchmar
 __constant__ uint64_t __p64[4] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFF7BC6BFFF, 0x8AF43417A1087212, 0x01248A1B00000000 };
 __constant__ uint64_t __mu64[4] = { 0x0000000100000000, 0x000000007BC6C000, 0x8AF43417A1087212, 0x91248A1B00000000 };
 
@@ -159,7 +159,7 @@ uint64_t __cpu_mu64[4] = { 0x0000000100000000, 0x000000007BC6C000, 0x8AF43417A10
 		: "l"(rt0),"l"(rt1),"l"(rt2),"l"(rt3),/*4, 7*/						\
 		  "l"(c1),"l"(c2),"l"(c3),"l"(c4));   /*8,11*/
 
-// TODO explain
+// adds c0c1c2c3c4c5 = a0a1a2 * b0b1b2
 #define __karatsuba64_3x3(c0,c1,c2,c3,c4,c5,a0,a1,a2,b0,b1,b2) 	\
 	uint64_t kt0,kt1,st0,st1,rt0,rt1,rt2,rt3;					\
 	__karatsuba64_helper_3x3(c0,c1,c2,c3,c4,c5,a0,a1,a2,b0,b1,b2,kt0,kt1,st0,st1,rt0,rt1,rt2,rt3)
@@ -217,4 +217,3 @@ uint64_t __cpu_mu64[4] = { 0x0000000100000000, 0x000000007BC6C000, 0x8AF43417A10
 	uint64_t ktmp0,ktmp1,ktmp2,stmp0,stmp1,stmp2,rtmp0,rtmp1,rtmp2,rtmp3; 	\
 	__karatsuba64_helper_4x4(c0,c1,c2,c3,c4,c5,c6,c7,a0,a1,a2,a3,b0,b1,b2,b3,ktmp0,ktmp1,ktmp2,stmp0,stmp1,stmp2,rtmp0,rtmp1,rtmp2,rtmp3)
 
-			
