@@ -316,10 +316,9 @@ static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
 }
 
 /// \brief vector1 = vector2 * scalar
-///
-/// \param[out] vector1 Vector over ff_mu
-/// \param[in] scalar Scalar over ff_mu
-/// \param[in] vector2 Vector over ff
+/// \param[out] vector1 Vector over gf16^3
+/// \param[in] scalar Scalar over gf16^3
+/// \param[in] vector2 Vector over gf16
 /// \param[in] ncols number of columns
 static inline void gf16to3_vector_add_scalar_gf16_u256(gf16to3 *vector1,
                                                        const gf16to3 scalar,
@@ -355,7 +354,8 @@ static inline void gf16to3_vector_add_scalar_gf16_u256(gf16to3 *vector1,
 }
 
 /// \param out = scalar*in
-/// \param in
+/// \param scalar[in]: over gf16to3
+/// \param in[in]: over
 /// \param n
 static inline void gf16to3_vector_scalar_gf16_u256(gf16to3 *__restrict__ out,
                                                    gf16to3 scalar,
@@ -531,6 +531,118 @@ static inline void gf16to3_vector_scalar_add_u256_3(gf16to3 *out,
 
     for (; i > 0; --i) {
         *out++ ^= *in1++ ^ gf16to3_mul(a, *in2++);
+    }
+}
+
+
+/// out += a*in1
+static inline void gf16to3_vector_scalar_add_gf16_u256(gf16to3 *out,
+                                                        const gf16 a,
+                                                        const gf16to3 *in1,
+                                                        const uint32_t d) {
+    uint32_t i = d;
+    const uint16x8x2_t a256 = vdupq_n_u16_x2(a);
+    const uint16x8_t a128 = vdupq_n_u16(a);
+
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = vld1q_u16_x2(out);
+        const uint16x8x2_t t2 = vld1q_u16_x2(in1);
+        const uint16x8x2_t t3 = gf16to3v_mul_u256(t2, a256);
+        const uint16x8x2_t t = veorq_u16_x2(t1, t3);
+        vst1q_u16_x2(out, t);
+
+        i   -= 16u;
+        in1 += 16u;
+        out += 16u;
+    }
+    while (i >= 8u) {
+        const uint16x8_t t1 = vld1q_u16(out);
+        const uint16x8_t t2 = vld1q_u16(in1);
+        const uint16x8_t t3 = gf16to3v_mul_u128(t2, a128);
+        const uint16x8_t t = veorq_u16(t1, t3);
+        vst1q_u16(out, t);
+
+        i   -= 8u;
+        in1 += 8u;
+        out += 8u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= gf16to3_mul(a, *in1++);
+    }
+}
+
+/// \brief vector1 = vector2 * scalar
+/// \param[out] vector1 Vector over gf16^3
+/// \param[in] scalar Scalar over gf16^3
+/// \param[in] vector2 Vector over gf16
+/// \param[in] ncols number of columns
+static inline void gf16to3_vector_add_scalar_gf16_u256(gf16to3 *vector1,
+                                                       const gf16to3 scalar,
+                                                       const gf16 *vector2,
+                                                       const uint32_t ncols) {
+
+    uint32_t i = ncols;
+    const uint16x8x2_t s = vdupq_n_u16_x2(scalar);
+
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(vector2);
+        const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+        const uint16x8x2_t t3 = vld1q_u16_x2(vector1);
+
+        const uint16x8x2_t t = veorq_u16_x2(t2, t3);
+        vst1q_u16_x2(vector1, t);
+        i       -= 16u;
+        vector2 += 8u;
+        vector1 += 16u;
+    }
+
+    if (i) {
+        uint8_t tmp[32] __attribute__((aligned(32)));
+        uint16_t *tmp2 = (uint16_t *)tmp;
+        for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = vector2[j]; }
+
+        const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(tmp);
+        const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+        vst1q_u16_x2(tmp2, t2);
+        for (uint32_t j = 0; j < i; ++j) { vector1[j] ^= tmp2[j]; }
+    }
+}
+
+/// \param out = scalar*in
+/// \param in
+/// \param n
+static inline void gf16to3_vector_scalar_gf16_u256(gf16to3 *__restrict__ out,
+                                                   gf16to3 scalar,
+                                                   const gf16 *__restrict__ in,
+                                                   const uint32_t n) {
+    uint32_t i = n;
+    const uint16x8x2_t s = vdupq_n_u16_x2(scalar);
+
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(in);
+        const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+        vst1q_u16_x2(out, t2);
+        i   -= 16u;
+        in  += 8u;
+        out += 16u;
+    }
+
+    if (i) {
+        uint8_t tmp[32] __attribute__((aligned(32)));
+        uint16_t *tmp2 = (uint16_t *)tmp;
+        for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = in[j]; }
+
+        const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(tmp);
+        const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+        vst1q_u16_x2(tmp2, t2);
+
+        for (uint32_t j = 0; j < i; ++j) { out[j] = tmp2[j]; }
     }
 }
 #endif

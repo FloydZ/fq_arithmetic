@@ -6,6 +6,7 @@
 
 
 // NOTE all matrices are column major
+static
 gf16to3* gf16to3_matrix_alloc(const uint32_t nrows,
                               const uint32_t ncols) {
     return (gf16to3 *)calloc(sizeof(gf16to3), nrows * ncols);
@@ -18,6 +19,7 @@ gf16to3* gf16to3_matrix_alloc(const uint32_t nrows,
 /// \param j
 /// \param bytes
 /// \return
+static inline
 uint64_t gf16to3_matrix_load4(const gf16to3 *m,
                               const uint32_t nrows,
                               const uint32_t i,
@@ -40,6 +42,7 @@ uint64_t gf16to3_matrix_load4(const gf16to3 *m,
 /// \param j
 /// \param bytes
 /// \return
+static inline
 __m128i gf16to3_matrix_load8(const gf16to3 *m,
                               const uint32_t nrows,
                               const uint32_t i,
@@ -56,7 +59,8 @@ __m128i gf16to3_matrix_load8(const gf16to3 *m,
     return _mm_load_si128((__m128i *)tmp);
 }
 
-// loads min(16, a)
+// loads min(16, a) uint16_t limbs
+static inline
 __m256i gf16to3_matrix_load16(const gf16to3 *m,
                               const uint32_t a) {
 
@@ -69,6 +73,8 @@ __m256i gf16to3_matrix_load16(const gf16to3 *m,
     return _mm256_load_si256((__m256i *)tmp);
 }
 
+/// stores min(16, a) uint16_t limbs
+static inline
 void gf16to3_matrix_write16(gf16to3 *m,
                             const __m256i t,
                             const uint32_t a) {
@@ -79,13 +85,13 @@ void gf16to3_matrix_write16(gf16to3 *m,
     }
 }
 
-///
-/// @param m
-/// @param nrows
-/// @param i
-/// @param j
-/// @param bytes
-/// @param a
+/// \param m base pointer to the matrix
+/// \param nrows number of rows in m
+/// \param i: row to access
+/// \param j: column to access
+/// \param bytes number of bytes to write <= 16
+/// \param a sse register to write
+static inline
 void gf16to3_matrix_store16(gf16to3 *m,
                             const uint32_t nrows,
                             const uint32_t i,
@@ -104,6 +110,7 @@ void gf16to3_matrix_store16(gf16to3 *m,
 
 #endif
 
+static inline
 gf16to3 gf16to3_matrix_get(const gf16to3 *m,
                            const uint32_t nrows,
                            const uint32_t i,
@@ -111,6 +118,7 @@ gf16to3 gf16to3_matrix_get(const gf16to3 *m,
     return m[j*nrows + i];
 }
 
+static inline
 void gf16to3_matrix_set(gf16to3 *m,
                         const uint32_t nrows,
                         const uint32_t i,
@@ -119,6 +127,7 @@ void gf16to3_matrix_set(gf16to3 *m,
     m[j*nrows + i] = a;
 }
 
+static
 void gf16to3_matrix_print(const gf16to3 *m,
                           const uint32_t nrows,
                           const uint32_t ncols) {
@@ -131,13 +140,17 @@ void gf16to3_matrix_print(const gf16to3 *m,
     printf("\n");
 }
 
+static inline
 void gf16to3_matrix_zero(gf16to3 *m,
                  const uint32_t nrows,
                  const uint32_t ncols) {
     memset(m, 0, sizeof(gf16to3)*nrows*ncols);
 }
 
-
+/// \param m[out]: base pointer to the matrix
+/// \param nrows
+/// \param ncols
+static
 void gf16to3_matrix_random(gf16to3 *m,
                          const uint32_t nrows,
                          const uint32_t ncols) {
@@ -148,6 +161,7 @@ void gf16to3_matrix_random(gf16to3 *m,
     }
 }
 
+static
 void gf16to3_matrix_id(gf16to3 *m,
                const uint32_t nrows,
                const uint32_t ncols) {
@@ -157,6 +171,12 @@ void gf16to3_matrix_id(gf16to3 *m,
     }
 }
 
+/// \param result[out]: matrix1*matrix2: n_rows1*n_cols2
+/// \param matrix1[in]: n_rows1*n_cols1
+/// \param matrix2[in]: n_cols1*n_cols2
+/// \param n_rows1[in]: number of rows in m1
+/// \param n_cols1[in]: number of cols in m1
+/// \param n_cols2[in]: number of cols in m2
 static inline void gf16to3_matrix_mul(gf16to3 *result,
                                       const gf16to3 *matrix1,
                                       const gf16to3 *matrix2,
@@ -274,11 +294,10 @@ static inline void gf16to3_matrix_scalar_gf16(gf16to3 *matrix1,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-
 /// this implementation iterates over the rows of B
-/// \param result
-/// \param A
-/// \param B
+/// \param result[out]: A*B
+/// \param A[in]: 16*16
+/// \param B[in]: 16*16
 static inline void gf16to3_matrix_mul_16x16(gf16to3 *result,
                                             const gf16to3 *A,
                                             const gf16to3 *B) {
@@ -300,7 +319,7 @@ static inline void gf16to3_matrix_mul_16x16(gf16to3 *result,
     }
 }
 
-/// Assumes 16 rows in A, the rest doesnt matter
+/// Assumes 16 rows in A, the rest does not matter
 /// col major
 static inline void gf16to3_matrix_mul_16xX(gf16to3 *result,
                                            const gf16to3 *A,
@@ -323,7 +342,7 @@ static inline void gf16to3_matrix_mul_16xX(gf16to3 *result,
     }
 }
 
-/// Assumes 16 < rows <= 32 in A, the rest doesnt matter
+/// Assumes 16 < rows <= 32 in A, the rest does not matter
 /// col major
 static inline void gf16to3_matrix_mul_le32xCxC(gf16to3 *result,
                                            const gf16to3 *A,
@@ -1015,4 +1034,600 @@ static inline void gf16to3_matrix_add_scalar_gf16_u256(gf16to3 *result,
         }
     }
 }
-#endif
+#endif // end USE_AVX2
+
+#ifdef USE_NEON
+
+/// this implementation iterates over the rows of B
+/// \param result[out]: A*B
+/// \param A[in]: 16*16
+/// \param B[in]: 16*16
+static inline void gf16to3_matrix_mul_16x16(gf16to3 *result,
+                                            const gf16to3 *A,
+                                            const gf16to3 *B) {
+    gf16to3_matrix_zero(result, 16, 16);
+    const uint32_t nrows_B = 16;
+    const uint32_t ncols_B = 16;
+
+    for (uint32_t j = 0; j < nrows_B; ++j) {
+        const uint16x8x2_t a = vld1q_u16_x2(A + j*ncols_B);
+        for (uint32_t i = 0; i < ncols_B; ++i) {
+            const uint16x8x2_t b = vdupq_n_u16_x2(*(short *)(B + i*nrows_B + j));
+            const uint16x8x2_t c = gf16to3v_mul_u256(a, b);
+
+            const uint16x8x2_t r = vld1q_u16_x2(result + i*ncols_B);
+            const uint16x8x2_t t = veorq_u16_x2(c, r);
+
+            vst1q_u16_x2(result + i*ncols_B, t);
+        }
+    }
+}
+
+/// Assumes 16 rows in A, the rest does not matter
+/// col major
+static inline void gf16to3_matrix_mul_16xX(gf16to3 *result,
+                                           const gf16to3 *A,
+                                           const gf16to3 *B,
+                                           const uint32_t nrows_B,
+                                           const uint32_t ncols_B) {
+    const uint32_t nrows = 16;
+
+    for (uint32_t j = 0; j < nrows_B; ++j) {
+        const uint16x8x2_t a = vld1q_u16_x2((A + j*nrows));
+        for (uint32_t i = 0; i < ncols_B; ++i) {
+            const uint16x8x2_t b = vdupq_n_u16_x2(*(B + i*nrows_B + j));
+            const uint16x8x2_t c = gf16to3v_mul_u256(a, b);
+
+            const uint16x8x2_t r = vld1q_u16_x2((result + i*nrows));
+            const uint16x8x2_t t = veorq_u16_x2(c, r);
+
+            vst1q_u16_x2((result + i*nrows), t);
+        }
+    }
+}
+
+/// Assumes 16 < rows <= 32 in A, the rest does not matter
+/// col major
+static inline void gf16to3_matrix_mul_le32xCxC(gf16to3 *result,
+                                           const gf16to3 *A,
+                                           const gf16to3 *B,
+                                           const uint16_t nrows,
+                                           const uint32_t nrows_B,
+                                           const uint32_t ncols_B) {
+    const uint32_t tail = nrows % 16;
+    for (uint32_t j = 0; j < nrows_B; ++j) {
+        const uint16x8x2_t a1 = vld1q_u16_x2((A + j*nrows));
+        // const uint16x8x2_t a2 = gf16to3_matrix_load16(A + j*nrows + 16, tail);
+
+        // for (uint32_t i = 0; i < ncols_B; ++i) {
+        //     const uint16x8x2_t b = vdupq_n_u16_x2(*(B + i*nrows_B + j));
+        //     const uint16x8x2_t c1 = gf16to3v_mul_u256(a1, b);
+        //     const uint16x8x2_t c2 = gf16to3v_mul_u256(a2, b);
+
+        //     const uint16x8x2_t r1 = vld1q_u16_x2((result + i*nrows));
+        //     const uint16x8x2_t r2 = gf16to3_matrix_load16(result + i*nrows + 16, tail);
+        //     const uint16x8x2_t t1 = c1 ^ r1;
+        //     const uint16x8x2_t t2 = c2 ^ r2;
+
+        //     vst1q_u16_x2((result + i*nrows), t1);
+        //     gf16to3_matrix_write16(result + i*nrows + 16, t2, tail);
+        // }
+    }
+}
+
+/// assumes that B is a column vector
+/// \param result
+/// \param A
+/// \param B
+/// \param nrows
+/// \param ncols
+static inline void gf16to3_matrix_mul_vector(gf16to3 *result,
+                                             const gf16to3 *A,
+                                             const gf16to3 *B,
+                                             const uint32_t nrows,
+                                             const uint32_t ncols) {
+    const uint32_t limit = nrows % 16;
+    for (uint32_t col = 0; col < ncols; ++col) {
+        gf16to3 *r = result;
+        const gf16to3 *m1 = A + col*nrows;
+        const uint16x8x2_t b1 = vdupq_n_u16_x2(B[col]);
+        uint32_t i = nrows;
+        while (i >= 16) {
+            const uint16x8x2_t a1 = vld1q_u16_x2(m1);
+            const uint16x8x2_t c1 = gf16to3v_mul_u256(a1, b1);
+
+            const uint16x8x2_t r1 = vld1q_u16_x2(r);
+            const uint16x8x2_t c2 = veorq_u16_x2(c1, r1);
+            vst1q_u16_x2(r, c2);
+
+            i  -= 16;
+            r  += 16;
+            m1 += 16;
+        }
+
+        // if (limit) {
+        //     const uint16x8x2_t a1 = gf16to3_matrix_load16(m1, limit);
+        //     const uint16x8x2_t c1 = gf16to3v_mul_u256(a1, b1);
+        //     const uint16x8x2_t r1 = gf16to3_matrix_load16(r, limit);
+        //     const uint16x8x2_t c2 = c1 ^ r1;
+        //     gf16to3_matrix_write16(r, c2, limit);
+        // }
+    }
+}
+
+/// assumes <=16 rows in m2 and m3
+/// @param matrix1 out = matrix2 + matrix3
+/// @param matrix2 in
+/// @param matrix3 in
+/// @param n_rows
+/// @param n_cols
+static inline void gf16to3_matrix_add_gf16_XxX(gf16to3 *matrix1,
+                                               const gf16to3 *matrix2,
+                                               const ff_t *matrix3,
+                                               const uint32_t n_rows,
+                                               const uint32_t n_cols) {
+    for (uint32_t j = 0; j < n_cols; j++) {
+        uint32_t i = 0;
+        const uint32_t off = (j*n_rows+1)/2;
+        // for (; (i+16) <= n_rows; i+= 16) {
+        //     const uint32_t t11 = *((uint32_t *)(matrix3 + off + i + 0));
+        //     const uint32_t t12 = *((uint32_t *)(matrix3 + off + i + 4));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //     const uint16x8x2_t m3 = _mm256_cvtepu8_epi16(t1);
+
+        //     const uint16x8x2_t m2 = vld1q_u16_x2((matrix2 + j*n_rows + i*2));
+
+        //     const uint16x8x2_t m1 = m3 ^ m2;
+        //     vst1q_u16_x2((matrix1 + j*n_rows + i*2), m1);
+        // }
+
+        // for (; (i+8) <= n_rows; i+= 8) {
+        //     const uint32_t t11 = *((uint32_t *)(matrix3 + off + i + 0));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i m3 = _mm_cvtepu8_epi16(t1);
+
+        //     const __m128i m2 = _mm_loadu_si128((const __m128i *)(matrix2 + j*n_rows + i*2));
+
+        //     const __m128i m1 = m3 ^ m2;
+        //     _mm_storeu_si128((matrix1 + j*n_rows + i*2), m1);
+        // }
+
+        // if (i < n_rows) {
+        //     const uint32_t rbytes = (n_rows - i + 1) / 2;
+        //     const uint32_t wbytes = (n_rows - i) * 2;
+        //     const uint32_t t11 = gf16_matrix_load4(matrix3, n_rows, i, j, rbytes);
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i m3 = _mm_cvtepu8_epi16(t1);
+
+        //     // const __m128i m2 = _mm_loadu_si128((const __m128i *)(matrix2 + j*n_rows + i*2));
+        //     const __m128i m2 = gf16to3_matrix_load8(matrix2, n_rows, i, j, wbytes);
+        //     const __m128i m1 = m3 ^ m2;
+        //     gf16to3_matrix_store16(matrix1, n_rows, i, j, wbytes, m1);
+        // }
+    }
+}
+
+/// NOTE: cannot use the vector function, as nrows could be uneven
+/// assumes 16 rows in m2 and m3
+/// matrix1 = matrix2+matrix3
+/// \param matrix1 out: over gf16to3
+/// \param matrix2 in: over gf16to3
+/// \param matrix3 in: over gf16
+/// @param n_rows
+/// @param n_cols
+static inline void gf16to3_matrix_add_gf16_16x16(gf16to3 *matrix1,
+                                                const gf16to3 *matrix2,
+                                                const ff_t *matrix3,
+                                                const uint32_t n_rows,
+                                                const uint32_t n_cols) {
+    for (uint32_t j = 0; j < n_cols; j++) {
+        uint32_t i = 0;
+        //for (; (i+16) <= n_rows; i+= 16) {
+        //    const uint32_t t11 = *((uint32_t *)(matrix3 + (j*n_rows/2) + i + 0));
+        //    const uint32_t t12 = *((uint32_t *)(matrix3 + (j*n_rows/2) + i + 4));
+        //    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //    const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //    const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //    const uint16x8x2_t m3 = _mm256_cvtepu8_epi16(t1);
+
+        //    const uint16x8x2_t m2 = vld1q_u16_x2((matrix2 + j*n_rows + i*2));
+
+        //    const uint16x8x2_t m1 = m3 ^ m2;
+        //    vst1q_u16_x2((matrix1 + j*n_rows + i*2), m1);
+        //}
+    }
+}
+
+/// NOTE: cannot use the vector function, as nrows could be uneven
+/// assumes 8 rows in m2 and m3
+/// matrix1 = matrix2+matrix3
+/// \param matrix1 out: over gf16to3
+/// \param matrix2 in: over gf16to3
+/// \param matrix3 in: over gf16
+/// \param n_rows
+/// \param n_cols
+static inline void gf16to3_matrix_add_gf16_8x8(gf16to3 *matrix1,
+                                               const gf16to3 *matrix2,
+                                               const ff_t *matrix3,
+                                               const uint32_t n_rows,
+                                               const uint32_t n_cols) {
+    for (uint32_t j = 0; j < n_cols; j++) {
+        uint32_t i = 0;
+        // for (; (i+8) <= n_rows; i+= 8) {
+        //     const uint32_t t11 = *((uint32_t *)(matrix3 + (j*n_rows/2) + i + 0));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i m3 = _mm_cvtepu8_epi16(t1);
+
+        //     const __m128i m2 = _mm_loadu_si128((const __m128i *)(matrix2 + j*n_rows + i*2));
+
+        //     const __m128i m1 = m3 ^ m2;
+        //     _mm_storeu_si128((__m128i *)(matrix1 + j*n_rows + i*2), m1);
+        // }
+    }
+}
+
+/// \param[out] out Matrix over gf16to3
+/// \param[in] input Matrix over gf16
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static inline void gf16to3_matrix_map_gf16_u256(gf16to3 *out,
+                                                const uint8_t *input,
+                                                const uint32_t n_rows,
+                                                const uint32_t n_cols) {
+
+    for (uint32_t j = 0; j < n_cols; j++) {
+        uint32_t i = 0;
+        const uint32_t off = (j*n_rows+1)/2;
+        // for (; (i+16) <= n_rows; i+= 16) {
+        //     const uint32_t t11 = *((uint32_t *)(input + off + i + 0));
+        //     const uint32_t t12 = *((uint32_t *)(input + off + i + 4));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //     const uint16x8x2_t m1 = _mm256_cvtepu8_epi16(t1);
+        //     vst1q_u16_x2((out + j*n_rows + i*2), m1);
+        // }
+
+        // if (i < n_rows) {
+        //     const uint32_t rbytes = (n_rows - i + 1) / 2;
+        //     const uint32_t wbytes = (n_rows - i) * 2;
+        //     const uint32_t t11 = gf16_matrix_load4(input, n_rows, i, j, rbytes);
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i m1 = _mm_cvtepu8_epi16(t1);
+        //     gf16to3_matrix_store16(out, n_rows, i, j, wbytes, m1);
+        // }
+    }
+}
+
+/// TODO only working for 16x16
+/// \param[out] matrix1 Matrix over gf16to3 = matrix2*matrix3
+/// \param[in] matrix2 Matrix over gf16to3
+/// \param[in] matrix3 Matrix over gf16
+/// \param[in] n_rows number of rows in ma
+/// \param[in] n_cols number of columns
+static inline void gf16to3_matrix_mul_gf16_XxX(gf16to3 *matrix1,
+                                               const gf16to3 *matrix2,
+                                               const ff_t *matrix3,
+                                               const uint32_t n_rows,
+                                               const uint32_t n_cols) {
+    /// NOTE limitation of 16
+    uint16_t row[16] __attribute__((aligned(64))) = {0};
+
+    for (uint32_t k = 0; k < n_rows; k++) {
+        /// load row k into buffer
+        for (uint32_t j = 0; j < n_cols; j++) {
+            row[j] = matrix2[j*n_rows + k];
+        }
+
+        const uint16x8x2_t a1 = vld1q_u16_x2(row);
+        uint16x8x2_t tmp;
+
+        for (uint32_t j = 0; j < n_cols; j++) {
+            uint32_t i = 0;
+            const uint32_t off = (j*n_rows+1)/2;
+            // for (; (i+16) <= n_rows; i+= 16) {
+            //     const uint32_t t11 = *((uint32_t *)(matrix3 + off + i + 0));
+            //     const uint32_t t12 = *((uint32_t *)(matrix3 + off + i + 4));
+            //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+            //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+            //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+            //     const uint16x8x2_t m3 = _mm256_cvtepu8_epi16(t1);
+            //     tmp = gf16to3v_mul_u256(a1, m3);
+            // }
+
+            // for (; (i+8) <= n_rows; i+= 8) {
+            //     const uint32_t t11 = *((uint32_t *)(matrix3 + off + i + 0));
+            //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+            //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+            //     const __m128i m31 = _mm_cvtepu8_epi16(t1);
+            //     const uint16x8x2_t m3 = _mm256_setr_m128i(m31, _mm_setzero_si128());
+            //     tmp = gf16to3v_mul_u256(a1, m3);
+            // }
+
+            if (n_rows >= 8) {
+                vst1q_u16_x2(row, tmp);
+            }
+
+            for (;i < n_rows; i++) {
+                uint8_t c = gf16_matrix_get(matrix3, n_rows, j, i);
+                row[i] = gf16to3_mul_gf16(row[i], c);
+            }
+
+            // sum up
+            gf16to3 sum = 0;
+            for (uint32_t t = 0; t < n_cols; t++) {
+                sum ^= row[t];
+            }
+
+            // write back
+            matrix1[j*n_rows +k] = sum;
+        }
+    }
+}
+
+/// \brief result = matrix1 * matrix2
+/// Assumes that matrix2 is a vector
+/// \param[out] result Matrix over gf16to3
+/// \param[in] matrix1 Matrix over gf16
+/// \param[in] matrix2 Matrix over gf16to3
+/// \param[in] n_rows number of rows in matrix1
+/// \param[in] n_cols number of columns and rows in matrix1 and matrix2 respectively
+static inline void gf16to3_matrix_mul_vector_gf16_v2_u256(gf16to3 *result,
+                                                          const ff_t *matrix1,
+                                                          const gf16to3 *matrix2,
+                                                          const uint32_t n_rows,
+                                                          const uint32_t n_cols) {
+    const uint32_t bytes = (n_rows+1)/2;
+    gf16 tmp[32] __attribute__((aligned(32))) = {0};
+    uint32_t *tmp2 = (uint32_t *)tmp;
+    uint16_t *tmp3 = (uint16_t *)tmp;
+    const uint32_t limit = n_rows % 16;
+
+    for (uint32_t k = 0; k < n_cols; k++) {
+        uint32_t i = n_rows;
+
+        const uint16x8x2_t b = vdupq_n_u16_x2(matrix2[k]);
+        gf16to3    *r = result;
+        const gf16 *m = matrix1 + k*bytes;
+
+        // while (i >= 16) {
+        //     const uint32_t t11 = *((uint32_t *)(m + 0));
+        //     const uint32_t t12 = *((uint32_t *)(m + 4));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //     const uint16x8x2_t a1 = _mm256_cvtepu8_epi16(t1);
+        //     const uint16x8x2_t a2 = a1 ^ _mm256_slli_epi16(a1, 8);
+        //     const uint16x8x2_t t2 = gf16v_mul_u256(b, a2);
+        //     // const uint16x8x2_t t2 = gf16to3v_mul_u256(b, a1);
+        //     const uint16x8x2_t r1 = vld1_u16_x2((const uint16x8x2_t *)r);
+        //     const uint16x8x2_t t3 = t2 ^ r1;
+        //     vst1q_u16_x2(r, t3);
+
+        //     m += 8;
+        //     r += 16;
+        //     i -= 16;
+        // }
+
+        // if (limit) {
+        //     for (uint32_t j = 0; j < ((limit + 1)/2); j++) { tmp[j] = m[j];}
+
+        //     const uint32_t t11 = *(tmp2 + 0);
+        //     const uint32_t t12 = *(tmp2 + 1);
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //     const uint16x8x2_t a1 = _mm256_cvtepu8_epi16(t1);
+        //     const uint16x8x2_t a2 = a1 ^ _mm256_slli_epi16(a1, 8);
+        //     const uint16x8x2_t t2 = gf16v_mul_u256(b, a2);
+        //     vst1q_u16_x2(tmp2, t2);
+
+        //     for (uint32_t j = 0; j < limit; j++) { r[j] ^= tmp3[j];}
+        // }
+    }
+}
+
+/// \brief result = matrix1 * matrix2
+/// \param[out] result Matrix over gf16to3
+/// \param[in] matrix1 Matrix over gf16
+/// \param[in] matrix2 Matrix over gf16to3
+/// \param[in] n_rows number of rows in matrix1
+/// \param[in] n_cols number of columns and rows in matrix1 and matrix2 respectively
+/// \param[in] n_cols2 number of columns in matrix2
+static inline void gf16to3_matrix_mul_gf16_v2_u256(gf16to3 *result,
+                                                   const ff_t *matrix1,
+                                                   const gf16to3 *matrix2,
+                                                   const uint32_t n_rows,
+                                                   const uint32_t n_cols,
+                                                   const uint32_t n_cols2) {
+    if (n_cols2 == 1) {
+        gf16to3_matrix_mul_vector_gf16_v2_u256(result, matrix1, matrix2, n_rows, n_cols);
+        return;
+    }
+
+    for (uint32_t k = 0; k < n_cols; k++) {
+        uint32_t i = 0, off=0;
+        uint16x8x2_t m1;
+
+        // for (; (i+16) <= n_rows; i+= 16) {
+        //     const uint32_t t11 = *((uint32_t *)(matrix1 + off + i + 0));
+        //     const uint32_t t12 = *((uint32_t *)(matrix1 + off + i + 4));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t22, t21);
+        //     m1 = _mm256_cvtepu8_epi16(t1);
+        // }
+
+        // for (; (i+8) <= n_rows; i+= 8) {
+        //     const uint32_t t11 = *((uint32_t *)(matrix1 + off + i + 0));
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i t2 = _mm_cvtepu8_epi16(t1);
+        //     m1 = _mm256_setr_m128i(t2, _mm_setzero_si128());
+        // }
+
+        // if (i < n_rows) {
+        //     const uint32_t rbytes = (n_rows - i + 1) / 2;
+        //     const uint32_t t11 = gf16_matrix_load4(matrix1, n_rows, i, k, rbytes);
+        //     const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        //     const __m128i t1 = _mm_set_epi64x(t21, t21);
+        //     const __m128i t2 = _mm_cvtepu8_epi16(t1);
+        //     m1 = _mm256_setr_m128i(t2, _mm_setzero_si128());
+        // }
+
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            const uint8x16x2_t b = vdupq_n_u8_x2(gf16to3_matrix_get(matrix2, n_cols, k, j));
+            // TODO const uint8x16x2_t c = gf16v_mul_u256(b, m1);
+            /// TODO assumes ncols == 16
+            const uint16x8x2_t r = vld1q_u16_x2((result + j*n_rows));
+            const uint16x8x2_t t = veorq_u16_x2(r, m1);
+            vst1q_u16_x2((result + j*n_rows), t);
+        }
+    }
+}
+
+/// \brief matrix1 += scalar * matrix2
+///
+/// \param[out] matrix1 Matrix over gf16to3
+/// \param[in] scalar  scalar over  gf16to3
+/// \param[in] matrix2 Matrix over  gf16to3
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static void gf16to3_matrix_add_multiple_2_XxX(gf16to3 *matrix1,
+                                              gf16to3 scalar,
+                                              const gf16to3 *matrix2,
+                                              const uint32_t n_rows,
+                                              const uint32_t n_cols) {
+    gf16to3_vector_scalar_add_u256(matrix1, scalar, matrix2, n_rows*n_cols);
+}
+
+/// \brief matrix1 = matrix2 + scalar * matrix3
+/// \param[out] matrix1 Matrix over gf16to3
+/// \param[in] matrix2 Matrix over  gf16to3
+/// \param[in] scalar scalar over   gf16to3
+/// \param[in] matrix3 Matrix over  gf16to3
+/// \param[in] n_rows number of rows
+/// \param[in] n_cols number of columns
+static inline void gf16to3_matrix_add_multiple_3_XxX(gf16to3 *matrix1,
+                                                 const gf16to3 *matrix2,
+                                                 const gf16to3 scalar,
+                                                 const gf16to3 *matrix3,
+                                                 const uint32_t n_rows,
+                                                 const uint32_t n_cols) {
+    gf16to3_vector_scalar_add_u256_3(matrix1, matrix2, scalar, matrix3, n_rows*n_cols);
+}
+
+
+/// \brief result = scalar * matrix2
+/// \param[out] result Matrix over gf16to3
+/// \param[in] scalar value over gf16
+/// \param[in] matrix2 Matrix over gf16to3
+/// \param[in] n_rows number of rows in matrix1
+/// \param[in] n_cols number of columns and rows in matrix1 and matrix2 respectively
+static inline void gf16to3_matrix_scalar_gf16_u256(gf16to3 *result,
+                                                   const gf16to3 scalar,
+                                                   const gf16 *matrix2,
+                                                   const uint32_t n_rows,
+                                                   const uint32_t n_cols) {
+    if ((n_rows % 8 == 0) && (n_cols == 1)) {
+        gf16to3_vector_scalar_gf16_u256(result, scalar, matrix2, n_rows*n_cols);
+        return;
+    }
+
+    uint8_t tmp[32] __attribute__((aligned(32)));
+    uint16_t *tmp2 = (uint16_t *)tmp;
+
+    const uint16x8x2_t s = vdupq_n_u16_x2(scalar);
+    const uint32_t bytes = (n_rows + 1) / 2;
+
+    for (uint32_t k = 0; k < n_cols; k++) {
+        uint32_t i = n_rows;
+
+        gf16to3 *r    = result  + k*n_rows;
+        const gf16 *m = matrix2 + k*bytes;
+
+        // avx2 code
+        while (i >= 16u) {
+            const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(m);
+            const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+            vst1q_u16_x2(r, t2);
+            i   -= 16u;
+            m  += 8u;
+            r += 16u;
+        }
+
+        if (i) {
+            for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = m[j]; }
+
+            const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(tmp);
+            const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+            vst1q_u16_x2(tmp2, t2);
+
+            for (uint32_t j = 0; j < i; ++j) { r[j] = tmp2[j]; }
+        }
+
+    }
+}
+
+/// \brief result += scalar * matrix2
+/// \param[out] result Matrix over gf16to3
+/// \param[in] scalar value over gf16
+/// \param[in] matrix2 Matrix over gf16to3
+/// \param[in] n_rows number of rows in matrix1
+/// \param[in] n_cols number of columns and rows in matrix1 and matrix2 respectively
+static inline void gf16to3_matrix_add_scalar_gf16_u256(gf16to3 *result,
+                                                       const gf16to3 scalar,
+                                                       const gf16 *matrix2,
+                                                       const uint32_t n_rows,
+                                                       const uint32_t n_cols) {
+    if ((n_rows % 8 == 0) && (n_cols == 1)) {
+        gf16to3_vector_add_scalar_gf16_u256(result, scalar, matrix2, n_rows*n_cols);
+        return;
+    }
+
+    uint8_t tmp[32] __attribute__((aligned(32)));
+    uint16_t *tmp2 = (uint16_t *)tmp;
+
+    const uint16x8x2_t s = vdupq_n_u16_x2(scalar);
+    const uint32_t bytes = (n_rows + 1) / 2;
+
+    for (uint32_t k = 0; k < n_cols; k++) {
+        uint32_t i = n_rows;
+
+        gf16to3 *r    = result  + k*n_rows;
+        const gf16 *m = matrix2 + k*bytes;
+
+        // avx2 code
+        while (i >= 16u) {
+            const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(m);
+            const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+            const uint16x8x2_t t3 = vld1q_u16_x2(r);
+
+            const uint16x8x2_t t = veorq_u16_x2(t2, t3);
+            vst1q_u16_x2(r, t);
+            i   -= 16u;
+            m  += 8u;
+            r += 16u;
+        }
+
+        if (i) {
+            for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = m[j]; }
+
+            const uint16x8x2_t t1 = gf16to3_vector_extend_gf16_x16(tmp);
+            const uint16x8x2_t t2 = gf16to3v_mul_u256(t1, s);
+
+            vst1q_u16_x2(tmp2, t2);
+
+            for (uint32_t j = 0; j < i; ++j) { r[j] ^= tmp2[j]; }
+        }
+    }
+}
+#endif // end USE_NEON

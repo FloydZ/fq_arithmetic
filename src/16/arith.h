@@ -621,6 +621,7 @@ const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
 };
 
 // NOTE: not a full multiplication (only the lower 4 bits in each limb are used in b)
+static inline
 uint8x16_t gf16v_mul_u128(const uint8x16_t a,
                           const uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
@@ -638,6 +639,16 @@ uint8x16_t gf16v_mul_u128(const uint8x16_t a,
     return vsliq_n_u8( rl , rh , 4 );
 }
 
+static inline
+uint8x16x2_t gf16v_mul_u256(const uint8x16x2_t a,
+                            const uint8x16x2_t b) {
+    uint8x16x2_t c;
+    c.val[0] = gf16v_mul_u128( a.val[0], b.val[0] );
+    c.val[0] = gf16v_mul_u128( a.val[0], b.val[0] );
+    return c;
+}
+
+static inline
 uint8x16_t gf16v_mul_full_u128(const uint8x16_t a,
                                const uint8x16_t b) {
     const uint8x16_t mask_f = vdupq_n_u8( 0xf );
@@ -661,6 +672,7 @@ uint8x16_t gf16v_mul_full_u128(const uint8x16_t a,
 // NOTE: not a full multiplication
 // only computes the multiplication on the lower 4 bits within
 // each 8 bit limb
+static inline
 uint8x16_t gf16v_mul_u128_lower(uint8x16_t a,
                                 uint8x16_t b) {
     const uint8x16_t m   = vdupq_n_u8( 0xf );
@@ -675,6 +687,7 @@ uint8x16_t gf16v_mul_u128_lower(uint8x16_t a,
 
 // only computes the multiplication on the upper 4 bits within
 // each 8 bit limb
+static inline
 uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
                                 uint8x16_t b) {
     const uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);

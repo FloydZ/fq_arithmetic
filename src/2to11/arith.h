@@ -267,7 +267,7 @@ static inline
 uint16x8_t gf2to11v_expand_ff_x8_u128(const uint8_t *in) {
     const uint8_t t = *in;
     const uint8x8_t m = vdup_n_u8(0x01);
-    const uint8x8_t shift = {0, -1, -2, -3, -4, -5, -7};
+    const uint8x8_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
     const uint8x8_t t1 = vdup_n_u8(t);
     const uint8x8_t t2 = vshl_u8(t1, shift);
     const uint8x8_t t3 = t2 & m;
@@ -282,7 +282,7 @@ static inline
 uint16x8x2_t gf2to11v_expand_ff_x16_u256(const uint8_t *in) {
     const uint16_t t = *((uint16_t *)in);
     const uint8x16_t m = vdupq_n_u8(0x01);
-    const uint8x16_t shift = {0, -1, -2, -3, -4, -5, -7, 0, -1, -2, -3, -4, -5, -7};
+    const uint8x16_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7, (uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
     const uint16x8_t t1 = vdupq_n_u16(t);
     const uint8x16_t t2 = vshlq_u8(t1, shift);
     const uint8x16_t t3 = t2 & m;
