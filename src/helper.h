@@ -66,6 +66,24 @@ uint16x8x2_t vdupq_n_u16_x2(uint16_t value) {
 }
 
 /// TODO doc
+/// @param a
+/// @return
+static inline
+uint16x8_t vcnezq_u16(const uint16x8_t a) {
+    return vcgtzq_s16(a);
+}
+
+/// TODO doc
+static inline
+uint16x8x2_t vcnezq_u16_x2(const uint16x8x2_t a) {
+    uint16x8x2_t r = {
+        vceqzq_u16(a.val[0]),
+        vceqzq_u16(a.val[1]),
+    };
+    return r;
+}
+
+/// TODO doc
 /// @param value 
 /// @return 
 static inline
@@ -126,6 +144,17 @@ uint8x16x2_t vandq_u8_x2(const uint8x16x2_t a,
     result.val[0] = vandq_u8(a.val[0], b.val[0]);
     result.val[1] = vandq_u8(a.val[1], b.val[1]);
     return result;
+}
+
+static inline
+uint16x8x2_t vshlq_n_u16_x2(const uint16x8x2_t a,
+                            const uint8_t b) {
+    uint16x8_t tmp = vdupq_n_u16(b);
+    uint16x8x2_t r = {
+        vshlq_u16(a.val[0], tmp),
+        vshlq_u16(a.val[1], tmp),
+    };
+    return r;
 }
 
 

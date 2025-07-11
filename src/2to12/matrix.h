@@ -1137,6 +1137,7 @@ static inline void gf2to12_matrix_add_scalar_gf2_u256(gf2to12 *matrix1,
     const uint16x8x2_t s256 = vdupq_n_u16_x2(scalar);
     const uint16x8_t s128 = vdupq_n_u16(scalar);
 
+    // TODO
     // if (n_rows == 4) {
     //     const uint64_t m = 0x01010101;
     //     const uint32_t limit = n_cols % 4;
@@ -1381,7 +1382,6 @@ static inline void gf2to12_matrix_mul_gf2_vector_u256(gf2to12 *result,
                                                       const gf2to12 *matrix2,
                                                       const uint32_t n_rows1,
                                                       const uint32_t n_cols1) {
-    const uint16x8x2_t mask = vdupq_n_u16_x2(0);
     const uint32_t gf2_col_bytes = gf2_matrix_bytes_per_column(n_rows1);
     const uint32_t limit = n_rows1 % 32;
 
@@ -1393,44 +1393,44 @@ static inline void gf2to12_matrix_mul_gf2_vector_u256(gf2to12 *result,
         const uint8_t *m1 = matrix1 + col*gf2_col_bytes;
         const uint16x8x2_t b = vdupq_n_u16_x2(*(matrix2 + col));
         gf2to12 *r = result;
-        // while ((i + 32) <= n_rows1) {
-        //     const uint16x8x2_t a1 = gf2to12v_expand_gf2_x16_u256(m1 + 0);
-        //     const uint16x8x2_t a2 = gf2to12v_expand_gf2_x16_u256(m1 + 2);
+        while ((i + 32) <= n_rows1) {
+            const uint16x8x2_t a1 = gf2to12v_expand_gf2_x16_u256(m1 + 0);
+            const uint16x8x2_t a2 = gf2to12v_expand_gf2_x16_u256(m1 + 2);
 
-        //     const uint16x8x2_t t1 = _mm256_cmpgt_epi16(a1, mask);
-        //     const uint16x8x2_t t2 = _mm256_cmpgt_epi16(a2, mask);
+            const uint16x8x2_t t1 = vcnezq_u16_x2(a1);
+            const uint16x8x2_t t2 = vcnezq_u16_x2(a2);
 
-        //     const uint16x8x2_t c1 = vld1q_u16_x2((r +  0));
-        //     const uint16x8x2_t c2 = vld1q_u16_x2((r + 16));
+            const uint16x8x2_t c1 = vld1q_u16_x2((r +  0));
+            const uint16x8x2_t c2 = vld1q_u16_x2((r + 16));
 
-        //     const uint16x8x2_t d1 = c1 ^ (b & t1);
-        //     const uint16x8x2_t d2 = c2 ^ (b & t2);
+            const uint16x8x2_t d1 = veorq_u16_x2(c1, vandq_u16_x2(b, t1));
+            const uint16x8x2_t d2 = veorq_u16_x2(c2, vandq_u16_x2(b, t2));
 
-        //     vst1q_u16_x2((r +  0), d1);
-        //     vst1q_u16_x2((r + 16), d2);
-        //     m1 += 4;
-        //     r  += 32;
-        //     i  += 32;
-        // }
+            vst1q_u16_x2((r +  0), d1);
+            vst1q_u16_x2((r + 16), d2);
+            m1 += 4;
+            r  += 32;
+            i  += 32;
+        }
 
-        // if (limit) {
-        //     for (uint32_t j = 0; j < (limit+7)/8; j++) { tmp[j] = m1[j]; }
-        //     const uint16x8x2_t a1 = gf2to12v_expand_gf2_x16_u256(tmp + 0);
-        //     const uint16x8x2_t a2 = gf2to12v_expand_gf2_x16_u256(tmp + 2);
+        if (limit) {
+            for (uint32_t j = 0; j < (limit+7)/8; j++) { tmp[j] = m1[j]; }
+            const uint16x8x2_t a1 = gf2to12v_expand_gf2_x16_u256(tmp + 0);
+            const uint16x8x2_t a2 = gf2to12v_expand_gf2_x16_u256(tmp + 2);
 
-        //     const uint16x8x2_t t1 = _mm256_cmpgt_epi16(a1, mask);
-        //     const uint16x8x2_t t2 = _mm256_cmpgt_epi16(a2, mask);
+            const uint16x8x2_t t1 = vcnezq_u16_x2(a1);
+            const uint16x8x2_t t2 = vcnezq_u16_x2(a2);
 
-        //     for (uint32_t j = 0; j < limit; j++) { tmp[j] = r[j]; }
+            for (uint32_t j = 0; j < limit; j++) { tmp[j] = r[j]; }
 
-        //     const uint16x8x2_t d1 = b & t1;
-        //     const uint16x8x2_t d2 = b & t2;
+            const uint16x8x2_t d1 = vandq_u16_x2(b, t1);
+            const uint16x8x2_t d2 = vandq_u16_x2(b, t2);
 
-        //     vst1q_u16_x2((tmp1 +  0), d1);
-        //     vst1q_u16_x2((tmp1 + 16), d2);
-        //     for (uint32_t j = 0; j < limit; j++) { r[j] ^= tmp1[j]; }
+            vst1q_u16_x2((tmp1 +  0), d1);
+            vst1q_u16_x2((tmp1 + 16), d2);
+            for (uint32_t j = 0; j < limit; j++) { r[j] ^= tmp1[j]; }
 
-        // }
+        }
     }
 }
 
