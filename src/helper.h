@@ -54,6 +54,9 @@ uint64_t _pext_u64(const uint64_t bitmap,
     return res;
 }
 
+/// TODO doc
+/// @param value
+/// @return 
 static inline
 uint16x8x2_t vdupq_n_u16_x2(uint16_t value) {
     uint16x8x2_t result;
@@ -61,6 +64,10 @@ uint16x8x2_t vdupq_n_u16_x2(uint16_t value) {
     result.val[1] = vdupq_n_u16(value);
     return result;
 }
+
+/// TODO doc
+/// @param value 
+/// @return 
 static inline
 uint8x16x2_t vdupq_n_u8_x2(uint16_t value) {
     uint8x16x2_t result;
@@ -69,12 +76,55 @@ uint8x16x2_t vdupq_n_u8_x2(uint16_t value) {
     return result;
 }
 
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
 static inline
 uint16x8x2_t veorq_u16_x2(const uint16x8x2_t a,
                           const uint16x8x2_t b) {
     uint16x8x2_t result;
     result.val[0] = veorq_u16(a.val[0], b.val[0]);
     result.val[1] = veorq_u16(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint8x16x2_t veorq_u8_x2(const uint8x16x2_t a,
+                         const uint8x16x2_t b) {
+    uint8x16x2_t result;
+    result.val[0] = veorq_u8(a.val[0], b.val[0]);
+    result.val[1] = veorq_u8(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint16x8x2_t vandq_u16_x2(const uint16x8x2_t a,
+                          const uint16x8x2_t b) {
+    uint16x8x2_t result;
+    result.val[0] = vandq_u16(a.val[0], b.val[0]);
+    result.val[1] = vandq_u16(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint8x16x2_t vandq_u8_x2(const uint8x16x2_t a,
+                         const uint8x16x2_t b) {
+    uint8x16x2_t result;
+    result.val[0] = vandq_u8(a.val[0], b.val[0]);
+    result.val[1] = vandq_u8(a.val[1], b.val[1]);
     return result;
 }
 
