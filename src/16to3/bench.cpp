@@ -1,4 +1,5 @@
 #include <benchmark/benchmark.h>
+
 #include "arith.h"
 #include "vector.h"
 #include "matrix.h"
@@ -261,13 +262,46 @@ BENCHMARK(BM_gf16to3_matrix_add_multiple_3_XxX);
 
 #endif
 
-BENCHMARK(BM_gf16to3_matrix_mul);
-BENCHMARK(BM_gf16to3_matrix_add_gf16);
-BENCHMARK(BM_gf16to3_matrix_map_gf16);
-BENCHMARK(BM_gf16to3_mul);
-BENCHMARK(BM_gf16to3_matrix_mul_gf16);
-BENCHMARK(BM_gf16to3_matrix_add_multiple_2);
-BENCHMARK(BM_gf16to3_matrix_add_multiple_3);
+
+#ifdef USE_NEON
+
+static void BM_gf16to3_vector_extend_gf16_x8(benchmark::State& state) {
+    uint32_t tmp = 0;
+    uint16x8_t ctr = {0};
+    for (auto _ : state) {
+        const uint16x8_t t1 = gf16to3_vector_extend_gf16_x8((uint8_t *)&tmp);
+        tmp += 1;
+        const uint16x8_t t2 = gf16to3_vector_extend_gf16_x8((uint8_t *)&tmp);
+        tmp += 1;
+        benchmark::DoNotOptimize(ctr = vaddq_u16(ctr, t1));
+        benchmark::DoNotOptimize(ctr = vaddq_u16(ctr, t2));
+    }
+}
+
+static void BM_gf16to3_vector_extend_gf16_x8_v2(benchmark::State& state) {
+    uint32_t tmp = 0;
+    uint16x8_t ctr = {0};
+    for (auto _ : state) {
+        const uint16x8_t t1 = gf16to3_vector_extend_gf16_x8_v2((uint8_t *)&tmp);
+        tmp += 1;
+        const uint16x8_t t2 = gf16to3_vector_extend_gf16_x8_v2((uint8_t *)&tmp);
+        tmp += 1;
+        benchmark::DoNotOptimize(ctr = vaddq_u16(ctr, t1));
+        benchmark::DoNotOptimize(ctr = vaddq_u16(ctr, t2));
+    }
+}
+
+BENCHMARK(BM_gf16to3_vector_extend_gf16_x8_v2);
+BENCHMARK(BM_gf16to3_vector_extend_gf16_x8);
+#endif
+
+// BENCHMARK(BM_gf16to3_matrix_mul);
+// BENCHMARK(BM_gf16to3_matrix_add_gf16);
+// BENCHMARK(BM_gf16to3_matrix_map_gf16);
+// BENCHMARK(BM_gf16to3_mul);
+// BENCHMARK(BM_gf16to3_matrix_mul_gf16);
+// BENCHMARK(BM_gf16to3_matrix_add_multiple_2);
+// BENCHMARK(BM_gf16to3_matrix_add_multiple_3);
 // TODO BENCHMARK(BM_gf16to3v_mul);
 BENCHMARK_MAIN();
 

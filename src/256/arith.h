@@ -886,6 +886,25 @@ __m256i gf256v_mul_u256(const __m256i a,
     return r;
 }
 
+
+static inline
+__m128i gf256v_mul_u128(const __m128i a,
+                        const __m128i b) {
+    const __m128i zero = _mm_set1_epi32(0),
+                  mask = _mm_set1_epi8(0x1B);
+    __m128i r;
+
+    r = _mm_blendv_epi8(zero, a, b);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 1)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 2)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 3)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 4)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 5)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 6)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    r = _mm_blendv_epi8(zero, a, _mm_slli_epi16(b, 7)) ^ _mm_blendv_epi8(zero, mask, r) ^ _mm_add_epi8(r, r);
+    return r;
+}
+
 /// full multiplication:
 /// \param a: [a_0, a_1, ..., a_31]
 /// \param b: [b_0, b_1, ..., b_31]
@@ -1303,46 +1322,57 @@ void gf256mat_prod_small_avx2(uint8_t *c,
         }
 	}
 }
-#elif defined(USE_NEON)
-#include <arm_neon.h>
-typedef union {
-    uint8_t  v8 [32];
-    uint16_t v16[16];
-    uint32_t v32[8];
-    uint64_t v64[4];
-    uint8x16_t v[2];
-} vec256_t;
 
+#elif defined(USE_NEON)
+
+/// compute a+b
+/// \param a [a_0, ..., a_15], a_i \in GF256
+/// \param b [b_0, ..., b_15], b_i \in GF256
+/// \return [a_0+b_0, ..., a_15+b_15]
+static inline
 uint8x16_t gf256v_add_u128(const uint8x16_t a,
-                         const uint8x16_t b) {
+                           const uint8x16_t b) {
     return veorq_u8(a, b);
 }
 
-vec256_t gf256v_add_u256(const vec256_t a,
-                         const vec256_t b) {
-    vec256_t ret;
-    ret.[0] = veorq_u8(a.v[0], b.v[0]);
-    ret.[1] = veorq_u8(a.v[1], b.v[1]);
+/// compute a+b
+/// \param a [a_0, ..., a_31], a_i \in GF256
+/// \param b [b_0, ..., b_31], b_i \in GF256
+/// \return [a_0+b_0, ..., a_31+b_31]
+static inline
+v256 gf256v_add_u256(const v256 a,
+                     const v256 b) {
+    v256 ret;
+    ret.v[0] = veorq_u8(a.v[0], b.v[0]);
+    ret.v[1] = veorq_u8(a.v[1], b.v[1]);
     return ret;
 }
 
+/// \param a [a_0, ..., a_15], a_i \in GF256
+/// \param b [b_0, ..., b_15], b_i \in GF256
+/// \return [a_0*b_0, ..., a_15*b_15]
+static inline
 uint8x16_t gf256v_mul_u128(const uint8x16_t a,
                            const uint8x16_t b) {
     return vmulq_p8(a, b);
 }
 
-vec256_t gf256v_mul_u256(const vec256_t a,
-                         const vec256_t b) {
-    vec256_t ret;
-    const poly8x16 a1 = a.v[0];
-    const poly8x16 a2 = a.v[1];
-    const poly8x16 b1 = a.v[0];
-    const poly8x16 b2 = a.v[1];
+/// \param a [a_0, ..., a_31], a_i \in GF256
+/// \param b [b_0, ..., b_31], b_i \in GF256
+/// \return [a_0*b_0, ..., a_31*b_31]
+static inline
+v256 gf256v_mul_u256(const v256 a,
+                     const v256 b) {
+    v256 ret;
+    const poly8x16_t a1 = a.v[0];
+    const poly8x16_t a2 = a.v[1];
+    const poly8x16_t b1 = b.v[0];
+    const poly8x16_t b2 = b.v[1];
 
     ret.v[0] = vmulq_p8(a1, b1);
     ret.v[1] = vmulq_p8(a2, b2);
     return ret;
 }
-#endif /// end USE_AVX2
+#endif /// end USE_NEON/ USE_AVX2
 #undef MODULUS
 

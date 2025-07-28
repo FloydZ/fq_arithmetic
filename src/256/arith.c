@@ -11,6 +11,7 @@
 #include "../2/matrix.h"
 
 
+#ifdef USE_AVX2
 uint32_t test_matrix_map_gf16_to_gf256_u256() {
     uint32_t ret = 0;
     const uint32_t nrows = 15;
@@ -41,7 +42,6 @@ uint32_t test_matrix_map_gf16_to_gf256_u256() {
     return ret;
 }
 
-#ifdef USE_AVX2
 uint32_t test_matrix_add_u256() {
     uint32_t ret = 0;
     const uint32_t nrows = 100;
@@ -737,7 +737,7 @@ int check_gf256v_mul_u256() {
 int check_gf256v_sqr_u256() {
     v256 sv1 = {0}, sv3;
     sv1.v32[1] = (210<<16) | (22 << 8);
-    sv3.v256 = gf256v_squ_u256(sv1.v256);
+    sv3.v256 = gf256v_sqr_u256(sv1.v256);
     printf("%u %lu\n", sv3.v32[1]>>16, gf256v_squ_u64(210));
 
     return true;

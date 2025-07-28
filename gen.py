@@ -367,7 +367,7 @@ class SSE(SIMD):
         :param p: a permutation of length 32/16/8/4/2
         :param o: output register 
         :param a: input register 
-        :return TODO
+        :return a string with the instrucions/intrinsics performing the operation
         """
         del out_var; del in_var; del n; del p;
         raise NotImplementedError
@@ -376,8 +376,10 @@ class SSE(SIMD):
                 o: str,
                 a: str) -> str:
         """
+        NOTE: may emit global variables
         :param out_var: name of the output variable (register)
         :param in_var: value to set
+        :return 
         """
         ret = ""
         t = len(p)
@@ -396,7 +398,6 @@ class SSE(SIMD):
             b = get_var_name()
             c = ", ".join([str(pp) for pp in p])
             s = f"const {self.register_name} {b} = _mm256_set1_epi8({c});\n"
-            #global global_variables
             global_variables.append(s)
             return f"{o} = _mm256_shuffle_epi8({a}, {b});\n"
 
@@ -409,7 +410,7 @@ class SSE(SIMD):
         :param p: number of limbs to xor up
         :param o: output register 
         :param a: input register 
-        :return TODO
+        :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, # normal limb operations
                      32, 64, 128]: # sub limb operations
@@ -427,7 +428,7 @@ class SSE(SIMD):
 
         if p >= 16:
             ret += self.shuffle([1, 0, 2, 3, 4, 5, 6, 7], "a", "a")
-            if p == 4:
+            if p == 16:
                 return ret + f"{o} = _mm_extract_epi8({a}, 0);\n"
         # TODO sublimb xor
         raise NotImplemented
@@ -524,17 +525,21 @@ class AVX(SIMD):
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
-        """ TODO implement sub byte permutation
+        """
+        o[p[i]] = a[i] for in 0..N
         :param p: a permutation of length 32/16/8/4/2
         :param o: output register 
         :param a: input register 
         :return a string which applies the permutation to the input register.
             NOTE: maybe global variables are emitted.
+
+        TODO implement sub byte permutation
         """
         ret = ""
         t = len(p)
         assert t in [2, 4, 8, 16, 32]
         if AVX.__check_lanes128(p):
+            # hard pard, permutation across lanes
             if t == 2:
                 imm = "0b" + "000".join(['{0:02b}'.format(l) for l in p[::-1]])
                 return f"{o} = _mm256_permute2x128_si256({a}, {a}, {imm});\n"
@@ -586,7 +591,7 @@ class AVX(SIMD):
         :param o: output register. NOTE: is some cases this must be a variable 
                 name, and not a register.
         :param a: input register 
-:return TODO
+        :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256]:
             raise ValueError
@@ -726,7 +731,7 @@ class AVX512(AVX):
         :param p: number of limbs to xor up
         :param o: output register 
         :param a: input register 
-        :return TODO
+        :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256, 512]:
             raise ValueError
@@ -1114,7 +1119,6 @@ def test():
     AVX.test()
     AVX512.test()
     NEON.test()
-
 
 
 if __name__ == "__main__":

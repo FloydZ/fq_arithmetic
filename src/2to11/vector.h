@@ -4,6 +4,7 @@
 
 #include "arith.h"
 #include "../2/vector.h"
+#include "../helper.h"
 
 /// \param n size of the vector
 /// \return vector(n)
@@ -251,7 +252,7 @@ static inline void gf2to11_vector_add_gf2_u256(gf2to11 *__restrict__ out,
     }
 
     if (i) {
-        uint16_t tmp[8] __attribute__((aligned(16))) = {0};
+        uint16_t tmp[16] __attribute__((aligned(16))) = {0};
         for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
         const __m128i m1 = _mm_loadu_si128((__m128i *)tmp);
 
@@ -405,7 +406,7 @@ static inline void gf2to11_vector_scalar_add_gf2_u256_v3(gf2to11 *__restrict__ o
     }
 
     if (i) {
-        uint16_t tmp[8] = {0};
+        uint16_t tmp[16] = {0};
 
         uint64_t mask = (1ul << (i * 8)) - 1ul;
         for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
@@ -501,5 +502,312 @@ static inline void gf2to11_vector_set_to_gf2_u256(gf2to11 *out,
         for (uint32_t j = 0; j < (bytes * 8); j++) { out[j] = tmp[j];}
     }
 }
+#endif // end USE_AVX2
 
-#endif
+#ifdef USE_NEON
+
+/// out += in1
+/// \param out[in/out]
+/// \param in1[in]
+/// \param d  number of elements NOT bytes
+static inline void gf2to11_vector_add_u256(gf2to11 *__restrict__ out,
+                                           const gf2to11 *__restrict__ in1,
+                                           const uint32_t d) {
+    uint32_t i = d;
+    while (i >= 16u) {
+        const uint16x8x2_t m1 = vld1q_u16_x2(in1);
+        const uint16x8x2_t m2 = vld1q_u16_x2(out);
+        const uint16x8x2_t m3 = veorq_u16_x2(m1, m2);
+        vst1q_u16_x2(out, m3);
+        i   -= 16u;
+        in1 += 16u;
+        out += 16u;
+    }
+    while(i >= 8u) {
+        const uint16x8_t m1 = vld1q_u16(in1);
+        const uint16x8_t m2 = vld1q_u16(out);
+        const uint16x8_t m3 = veorq_u16(m1, m2);
+        vst1q_u16(out, m3);
+        i   -= 8u;
+        in1 += 8u;
+        out += 8u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= *in1++;
+    }
+}
+
+/// out = in1 + in2
+/// \param out[out]
+/// \param in1[in]
+/// \param in2[in]
+/// \param d number of elements NOT bytes
+static inline void gf2to11_vector_add_u256_v2(gf2to11 *__restrict__ out,
+                                              const gf2to11 *__restrict__ in1,
+                                              const gf2to11 *__restrict__ in2,
+                                              const uint32_t d) {
+    uint32_t i = d;
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t m1 = vld1q_u16_x2(in1);
+        const uint16x8x2_t m2 = vld1q_u16_x2(in2);
+        const uint16x8x2_t m3 = veorq_u16_x2(m1, m2);
+        vst1q_u16_x2(out, m3);
+        i   -= 16u;
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+    }
+
+    // sse code
+    while(i >= 8u) {
+        const uint16x8_t m1 = vld1q_u16(in1);
+        const uint16x8_t m2 = vld1q_u16(out);
+        const uint16x8_t m3 = veorq_u16(m1, m2);
+        vst1q_u16(out, m3);
+        i   -= 8u;
+        in1 += 8u;
+        in2 += 8u;
+        out += 8u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ = *in1++ ^ *in2++;
+    }
+}
+
+/// \param out += in
+/// \param in
+/// \param n
+static inline void gf2to11_vector_add_gf2_u256(gf2to11 *__restrict__ out,
+                                               const gf2 *__restrict__ in,
+                                               const uint32_t n) {
+    uint32_t i = n;
+
+    while (i >= 16u) {
+        const uint16x8x2_t m1 = vld1q_u16_x2(out);
+        const uint16x8x2_t m2 = gf2to11v_expand_ff_x16_u256(in);
+        const uint16x8x2_t m3 = veorq_u16_x2(m1, m2);
+        vst1q_u16_x2(out, m3);
+        i   -= 16u;
+        in  += 2u;
+        out += 16u;
+    }
+
+    while (i >= 8u) {
+        const uint16x8_t m1 = vld1q_u16(out);
+        const uint16x8_t m2 = gf2to11v_expand_ff_x8_u128(in);
+        const uint16x8_t m3 = veorq_u16(m1, m2);
+        vst1q_u16(out, m3);
+        i   -= 8u;
+        in  += 1u;
+        out += 8u;
+    }
+
+    if (i) {
+        uint16_t tmp[16] __attribute__((aligned(16))) = {0};
+        for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
+        const uint16x8_t m1 = vld1q_u16(tmp);
+        const uint16x8_t m2 = gf2to11v_expand_ff_x8_u128(in);
+        const uint16x8_t m3 = veorq_u16(m1, m2);
+        vst1q_u16(out, m3);
+        for (uint32_t j = 0; j < i; j++) { out[j] = tmp[j];}
+    }
+}
+
+/// out = in1 + a*in2
+static inline void gf2to11_vector_scalar_add_u256_v2(gf2to11 *__restrict__ out,
+                                                     const gf2to11 *__restrict__ in1,
+                                                     const gf2to11 a,
+                                                     const gf2to11 *__restrict__ in2,
+                                                     const uint32_t d) {
+    uint32_t i = d;
+    const uint16x8x2_t a256 = vdupq_n_u16_x2(a);
+
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = vld1q_u16_x2(in1);
+        const uint16x8x2_t t2 = vld1q_u16_x2(in2);
+        const uint16x8x2_t t3 = gf2to11v_mul_u256(t2, a256);
+        const uint16x8x2_t t = veorq_u16_x2(t1, t3);
+        vst1q_u16_x2(out, t);
+        i   -= 16u;
+        in1 += 16u;
+        in2 += 16u;
+        out += 16u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= *in1++ ^ gf2to11_mul(a, *in2++);
+    }
+}
+
+/// out += a*in1
+static inline void gf2to11_vector_scalar_add_u256(gf2to11 *__restrict__ out,
+                                                  const gf2to11 a,
+                                                  const gf2to11 *__restrict__ in1,
+                                                  const uint32_t d) {
+    uint32_t i = d;
+    const uint16x8x2_t a256 = vdupq_n_u16_x2(a);
+
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = vld1q_u16_x2(out);
+        const uint16x8x2_t t2 = vld1q_u16_x2(in1);
+        const uint16x8x2_t t3 = gf2to11v_mul_u256(t2, a256);
+        const uint16x8x2_t t = veorq_u16_x2(t1, t3);
+        vst1q_u16_x2(out, t);
+        i   -= 16u;
+        in1 += 16u;
+        out += 16u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= gf2to11_mul(a, *in1++);
+    }
+}
+
+
+/// out += a*in1
+static inline void gf2to11_vector_scalar_add_gf2_u256(gf2to11 *__restrict__ out,
+                                                      const gf2 a,
+                                                      const gf2to11 *__restrict__ in1,
+                                                      const uint32_t d) {
+    uint32_t i = d;
+    const uint16_t aa = (-a) & 0xFFF;
+    const uint16x8x2_t a256 = vdupq_n_u16_x2(aa);
+
+    // avx2 code
+    while (i >= 16u) {
+        const uint16x8x2_t t1 = vld1q_u16_x2(out);
+        const uint16x8x2_t t2 = vld1q_u16_x2(in1);
+        // const uint16x8x2_t t3 = gf2v_mul_u256(t2, a256);
+        const uint16x8x2_t t3 = vandq_u16_x2(t2, a256);
+        const uint16x8x2_t t = veorq_u16_x2(t1, t3);
+
+        vst1q_u16_x2(out, t);
+        i   -= 16u;
+        in1 += 16u;
+        out += 16u;
+    }
+
+    for (; i > 0; --i) {
+        *out++ ^= *in1++ & aa;
+    }
+}
+
+/// out += a*in1
+static inline void gf2to11_vector_scalar_add_gf2_u256_v3(gf2to11 *__restrict__ out,
+                                                         const gf2to11 a,
+                                                         const gf2 *__restrict__ in,
+                                                         const uint32_t n) {
+    uint32_t i = n;
+    const uint16x8x2_t A256 = vdupq_n_u16_x2(a);
+    const uint16x8_t A128 = vdupq_n_u16(a);
+
+    while (i >= 16u) {
+        const uint16x8x2_t mo = vld1q_u16_x2(out);
+        const uint16x8x2_t mi = gf2to11v_expand_ff_x16_u256(in);
+        const uint16x8x2_t t1 = gf2to11v_mul_gf2_u256(A256, mi);
+        const uint16x8x2_t t2 = veorq_u16_x2(mo, t1);
+        vst1q_u16_x2(out, t2);
+        i   -= 16u;
+        in  += 2u;
+        out += 16u;
+    }
+
+    while (i >= 8u) {
+        const uint16x8_t mo = vld1q_u16(out);
+        const uint16x8_t mi = gf2to11v_expand_ff_x8_u128(in);
+        const uint16x8_t t1 = gf2to11v_mul_gf2_u128(A128, mi);
+        const uint16x8_t t2 = veorq_u16(mo, t1);
+        vst1q_u16(out, t2);
+        i   -= 8u;
+        in  += 1u;
+        out += 8u;
+    }
+
+    if (i) {
+        uint16_t tmp[16] = {0};
+        for (uint32_t j = 0; j < i; j++) { tmp[j] = out[j];}
+
+        const uint16x8_t mo = vld1q_u16(tmp);
+        const uint16x8_t mi = gf2to11v_expand_ff_x8_u128(in);
+        const uint16x8_t t1 = gf2to11v_mul_gf2_u128(A128, mi);
+        const uint16x8_t t2 = veorq_u16(mo, t1);
+        vst1q_u16(tmp, t2);
+
+        for (uint32_t j = 0; j < i; j++) { out[j] = tmp[j];}
+    }
+
+}
+
+/// \param a
+/// \param b
+/// \param n length of the vector
+/// \return sum(a[i] * b[i])
+static inline gf2to11 gf2to11_vector_mul_acc_u256(const gf2to11 *a,
+                                                  const gf2to11 *b,
+                                                  const uint32_t n) {
+    uint32_t i = n;
+
+    uint16x8x2_t acc = vdupq_n_u16_x2(0);
+    // avx2 code
+    while (i >= 16u) {
+        const uint8x16x2_t ta = vld1q_u8_x2((uint8_t *)a);
+        const uint8x16x2_t tb = vld1q_u8_x2((uint8_t *)b);
+        const uint8x16x2_t t1 = gf2v_mul_u256(ta, tb);
+        acc.val[0] = veorq_u16(acc.val[0], t1.val[0]);
+        acc.val[1] = veorq_u16(acc.val[1], t1.val[1]);
+
+        i -= 16u;
+        a += 16u;
+        b += 16u;
+    }
+
+
+    if (i) {
+        uint16_t tmpa[16] __attribute__((aligned(32))) = {0},
+                 tmpb[16] __attribute__((aligned(32))) = {0};
+        for (uint32_t j = 0; j < i; j++) {
+            tmpa[j] = a[j];
+            tmpb[j] = b[j];
+        }
+
+        const uint8x16x2_t ta = vld1q_u8_x2((uint8_t *)tmpa);
+        const uint8x16x2_t tb = vld1q_u8_x2((uint8_t *)tmpb);
+        const uint8x16x2_t t1 = gf2v_mul_u256(ta, tb);
+        acc.val[0] = veorq_u16(acc.val[0], t1.val[0]);
+        acc.val[1] = veorq_u16(acc.val[1], t1.val[1]);
+    }
+
+    gf2to11 t = gf2to11_hadd_u256(acc);
+    return t;
+}
+
+
+static inline void gf2to11_vector_set_to_gf2_u256(gf2to11 *out,
+                                                  const gf2 *in,
+                                                  const uint32_t n) {
+    uint32_t bytes = (n+7)/8;
+
+    while (bytes >= 2u) {
+        const uint16x8x2_t t = gf2to11v_expand_ff_x16_u256(in);
+        vst1q_u16_x2(out, t);
+
+        in  += 2u;
+        out += 16u;
+        bytes -= 2;
+    }
+
+    if (bytes) {
+        uint16_t tmp[16] __attribute__((aligned(32))) = {0};
+        /// TODO maybe reads OOB
+        const uint16x8x2_t t = gf2to11v_expand_ff_x16_u256(in);
+        vst1q_u16_x2(tmp, t);
+
+        for (uint32_t j = 0; j < (bytes * 8); j++) { out[j] = tmp[j];}
+    }
+}
+#endif // end USE_NEON

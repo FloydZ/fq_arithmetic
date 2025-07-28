@@ -472,7 +472,45 @@ static inline __m128i gf2to12v_mul_gf2_u128_v2(const __m128i a,
 
 #elif defined(USE_NEON)
 #include <arm_neon.h>
+#include "../helper.h"
 
+/// TODO doc
+/// \param in
+/// \return
+static inline
+uint16x8_t gf2to12v_expand_gf2_x8_u128(const uint8_t *in) {
+    const uint8_t t = *in;
+    const uint8x8_t m = vdup_n_u8(0x01);
+    const uint8x8_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
+    const uint8x8_t t1 = vdup_n_u8(t);
+    const uint8x8_t t2 = vshl_u8(t1, shift);
+    const uint8x8_t t3 = t2 & m;
+    uint16x8_t result = vmovl_u8(t3);
+    return result;
+}
+
+/// TODO doc
+/// \param in
+/// \return
+static inline
+uint16x8x2_t gf2to12v_expand_gf2_x16_u256(const uint8_t *in) {
+    const uint16_t t = *((uint16_t *)in);
+    const uint8x16_t m = vdupq_n_u8(0x01);
+    const uint8x16_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7, (uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
+    const uint16x8_t t1 = vdupq_n_u16(t);
+    const uint8x16_t t2 = vshlq_u8(t1, shift);
+    const uint8x16_t t3 = t2 & m;
+
+    const uint16x8_t l = vmovl_u8(vget_low_u8(t3));
+    const uint16x8_t h = vmovl_u8(vget_high_u8(t3));
+    const uint16x8x2_t r = { l, h };
+    return r;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
 static inline uint16x8_t gf2to12v_mul_u128(const uint16x8_t a,
                                            const uint16x8_t b) {
     uint16x8_t m = vdupq_n_u16(MODULUS), r;
@@ -493,12 +531,49 @@ static inline uint16x8_t gf2to12v_mul_u128(const uint16x8_t a,
     return r;
 }
 
+/// TODO doc
+/// \param a
+/// \param b
+/// \return
 static inline uint16x8x2_t gf2to12v_mul_u256(const uint16x8x2_t a,
                                              const uint16x8x2_t b) {
     uint16x8x2_t r;
     r.val[0] = gf2to12v_mul_u128(a.val[0], b.val[0]);
     r.val[1] = gf2to12v_mul_u128(a.val[1], b.val[1]);
     return r;
+}
+
+/// \param a
+/// \param b in gf2, not compresses: a single bit in each bit
+/// \return
+static inline uint16x8x2_t gf2to12v_mul_gf2_u256(const uint16x8x2_t a,
+                                                 const uint16x8x2_t b) {
+    const uint16x8x2_t t1 = {
+        vnegq_s16(b.val[0]),
+        vnegq_s16(b.val[1])
+     };
+    return vandq_u16_x2(a, t1);
+}
+
+/// \param a
+/// \param b in gf2, not compresses: a single bit in
+/// \return
+static inline uint16x8_t gf2to12v_mul_gf2_u128(const uint16x8_t a,
+                                               const uint16x8_t b) {
+    const uint16x8_t t1 = vnegq_s16(b);
+    return vandq_u16(a, t1);
+}
+
+/// TODO test
+/// horizontal xor, but not withing a single limb, but over the 16 -16bit limbs
+/// \param in
+/// \return
+static inline uint16_t gf2to12_hadd_u256(uint16x8x2_t in) {
+    uint16x8_t ret = veorq_u16(in.val[0], in.val[1]);
+    ret = veorq_u16(ret, vextq_u16(ret, vdupq_n_u16(0), 1));
+    ret = veorq_u16(ret, vextq_u16(ret, vdupq_n_u16(0), 2));
+    ret = veorq_u16(ret, vextq_u16(ret, vdupq_n_u16(0), 4));
+    return vgetq_lane_u16(ret, 0);
 }
 #else
 #endif

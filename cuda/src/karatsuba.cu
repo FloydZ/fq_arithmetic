@@ -31,8 +31,6 @@ uint32_t __cpu_mu[8] = { 0x00000001, 0x00000000, 0x00000000, 0x7BC6C000, 0x8AF43
 
 
 
-
-
 // first part of montgomery reduction 
 // essential its a multiplication a*mu mod 2**64
 // This version does not use the 'mad' instructions
@@ -110,7 +108,7 @@ uint32_t __cpu_mu[8] = { 0x00000001, 0x00000000, 0x00000000, 0x7BC6C000, 0x8AF43
 	__reduce32_sec10(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,p0,p1,p2,p3,p4,t0,t1,t2,t3,t4,t5,t6,t7,t8,t9)
 
 
-// TODO describe
+/// r = (a + u) div 2^(8*32)
 #define __reduce32_sec16(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15, p0,p1,p2,p3,p4,p5,p6,p7, i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11,i12,i13,i14,i15)	 	 \
         asm volatile ("{\n\t"						\
 			/* r = (a + u) div 2^(8*32)*/      		\
@@ -168,7 +166,9 @@ uint32_t __cpu_mu[8] = { 0x00000001, 0x00000000, 0x00000000, 0x7BC6C000, 0x8AF43
 		  )
 
 
-// TODO describe
+// montgomery reduction of 16 elements 
+// mu[in]: montgomery factor 
+// p[in]: prime of 8 limbs
 #define __reduce32_inplace16(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,mu0,mu1,mu2,mu3,mu4,mu5,mu6,mu7,p0,p1,p2,p3,p4,p5,p6,p7)	\
 	uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15;																	\
 	__school32_inplace_8x8_low_v2(a0,a1,a2,a3,a4,a5,a6,a7,mu0,mu1,mu2,mu3,mu4,mu5,mu6,mu7) \
@@ -176,30 +176,42 @@ uint32_t __cpu_mu[8] = { 0x00000001, 0x00000000, 0x00000000, 0x7BC6C000, 0x8AF43
 	__reduce32_sec16(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15, p0,p1,p2,p3,p4,p5,t6,p7, t0,t1,t2,t3,t4,t5,t6,t8,t8,t9,t10,t11,t12,t13,t14,t15)
 
 
-
-// TODO describe
-#define __reduce32_16(a0,a1,a2,a3,a4,a5,a6,a7, c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15, mu0,mu1,mu2,mu3,mu4,mu5,mu6,mu7, p0,p1,p2,p3,p4,p5,p6,p7)	\
-//
-
-// TODO describe
+// karatsuba multiplication with reduction
+// c[in]: result of 4 limbs
+// a[in]: first number of 4 limbs
+// b[in]: first number of 4 limbs
+// mu[in]: first number of 4 limbs
+// p[in]: prime of 4 limbs
 #define __fp_karatsuba_mul128_32(c0,c1,c2,c3,a0,a1,a2,a3,b0,b1,b2,b3,m0,m1,m2,m3,p0,p1,p2,p3)  	\
 	uint32_t t0,t1,t2,t3,t4,t5,t6,t7; 															\
 	__karatsuba_4x4(t0,t1,t2,t3,t4,t5,t6,t7, a0,a1,a2,a3, b0,b1,b2,b3)							\
 	__reduce8(c0,c1,c2,c3, t0,t1,t2,t3,t4,t5,t6,t7, m0,m1,m2,m3, p0,p1,p2,p3)
 
-// TODO describe
+// c[in]: result of 6 limbs
+// a[in]: first number of 6 limbs
+// b[in]: first number of 6 limbs
+// mu[in]: first number of 6 limbs
+// p[in]: prime of 6 limbs
 #define __fp_karatsuba_mul192_32(c0,c1,c2,c3,c4,c5,a0,a1,a2,a3,a4,a5,b0,b1,b2,b3,b4,b5,m0,m1,m2,m3,m4,m5,p0,p1,p2,p3,p4,p5)  	\
 	uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11; 																			\
 	__karatsuba_6x6(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11, a0,a1,a2,a3,a4,a5, b0,b1,b2,b3,b4,b5)								\
 	__reduce12(c0,c1,c2,c3,c4,c5, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11, m0,m1,m2,m3,m4,m5, p0,p1,p2,p3,p4,p5)
 
-// TODO describe:
+// c[in]: result of 7 limbs
+// a[in]: first number of 7 limbs
+// b[in]: first number of 7 limbs
+// mu[in]: first number of 7 limbs
+// p[in]: prime of 7 limbs
 #define __fp_karatsuba_mul224_32(c0,c1,c2,c3,c4,c5,c6,a0,a1,a2,a3,a4,a5,a6,b0,b1,b2,b3,b4,b5,b6,m0,m1,m2,m3,m4,m5,m6,p0,p1,p2,p3,p4,p5,p6)  	\
 	uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13; 																						\
 	__karatsuba_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)								\
 	__reduce16(c0,c1,c2,c3,c4,c5,c6,c7, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14, m0,m1,m2,m3,m4,m5,m6, p0,p1,p2,p3,p4,p5,p6) 	
 
-// TODO describe:
+// c[in]: result of 8 limbs
+// a[in]: first number of 8 limbs
+// b[in]: first number of 8 limbs
+// mu[in]: first number of 8 limbs
+// p[in]: prime of 8 limbs
 #define __fp_karatsuba_mul256_32(c0,c1,c2,c3,c4,c5,c6,c7,a0,a1,a2,a3,a4,a5,a6,a7,b0,b1,b2,b3,b4,b5,b6,b7,m0,m1,m2,m3,m4,m5,m6,m7,p0,p1,p2,p3,p4,p5,p6,p7)  	\
 	uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15; 																						\
 	__karatsuba_8x8(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15, a0,a1,a2,a3,a4,a5,a6,a7, b0,b1,b2,b3,b4,b5,b6,b7)								\
@@ -372,33 +384,33 @@ uint32_t __cpu_mu[8] = { 0x00000001, 0x00000000, 0x00000000, 0x7BC6C000, 0x8AF43
 //	for(uint32_t i = 0; i < 16; i++){ out[i] = 0; }
 //	
 //	out[0] = 0;
-////	__reduce32_inplace4(out[0],out[1],out[2],out[3],
-////			__mu[0],__mu[1],
-////			__p[0],__p[1]);
+//	__reduce32_inplace4(out[0],out[1],out[2],out[3],
+//			__mu[0],__mu[1],
+//			__p[0],__p[1]);
 //}
 //__global__ void simple_test_reduction_inplace3(uint32_t *out, uint32_t p1){
 //	for(uint32_t i = 0; i < 16; i++){ out[i] = 0; }
 //	
 //	out[0] = 0;
-////	__reduce32_inplace6(out[0],out[1],out[2],out[3],out[4],out[5],
-////			__mu[0],__mu[1],__mu[2],
-////			__p[0],__p[1],__p[2]);
+//	__reduce32_inplace6(out[0],out[1],out[2],out[3],out[4],out[5],
+//			__mu[0],__mu[1],__mu[2],
+//			__p[0],__p[1],__p[2]);
 //}
 //__global__ void simple_test_reduction_inplace4(uint32_t *out, uint32_t p1){
 //	for(uint32_t i = 0; i < 16; i++){ out[i] = 0; }
 //	
 //	out[0] = 0;
-////	__reduce32_inplace8(out[0],out[1],out[2],out[3],out[4],out[5],out[6],out[7],
-////			__mu[0],__mu[1],__mu[2],__mu[3],
-////			__p[0],__p[1],__p[2],__p[3]);
+//	__reduce32_inplace8(out[0],out[1],out[2],out[3],out[4],out[5],out[6],out[7],
+//			__mu[0],__mu[1],__mu[2],__mu[3],
+//			__p[0],__p[1],__p[2],__p[3]);
 //}
 //__global__ void simple_test_reduction_inplace5(uint32_t *out, uint32_t p1){
 //	for(uint32_t i = 0; i < 16; i++){ out[i] = 0; }
 //	
 //	out[0] = 0;
-////	__reduce32_inplace10(out[0],out[1],out[2],out[3],out[4],out[5],out[6],out[7],out[8],out[9],
-////			__mu[0],__mu[1],__mu[2],__mu[3],__mu[4], 
-////			__p[0],__p[1],__p[2],__p[3],__p[4]);
+//	__reduce32_inplace10(out[0],out[1],out[2],out[3],out[4],out[5],out[6],out[7],out[8],out[9],
+//			__mu[0],__mu[1],__mu[2],__mu[3],__mu[4], 
+//			__p[0],__p[1],__p[2],__p[3],__p[4]);
 //}
 //__global__ void simple_test_reduction_inplace6(uint32_t *out, uint32_t p1){
 //	for(uint32_t i = 0; i < 16; i++){ out[i] = 0; }

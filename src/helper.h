@@ -7,6 +7,11 @@
 #include <immintrin.h>
 #endif
 
+#ifdef USE_NEON
+#include <arm_neon.h>
+#endif
+
+
 typedef union v256_t {
     uint8_t  v8[32];
     uint16_t v16[16];
@@ -15,7 +20,12 @@ typedef union v256_t {
 #ifdef USE_AVX2
     __m256i v256;
 #endif
+
+#ifdef USE_NEON
+    uint8x16_t v[2];
+#endif
 } v256;
+typedef v256 vec256_t;
 
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -30,8 +40,9 @@ typedef union v256_t {
 /// /param bitmap
 /// /param select_bitmap
 /// /return
-inline uint64_t _pext_u64(const uint64_t bitmap,
-                          uint64_t select_bitmap) {
+static inline 
+uint64_t _pext_u64(const uint64_t bitmap,
+                   uint64_t select_bitmap) {
     uint64_t res = 0;
     for (uint64_t bp = 1; select_bitmap != 0; bp += bp) {
         if (bitmap & select_bitmap & -select_bitmap) {
@@ -42,6 +53,111 @@ inline uint64_t _pext_u64(const uint64_t bitmap,
 
     return res;
 }
+
+/// TODO doc
+/// @param value
+/// @return 
+static inline
+uint16x8x2_t vdupq_n_u16_x2(uint16_t value) {
+    uint16x8x2_t result;
+    result.val[0] = vdupq_n_u16(value);
+    result.val[1] = vdupq_n_u16(value);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @return
+static inline
+uint16x8_t vcnezq_u16(const uint16x8_t a) {
+    return vcgtzq_s16(a);
+}
+
+/// TODO doc
+static inline
+uint16x8x2_t vcnezq_u16_x2(const uint16x8x2_t a) {
+    uint16x8x2_t r = {
+        vceqzq_u16(a.val[0]),
+        vceqzq_u16(a.val[1]),
+    };
+    return r;
+}
+
+/// TODO doc
+/// @param value 
+/// @return 
+static inline
+uint8x16x2_t vdupq_n_u8_x2(uint16_t value) {
+    uint8x16x2_t result;
+    result.val[0] = vdupq_n_u16(value);
+    result.val[1] = vdupq_n_u16(value);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint16x8x2_t veorq_u16_x2(const uint16x8x2_t a,
+                          const uint16x8x2_t b) {
+    uint16x8x2_t result;
+    result.val[0] = veorq_u16(a.val[0], b.val[0]);
+    result.val[1] = veorq_u16(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint8x16x2_t veorq_u8_x2(const uint8x16x2_t a,
+                         const uint8x16x2_t b) {
+    uint8x16x2_t result;
+    result.val[0] = veorq_u8(a.val[0], b.val[0]);
+    result.val[1] = veorq_u8(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint16x8x2_t vandq_u16_x2(const uint16x8x2_t a,
+                          const uint16x8x2_t b) {
+    uint16x8x2_t result;
+    result.val[0] = vandq_u16(a.val[0], b.val[0]);
+    result.val[1] = vandq_u16(a.val[1], b.val[1]);
+    return result;
+}
+
+/// TODO doc
+/// @param a
+/// @param b
+/// @return
+static inline
+uint8x16x2_t vandq_u8_x2(const uint8x16x2_t a,
+                         const uint8x16x2_t b) {
+    uint8x16x2_t result;
+    result.val[0] = vandq_u8(a.val[0], b.val[0]);
+    result.val[1] = vandq_u8(a.val[1], b.val[1]);
+    return result;
+}
+
+static inline
+uint16x8x2_t vshlq_n_u16_x2(const uint16x8x2_t a,
+                            const uint8_t b) {
+    uint16x8_t tmp = vdupq_n_u16(b);
+    uint16x8x2_t r = {
+        vshlq_u16(a.val[0], tmp),
+        vshlq_u16(a.val[1], tmp),
+    };
+    return r;
+}
+
+
 #endif
 
 
