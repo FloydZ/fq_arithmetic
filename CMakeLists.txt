@@ -4,6 +4,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(default_build_type "Release")
+enable_testing()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
@@ -39,7 +40,7 @@ IF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES 
     set(SIMD_FLAGS "-DUSE_NEON -flax-vector-conversions -march=native")
     # set(SIMD_FLAGS "-DUSE_M4 -mcpu=cortex-m4 -mthumb -g")
 else()
-	set(SIMD_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native ")
+    set(SIMD_FLAGS "-DUSE_AVX2 -mavx2 -mavx -mbmi2 -mpclmul -march=native ")
 endif()
 
 

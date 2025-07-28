@@ -1528,10 +1528,11 @@ static inline void gf2to12_matrix_map_gf2_u256(gf256 *out,
 /// \param src_mat[in]
 /// \param vec_len[in]
 /// \param src_vec_len[in]
-static  void gf256_matrix_transpose_32x32(uint8_t *mat,
-                                           const uint8_t * src_mat,
-                                           unsigned vec_len,
-                                           unsigned src_vec_len ) {
+static
+void gf256_matrix_transpose_32x32(uint8_t *mat,
+                                  const uint8_t * src_mat,
+                                  unsigned vec_len,
+                                  unsigned src_vec_len ) {
     byte_transpose_16x16_neon(mat , vec_len , src_mat , src_vec_len );
     byte_transpose_16x16_neon(mat+16 , vec_len , src_mat+16*src_vec_len, src_vec_len );
     byte_transpose_16x16_neon(mat+16*vec_len , vec_len , src_mat+16, src_vec_len );
@@ -1544,6 +1545,7 @@ static  void gf256_matrix_transpose_32x32(uint8_t *mat,
 /// \param src_origin[in]: input matrix
 /// \param src_stride[in]: number of bytes (including alignment) in each row for source matrix
 /// \param dst_stride[in]: number of bytes (including alignment) in each row for destination matrix
+static
 void gf256_matrix_transpose_32x32_v2(uint8_t* dst_origin,
                                     const uint8_t* src_origin,
                                     const size_t src_stride,

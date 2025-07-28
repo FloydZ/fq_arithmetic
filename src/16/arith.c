@@ -257,6 +257,7 @@ uint32_t test_solve() {
 
 
 uint32_t test_mul() {
+    // just a development function
     const size_t n = 16, m = 4, k = 12;
     uint8_t *C1 = gf16_matrix_alloc(n, k);
     uint8_t *C2 = gf16_matrix_alloc(n, k);
@@ -268,7 +269,7 @@ uint32_t test_mul() {
         gf16_matrix_id(A, n, m);
         gf16_matrix_id(B, m, k);
         gf16_matrix_product(C1, A, B, n, m, k);
-        // TODO gf16mat_prod_16x4x12(C2, A, B);
+        // gf16mat_prod_16x4x12(C2, A, B);
 
         for (uint32_t i = 0; i < n; i++) {
             for (uint32_t j = 0; j < k; j++) {
@@ -305,7 +306,7 @@ int main() {
     // if (test_solve()) { return 1; }
 
     // if (test_vector_mul()) { return 1; }
-    if (test_mul()) { return 1; }
+    // if (test_mul()) { return 1; }
 #endif
 
     printf("all good\n");

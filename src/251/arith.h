@@ -2,18 +2,37 @@
 
 typedef uint8_t ff_t;
 
+///
+/// @param a
+/// @param b
+/// @return
+static inline
 ff_t gf251_add(const ff_t a, const ff_t b) {
     return (a+b) % PRIME;
 }
 
+///
+/// @param a
+/// @param b
+/// @return
+static inline
 ff_t gf251_sub(const ff_t a, const ff_t b) {
     return (a+PRIME-b) % PRIME;
 }
 
+///
+/// @param a
+/// @param b
+/// @return
+static inline
 ff_t gf251_mul(const ff_t a, const ff_t b) {
     return (a*b)%PRIME;
 }
 
+///
+/// @param a
+/// @return
+static inline
 ff_t gf251_neg(const ff_t a) {
     return (PRIME - a) % PRIME;
 }
@@ -40,7 +59,7 @@ __m256i gf251v_red_u256(const __m256i a) {
 /// TODO not finished
 static inline
 __m256i gf251v_add_u256(const __m256i a,
-                       const __m256i b) {
+                        const __m256i b) {
     const __m256i c = _mm256_add_epi8(a, b);
     return gf251v_red_u256(c);
 }

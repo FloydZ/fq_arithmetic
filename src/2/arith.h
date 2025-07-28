@@ -27,21 +27,21 @@ static uint64_t gf2_mul_u64(const uint64_t a, const uint64_t b) { return a & b; 
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-static __m256i gf2_add_u256(const __m256i a, const __m256i b) {
+static __m256i gf2v_add_u256(const __m256i a, const __m256i b) {
     return _mm256_xor_si256(a, b);
 }
 
-static __m256i gf2_sub_u256(const __m256i a, const __m256i b) {
+static __m256i gf2v_sub_u256(const __m256i a, const __m256i b) {
     return _mm256_xor_si256(a, b);
 }
 
-static __m256i gf2_mul_u256(const __m256i a, const __m256i b) {
+static __m256i gf2v_mul_u256(const __m256i a, const __m256i b) {
 	return _mm256_and_si256(a, b);
 }
 
-static __m256i gf2_scalar_u256(const __m256i a, const gf2 b) {
-    const __m256i _b = _mm256_set1_epi8(b);
-    return gf2_mul_u256(a, _b);
+static __m256i gf2v_scalar_u256(const __m256i a, const gf2 b) {
+    const __m256i _b = _mm256_set1_epi8(-b);
+    return gf2v_mul_u256(a, _b);
 }
 
 /// horizontal xor
@@ -58,13 +58,26 @@ static inline gf2 gf2_hadd_u256(const __m256i in) {
 
 #elif defined(USE_NEON)
 #include <arm_neon.h>
-static uint8x16_t add_simd256(const uint8x16_t a, const uint8x16_t b) { 
-		return a ^ b;
+#include "../helper.h"
+
+static uint8x16_t gf2v_add_u128(const uint8x16_t a, const uint8x16_t b) {
+    return a ^ b;
 }
-static uint8x16_t sub_simd256(const uint8x16_t a, const uint8x16_t b) { 
+static uint8x16_t gf2v_sub_u128(const uint8x16_t a, const uint8x16_t b) {
 	return a ^ b;
 }
-static uint8x16_t mul_simd256(const uint8x16_t a, const uint8x16_t b) { 
+static uint8x16_t gf2v_mul_u128(const uint8x16_t a, const uint8x16_t b) {
 	return a & b;
+}
+
+
+static uint8x16x2_t gf2v_add_u256(const uint8x16x2_t a, const uint8x16x2_t b) {
+    return veorq_u8_x2(a, b);
+}
+static uint8x16x2_t gf2v_sub_u256(const uint8x16x2_t a, const uint8x16x2_t b) {
+    return veorq_u8_x2(a, b);
+}
+static uint8x16x2_t gf2v_mul_u256(const uint8x16x2_t a, const uint8x16x2_t b) {
+    return vandq_u8_x2(a, b);
 }
 #endif

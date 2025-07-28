@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <stdio.h>
-#include <string.h>
 
 #include "../helper.h"
 #include "../16/arith.h"
@@ -121,6 +119,49 @@ static inline __m128i gf16to3v_mul_gf16_u128(const __m128i a,
     return gf16v_mul_u128(a, bb);
 }
 
+
+/// \param a[in]: [a_0, ..., a_15], a_i in gf16^3
+/// \param b[in]: [b_0, ..., b_15], b_i in gf16
+/// \return: [a_0*b_0, ..., a_15*_15]
+static inline __m256i gf16to3v_mul_gf16v_u256(const __m256i a,
+                                              const __m256i b) {
+    const __m256i c = b ^ _mm256_slli_epi16(b, 8);
+    return gf16v_mul_u256(a, c);
+}
+
+
+/// loads 8 elements/ 4 bytes and extends them to gf256
+static inline __m128i gf16to3_vector_extend_gf16_x8(const gf16 *in) {
+    const uint32_t t11 = *((uint32_t *)(in + 0));
+    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    const __m128i t1 = _mm_set_epi64x(0, t21);
+    return _mm_cvtepi8_epi16(t1);
+}
+
+/// loads 16 elements/ 8 bytes and extends them to gf256
+static inline __m256i gf16to3_vector_extend_gf16_x16(const gf16 *in) {
+    const uint32_t t11 = *((uint32_t *)(in + 0));
+    const uint32_t t12 = *((uint32_t *)(in + 4));
+    const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+    const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+    const __m128i t1 = _mm_set_epi64x(t22, t21);
+    return _mm256_cvtepu8_epi16(t1);
+}
+
+
+static inline __m256i gf16to3_vector_extend_gf16_x32(const gf16 *in) {
+    const uint16_t t11 = *((uint16_t *)(in + 0));
+    const uint16_t t12 = *((uint16_t *)(in + 2));
+    const uint16_t t13 = *((uint16_t *)(in + 4));
+    const uint16_t t14 = *((uint16_t *)(in + 6));
+
+    const uint64_t t21 = _pdep_u64(t11, 0x000F000F000F000F);
+    const uint64_t t22 = _pdep_u64(t12, 0x000F000F000F000F);
+    const uint64_t t23 = _pdep_u64(t13, 0x000F000F000F000F);
+    const uint64_t t24 = _pdep_u64(t14, 0x000F000F000F000F);
+    return _mm256_setr_epi64x(t21, t22, t23, t24);
+}
+
 /// NOTE there are multiple ways to implement this:
 ///     - assumes that each 1.5byte element is stored in 2 bytes,
 ///         thus there are 16 elements in a register
@@ -179,6 +220,62 @@ static inline uint32_t gf16to3_hadd_x2_x32_u256(const __m256i in) {
 
 #ifdef USE_NEON
 
+/// non-neon code just for performance comparison
+/// @param in: 4 bytes [in_0, ..., in_3],  in_i \in Z_{2^4}
+/// @return   16 bytes [in_0, ..., in_15], in_i \in Z_{2^{16}}
+static inline
+uint8x16_t gf16to3_vector_extend_gf16_x8_v2(const gf16 *in) {
+    const uint32_t t11 = *((uint32_t *)in);
+    uint8_t expanded[8];
+    expanded[0] = (t11 >> 0) & 0x0F;
+    expanded[1] = (t11 >> 4) & 0x0F;
+    expanded[2] = (t11 >> 8) & 0x0F;
+    expanded[3] = (t11 >> 12) & 0x0F;
+    expanded[4] = (t11 >> 16) & 0x0F;
+    expanded[5] = (t11 >> 20) & 0x0F;
+    expanded[6] = (t11 >> 24) & 0x0F;
+    expanded[7] = (t11 >> 28) & 0x0F;
+
+    const uint8x8_t t = vld1_u8(expanded);
+    return vmovl_u8(t);
+}
+
+/// @param in: 4 bytes [in_0, ..., in_3],  in_i \in Z_{2^4}
+/// @return   16 bytes [in_0, ..., in_15], in_i \in Z_{2^{16}}
+static inline
+uint16x8_t gf16to3_vector_extend_gf16_x8(const gf16 *in) {
+    const uint32_t t11 = *((uint32_t *)in);
+    const uint8x8_t m = vdup_n_u8(0x0F);
+    const uint8x8_t packed = vcreate_u8(t11);
+    const uint8x8_t lo = vand_u8(packed, m);
+    const uint8x8_t hi = vshr_n_u8(packed, 4);
+
+    // Interleave lower and upper nibbles
+    const uint8x8x2_t interleaved = vzip_u8(lo, hi);
+    return vmovl_u8(interleaved.val[0]);
+}
+
+/// @param in: 8 bytes [in_0, ..., in_7],  in_i \in Z_{2^4}
+/// @return   32 bytes [in_0, ..., in_31], in_i \in Z_{2^{16}}
+static inline
+uint16x8x2_t gf16to3_vector_extend_gf16_x16(const gf16 *in) {
+    const uint64_t t11 = *((uint64_t *)in);
+    const uint8x8_t m = vdup_n_u8(0x0F);
+    const uint8x8_t packed = vcreate_u8(t11);
+    const uint8x8_t lo = vand_u8(packed, m);
+    const uint8x8_t hi = vshr_n_u8(packed, 4);
+
+    const uint8x8x2_t t = vzip_u8(lo, hi);
+    uint16x8x2_t result;
+    result.val[0] = vmovl_u8(t.val[0]); // Widen first 8 lanes
+    result.val[1] = vmovl_u8(t.val[1]); // Widen second 8 lanes
+    return result;
+}
+
+/// \param a [a_0, ..., a_15], a_i \in GF16^3
+/// \param b [b_0, ..., b_15], b_i \in GF16^3
+/// \return  [a_0*b_0, ..., a_15*b_15]
+static inline
 uint16x8_t gf16to3v_mul_u128(const uint16x8_t a,
                              const uint16x8_t b) {
     uint16x8_t r,t;
@@ -217,8 +314,12 @@ uint16x8_t gf16to3v_mul_u128(const uint16x8_t a,
     return r&m;
 }
 
-static inline uint16x8x2_t gf16to3v_mul_u256(const uint16x8x2_t a,
-                                             const uint16x8x2_t b) {
+/// \param a [a_0, ..., a_31], a_i \in GF16^3
+/// \param b [b_0, ..., b_31], b_i \in GF16^3
+/// \return  [a_0*b_0, ..., a_31*b_31]
+static inline
+uint16x8x2_t gf16to3v_mul_u256(const uint16x8x2_t a,
+                               const uint16x8x2_t b) {
     uint16x8x2_t r;
     r.val[0] = gf16to3v_mul_u128(a.val[0], b.val[0]);
     r.val[1] = gf16to3v_mul_u128(a.val[1], b.val[1]);

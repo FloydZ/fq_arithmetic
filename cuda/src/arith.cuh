@@ -777,39 +777,35 @@ asm volatile("{\n\t"                            \
         : "r"(a0), "r"(a1),                         /*4,5*/            \
           "r"(b0), "r"(b1));                     /*6,11*/
 
-// TODO not finished
-#define __fp_mul64_32(c0, c1, c2, c3, a0, a1, b0, b1, mu0, mu1) \
-    __karatsuba32_2x2(c0,c1,c2,c3,a0,a1,b0,b1)
-
 // 1limb times 2limbs karatsuba multiplication
 #define __karatsuba32_1x2(c0, c1, c2, a0, b0, b1)\
     asm volatile("{\n\t"                                    \
-            ".reg .u32 Bl, Bh, t0h, t1l, t1m;\n\t"            \
+            ".reg .u32 Bl, Bh, t0h, t1l, t1m;\n\t"          \
             "add.cc.u32	   Bl, %4, %5 ;\n\t"                \
             "addc.u32          Bh,  0,  0 ;\n\t"            \
             "mul.lo.u32        t1l, %3, Bl;\n\t"            \
             "mul.hi.u32        t1m, %3, Bl;\n\t"            \
-            "mad.lo.cc.u32     t1m, %3, Bh, t1m;\n\t"        \
-            "madc.hi.u32       %2,  %3, Bh, 0;\n\t"        \
+            "mad.lo.cc.u32     t1m, %3, Bh, t1m;\n\t"       \
+            "madc.hi.u32       %2,  %3, Bh, 0;\n\t"         \
             "mul.lo.u32        %0,  %3, %4;\n\t"            \
             "mul.hi.u32        t0h, %3, %4;\n\t"            \
-            /*AB - a0b0*/                                    \
+            /*AB - a0b0*/                                   \
             "sub.cc.u32        t1l, t1l, %0 ;\n\t"          \
             "subc.cc.u32       t1m, t1m, t0h;\n\t"          \
             "subc.u32          %2, %8, 0    ;\n\t"          \
-            "add.cc.u32 	   %1, t1l, t0h ;\n\t"            \
-            "addc.u32 	   %2, t1m, 0   ;\n\t"                \
+            "add.cc.u32 	   %1, t1l, t0h ;\n\t"          \
+            "addc.u32 	   %2, t1m, 0   ;\n\t"              \
             "}\n"                                           \
-            : "=r"(c0), "=r"(c1), "=r"(c2)    /*0,2*/         \
-            : "r"(a0),                        /*3  */         \
-              "r"(b0), "r"(b1)                /*4,5*/        \
-              "r"(c0), "r"(c1), "r"(c2));   /*6,8*/
+            : "=r"(c0), "=r"(c1), "=r"(c2)    /*0,2*/       \
+            : "r"(a0),                        /*3  */       \
+              "r"(b0), "r"(b1)                /*4,5*/       \
+              "r"(c0), "r"(c1), "r"(c2));     /*6,8*/
 
 // same as `__karatsuba32_1x2` except its not using `mad` instructions
 // 1limb times 2limbs karatsuba multiplication
 #define __karatsuba32_1x2_v2(c0, c1, c2, a0, b0, b1)\
     asm volatile("{\n\t"                                    \
-            ".reg .u32 Bl, Bh, t0h, t1l, t1m, t1, t2;\n\t"    \
+            ".reg .u32 Bl, Bh, t0h, t1l, t1m, t1, t2;\n\t"  \
             "add.cc.u32	   	   Bl, %4, %5 ;\n\t"            \
             "addc.u32          Bh,  0,  0 ;\n\t"            \
             "mul.lo.u32        t1l, %3, Bl;\n\t"            \
@@ -818,21 +814,21 @@ asm volatile("{\n\t"                            \
             "mul.hi.u32        t2,  %3, Bh;\n\t"            \
             "add.cc.u32        t1m, t1m,t1;\n\t"            \
             "addc.u32          %2,  %2, t2;\n\t"            \
-            /*"mad.lo.cc.u32     t1m, %3, Bh, t1m;\n\t"*/    \
-            /*"madc.hi.u32       %2,  %3, Bh, 0;\n\t"  */    \
+            /*"mad.lo.cc.u32     t1m, %3, Bh, t1m;\n\t"*/   \
+            /*"madc.hi.u32       %2,  %3, Bh, 0;\n\t"  */   \
             "mul.lo.u32        %0,  %3, %4;\n\t"            \
             "mul.hi.u32        t0h, %3, %4;\n\t"            \
-            /*AB - a0b0*/                                    \
+            /*AB - a0b0*/                                   \
             "sub.cc.u32        t1l, t1l, %0 ;\n\t"          \
             "subc.cc.u32       t1m, t1m, t0h;\n\t"          \
             "subc.u32          %2, %8, 0    ;\n\t"          \
-            "add.cc.u32 	   %1, t1l, t0h ;\n\t"            \
-            "addc.u32 	   	   %2, t1m, 0   ;\n\t"            \
+            "add.cc.u32 	   %1, t1l, t0h ;\n\t"          \
+            "addc.u32 	   	   %2, t1m, 0   ;\n\t"          \
             "}\n"                                           \
-        : "=r"(c0), "=r"(c1), "=r"(c2)    /*0,2*/            \
-        : "r"(a0),                        /*3  */            \
-          "r"(b0), "r"(b1)                /*4,5*/            \
-          "r"(c0), "r"(c1), "r"(c2));   /*6,8*/
+        : "=r"(c0), "=r"(c1), "=r"(c2)    /*0,2*/           \
+        : "r"(a0),                        /*3  */           \
+          "r"(b0), "r"(b1)                /*4,5*/           \
+          "r"(c0), "r"(c1), "r"(c2));     /*6,8*/
 
 // 1limb times 3limbs karatsuba multiplication
 #define __karatsuba32_1x3(c0, c1, c2, c3, a0, b0, b1, b2)    \
@@ -1156,7 +1152,6 @@ asm volatile("{\n\t"                            \
       "r"(b0), "r"(b1), "r"(b2));   /*9 ,11*/
 
 // Multiplication from luis, with a few optimisations by floyd
-// TODO reduce register count
 // fastest of the 3x3 Multiplications
 #define __school32_3x3_v2(c0, c1, c2, c3, c4, c5, a0, a1, a2, b0, b1, b2)            \
     asm volatile ("{\n\t"                           \
@@ -1917,18 +1912,6 @@ asm volatile("{\n\t"                            \
           "r"(m0), "r"(m1), "r"(m2),            \
           "r"(p0), "r"(p1), "r"(p2));           \
 
-// TODO unfinished
-// taken from https://cacr.uwaterloo.ca/hac/about/chap14.pdf
-#define __school_sqr32_3x3(c0, c1, c2, c3, c4, c5, a0, a1, a2)  \
-    asm volatile ("{\n\t"                                       \
-            ".reg .u32 			u,v,c;\n\t"                     \
-            "mul.lo.u32			%0, %4, %4;\n\t"                \
-            "mul.hi.u32		 	c, %4, %4;\n\t"                 \
-            "}\n"                                               \
-    : "=r"(c0),"=r"(c1),"=r"(c2),    /*0, 5*/                   \
-      "=r"(c3),"=r"(c4),"=r"(c5)                                \
-    : "r"(a0),"r"(a1),"r"(a2));        /*4 , 5*/
-
 // Helper wraper around the karatsuba 3x3 multiplication macro
 #define __mul96_32(c0, c1, c2, c3, c4, c5, a0, a1, a2, b0, b1, b2)  \
     __karatsuba32_3x3(c0,c1,c2,c3,c4,c5, a0,a1,a2, b0,b1,b2)
@@ -2172,7 +2155,6 @@ asm volatile("{\n\t"                            \
         ".reg .u32 t12;" ".reg .u32 t13;\n\t"                   \
         ".reg .u32 t14;" ".reg .u32 t15;\n\t"                   \
         ".reg .u32 t16;" ".reg .u32 t17;\n\t"                   \
-        /*TODO this can be optimizes*/                          \
         "mov.u32 		t0, %4;\n\t"                            \
         "mov.u32 		t1, %5;\n\t"                            \
         "mov.u32 		t2, %6;\n\t"                            \
@@ -3073,7 +3055,8 @@ asm volatile("{\n\t"                            \
       "=r"(c4), "=r"(c5), "=r"(c6), "=r"(c7)  /*4,  7*/     \
     : "r"(a0), "r"(a1), "r"(a2), "r"(a3));    /*8 ,11*/
 
-// TODO
+// square and reduce 
+// c = a**2 mod p
 #define __fp_sqr4x4_32(c0, c1, c2, c3, a0, a1, a2, a3, mu0, mu1, mu2, mu3, p0, p1, p2, p3)    \
     uint32_t f0,f1,f2,f3,f4,f5,f6,f7, t0,t1,t2,t3,t4,t5,t6,t7;                    \
     __school_sqr32_4x4(f0,f1,f2,f3,f4,f5,f6,f7, a0,a1,a2,a3)                    \
@@ -3692,16 +3675,11 @@ asm volatile("{\n\t"                            \
     __school32_5x5(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9, c0,c1,c2,c3,c4, p0,p1,p2,p3,p4)                            \
     __reduce32_sec5x5(c0,c1,c2,c3,c4, a0,a1,a2,a3,a4,a5,a6,a7,a8,a9, p0,p1,p2,p3,p4, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9)
 
-
-// TODO not implemented
-#define __karatsuba32_5x5(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, a0, a1, a2, a3, a4, b0, b1, b2, b3, b4)
-
-// TODO not implemented
-#define __sqr160_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, a0, a1, a2, a3, a4)
-
+/// c0...c9 = a * b
 #define __mul160_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, a0, a1, a2, a3, a4, b0, b1, b2, b3, b4)\
     __school32_5x5(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,a0,a1,a2,a3,a4,b0,b1,b2,b3,b4)
 
+/// c0...c9 = a * b mod p
 #define __fp_mul5x5_32(c0, c1, c2, c3, c4, a0, a1, a2, a3, a4, b0, b1, b2, b3, b4, mu0, mu1, mu2, mu3, mu4, p0, p1, p2, p3, p4)    \
     uint32_t f0,f1,f2,f3,f4,f5,f6,f7,f8,f9;                                                                    \
     __school32_5x5(f0,f1,f2,f3,f4,f5,f6,f7,f8,f9, a0,a1,a2,a3,a4, b0,b1,b2,b3,b4)                            \
@@ -4128,8 +4106,6 @@ asm volatile("{\n\t"                            \
 
 
 // karatsuba 6x6 multiplication without reduction
-// TODO make a helper version of this
-// TODO remove _karatsuba 4x4 with extended karatsuba 3x3
 #define __karatsuba32_6x6(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5)    \
     uint32_t irt0,irt1,irt2,irt3,irt4,irt5,irt6,irt7;                                       \
     __karatsuba32_6x6_3add_helper_v2(c0,c1,c2,c3, a0,a1,a2, a3,a4,a5)                       \
@@ -4179,9 +4155,6 @@ asm volatile("{\n\t"                            \
 #define __mul6x6_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, a0, a1, a2, a3, a4, a5, b0, b1, b2, b3, b4, b5)    \
     __karatsuba32_6x6(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,a0,a1,a2,a3,a4,a5,b0,b1,b2,b3,b4,b5)
 
-
-// TODO not implemented
-#define __sqr6x6_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, a0, a1, a2, a3, a4, a5)
 
 // second part of the montgomery reduction written by andre
 #define __reduce32_inplace_sec6x6(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, p0, p1, p2, p3, p4, p5, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11)        \
@@ -4907,9 +4880,6 @@ asm volatile("{\n\t"                            \
 #define __mul7x7_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, a0, a1, a2, a3, a4, a5, a6, b0, b1, b2, b3, b4, b5, b6) \
     __karatsuba32_7x7(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)
 
-// TODO not implemented
-#define __sqr7x7_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, a0, a1, a2, a3, a4, a5, a6)
-// TODO describe
 #define __reduce32_sec7x7(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, p0, p1, p2, p3, p4, p5, p6, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13) \
         asm volatile ("{\n\t"                                   \
             /* %0-%6 = r = (a + u) div 2^(7*32)*/               \
@@ -4960,33 +4930,31 @@ asm volatile("{\n\t"                            \
           "r"(a7), "r"(a8), "r"(a9), "r"(a10), "r"(a11), "r"(a12),"r"(a13)     /*35-41*/\
         )
 
-// TODO describe
 #define __reduce32_inplace7x7(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)    \
-    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                        \
-    __school32_inplace_7x7_low_v2(a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                            \
-    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, a0,a1,a2,a3,a4,a5,a6, p0,p1,p2,p3,p4,p5,p6)                    \
+    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                                                 \
+    __school32_inplace_7x7_low_v2(a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                                                        \
+    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, a0,a1,a2,a3,a4,a5,a6, p0,p1,p2,p3,p4,p5,p6)                                               \
     __reduce32_sec7x7(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13, p0,p1,p2,p3,p4,p5,t6, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13)
 
-// TODO describe
-#define __reduce32_7x7(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)    \
-    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                                        \
-    uint32_t m0,m1,m2,m3,m4,m5,m6;                                                                                                                \
-    __school32_7x7_low(m0,m1,m2,m3,m4,m5,m6, a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                                \
-    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, m0,m1,m2,m3,m4,m5,m6, p0,p1,p2,p3,p4,p5,p6)                                    \
+#define __reduce32_7x7(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)   \
+    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                                                                     \
+    uint32_t m0,m1,m2,m3,m4,m5,m6;                                                                                                                                              \
+    __school32_7x7_low(m0,m1,m2,m3,m4,m5,m6, a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                                                                 \
+    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, m0,m1,m2,m3,m4,m5,m6, p0,p1,p2,p3,p4,p5,p6)                                                                   \
     __reduce32_sec7x7(c0,c1,c2,c3,c4,c5,c6, a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13, p0,p1,p2,p3,p4,p5,p6, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13)
 
-#define __fp_mul7x7_32(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, b0, b1, b2, b3, b4, b5, b6, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)    \
-    uint32_t f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13;                                                                                        \
-    __karatsuba32_7x7(f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)                                \
+#define __fp_mul7x7_32(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, b0, b1, b2, b3, b4, b5, b6, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)   \
+    uint32_t f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13;                                                                                                                 \
+    __karatsuba32_7x7(f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)                                                            \
     __reduce32_7x7(c0,c1,c2,c3,c4,c5,c6, f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, mu0,mu1,mu2,mu3,mu4,mu5,mu6, p0,p1,p2,p3,p4,p5,p6)
 
 
 #define __fp_mul7x7_32_v2(c0, c1, c2, c3, c4, c5, c6, a0, a1, a2, a3, a4, a5, a6, b0, b1, b2, b3, b4, b5, b6, mu0, mu1, mu2, mu3, mu4, mu5, mu6, p0, p1, p2, p3, p4, p5, p6)    \
-    uint32_t f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13;                                                                                        \
-    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                                        \
-    __school32_7x7(f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)                                    \
-    __school32_7x7_low(c0,c1,c2,c3,c4,c5,c6, a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                                \
-    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, c0,c1,c2,c3,c4,c5,c6, p0,p1,p2,p3,p4,p5,p6)                                    \
+    uint32_t f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13;                                                                                                                     \
+    uint32_t t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13;                                                                                                                     \
+    __school32_7x7(f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, a0,a1,a2,a3,a4,a5,a6, b0,b1,b2,b3,b4,b5,b6)                                                                   \
+    __school32_7x7_low(c0,c1,c2,c3,c4,c5,c6, a0,a1,a2,a3,a4,a5,a6, mu0,mu1,mu2,mu3,mu4,mu5,mu6)                                                                                 \
+    __school32_7x7(t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13, c0,c1,c2,c3,c4,c5,c6, p0,p1,p2,p3,p4,p5,p6)                                                                   \
     __reduce32_sec7x7(c0,c1,c2,c3,c4,c5,c6, f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13, p0,p1,p2,p3,p4,p5,p6, t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13)
 
 /// not implemented
@@ -5548,12 +5516,7 @@ asm volatile("{\n\t"                            \
 #define __mul8x8_32(c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7)\
     __karatsuba32_8x8(c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,a0,a1,a2,a3,a4,a5,a6,a7,b0,b1,b2,b3,b4,b5,b6,b7)
 
-// TODO not implemented
-#define __fp_mul8x8_32(c0, c1, c2, c3, c4, c5, c6, c7, a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7, mu0, mu1, mu2, mu3, mu4, mu5, mu6, mu7, p0, p1, p2, p3, p4, p5, p6, p7)
-
-#define __fp_mul8x8_32_v2(c0, c1, c2, c3, c4, c5, c6, c7, a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7, mu0, mu1, mu2, mu3, mu4, mu5, mu6, mu7, p0, p1, p2, p3, p4, p5, p6, p7)
-
-
+// c0c1c2c3 = a0a1*b0b1
 #define __school64_2x2(c0, c1, c2, c3, a0, a1, b0, b1)      \
     asm volatile ("{\n\t"                                   \
             ".reg .u64 t0,t1,tc;\n\t"                       \
@@ -5581,6 +5544,7 @@ asm volatile("{\n\t"                            \
     : "l"(a0), "l"(a1),                        /*4 , 5*/    \
       "l"(b0), "l"(b1));                       /*6 , 7*/
 
+// c0c1c2c3 = a0a1*b0b1
 #define __school64_2x2_v2(c0, c1, c2, c3, a0, a1, b0, b1)                   \
     asm ("{\n\t"                                                            \
          ".reg .u32 r0, r1, r2, r3, r4, r5, r6, r7;\n\t"                    \

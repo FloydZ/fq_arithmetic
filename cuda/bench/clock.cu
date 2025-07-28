@@ -395,7 +395,9 @@ __global__ void kclock(uint32_t *ts) {
 #define MOV64(a, b) 		asm volatile("{ mov.u64 %0, %1; }" : "=r"(a) : "r"(b))		
 #define AND64(a, b) 		asm volatile("{ and.b64 %0, %1, %2; }" : "=r"(a) : "r"(b), "r"(a))		
 
-/// TODO describe
+/// generates the function `kernel_instr_clock_{OP}`
+/// \param OP: non mem instruction taking two arguments
+/// \param MULT: number of iterations to execute the function (NOTE: 2x)
 #define INSTRUCTION_BENCH(OP, MULT) 																	\
 __global__ 																								\
 void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t p2, uint32_t its) {  	\
@@ -412,6 +414,9 @@ void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t 
 	ts[(blockIdx.x*blockDim.x + threadIdx.x)*2+1] = stop_time; 											\
 }
 
+/// generates the function `kernel_instr_clock_{OP}`
+/// \param OP: mem instruction taking two arguments
+/// \param MULT: number of iterations to execute the function (NOTE: 2x)
 #define INSTRUCTION_MEM_BENCH(OP, MULT) 																\
 __global__ 																								\
 void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t p2, uint32_t its) {  	\
@@ -427,7 +432,10 @@ void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t 
 	ts[(blockIdx.x*blockDim.x + threadIdx.x)*2] = start_time; 											\
 	ts[(blockIdx.x*blockDim.x + threadIdx.x)*2+1] = stop_time; 											\
 }
-// TODO describe
+
+/// generates the function `kernel_instr_clock_{OP}`
+/// \param OP: widening instruction taking two arguments
+/// \param MULT: number of iterations to execute the function (NOTE: 2x)
 #define INSTRUCTION_BENCH_WIDE(OP, MULT)																\
 __global__ 																								\
 void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t p2, uint32_t its) {  	\
@@ -444,7 +452,9 @@ void kernel_instr_clock_##OP(uint32_t *ts, uint32_t *out, uint32_t p1, uint32_t 
 	ts[(blockIdx.x*blockDim.x + threadIdx.x)*2+1] = stop_time; 											\
 } 											
 
-// TODO descrine
+/// generates the function `kernel_instr_clock_{OP}`
+/// \param OP: function instruction taking two arguments and one out argument
+/// \param MULT: number of iterations to execute the function (NOTE: 2x)
 #define FUNCTION_BENCH_IMPL(OP, MULT, SIZE, T)												\
 __global__ void kernel_function_clock_##OP(uint32_t *ts, T *out, T p1, T p2, uint32_t its){	\
 	T t1[SIZE] = {0};																		\
@@ -499,7 +509,6 @@ do {																					\
 	printf("threads: %d, #ops: %d\n", NUM, ITERS);										\
 } while (0)	
 
-/// TODO preheating flag
 /// Needs the following variables locally defined"
 /// 	d_out, d_ts
 /// FUNC: 		kernel to run

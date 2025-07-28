@@ -361,7 +361,7 @@ BENCHMARK(BM_gf256_mul_u256_v2);
 // BENCHMARK(BM_gf256v_vector_set_to_gf16_u256_v2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 // BENCHMARK(BM_gf256_matrix_add_u256);
 // BENCHMARK(BM_gf256_matrix_add_gf16_u256);
-BENCHMARK(BM_gf256_matrix_add_multiple_gf16_u256);
+// BENCHMARK(BM_gf256_matrix_add_multiple_gf16_u256);
 // BENCHMARK(BM_gf256_matrix_add_multiple_2_u256);
 // BENCHMARK(BM_gf256_matrix_product_gf16_1_u256);
 // BENCHMARK(BM_gf256_matrix_product_gf16_2_u256);
@@ -416,7 +416,7 @@ BENCHMARK(BM_gf256v_vector_add_scalar_u512)->RangeMultiplier(2)->Range(32, LIST_
 
 // BENCHMARK(BM_gf256_matrix_add);
 // BENCHMARK(BM_gf256_matrix_add_gf16);
-BENCHMARK(BM_gf256_matrix_add_multiple_gf16);
+// BENCHMARK(BM_gf256_matrix_add_multiple_gf16);
 // BENCHMARK(BM_gf256_matrix_add_multiple_2);
 // BENCHMARK(BM_gf256_matrix_product_gf16_1);
 // BENCHMARK(BM_gf256_matrix_product_gf16_2);

@@ -1322,46 +1322,57 @@ void gf256mat_prod_small_avx2(uint8_t *c,
         }
 	}
 }
-#elif defined(USE_NEON)
-#include <arm_neon.h>
-typedef union {
-    uint8_t  v8 [32];
-    uint16_t v16[16];
-    uint32_t v32[8];
-    uint64_t v64[4];
-    uint8x16_t v[2];
-} vec256_t;
 
+#elif defined(USE_NEON)
+
+/// compute a+b
+/// \param a [a_0, ..., a_15], a_i \in GF256
+/// \param b [b_0, ..., b_15], b_i \in GF256
+/// \return [a_0+b_0, ..., a_15+b_15]
+static inline
 uint8x16_t gf256v_add_u128(const uint8x16_t a,
-                         const uint8x16_t b) {
+                           const uint8x16_t b) {
     return veorq_u8(a, b);
 }
 
-vec256_t gf256v_add_u256(const vec256_t a,
-                         const vec256_t b) {
-    vec256_t ret;
-    ret.[0] = veorq_u8(a.v[0], b.v[0]);
-    ret.[1] = veorq_u8(a.v[1], b.v[1]);
+/// compute a+b
+/// \param a [a_0, ..., a_31], a_i \in GF256
+/// \param b [b_0, ..., b_31], b_i \in GF256
+/// \return [a_0+b_0, ..., a_31+b_31]
+static inline
+v256 gf256v_add_u256(const v256 a,
+                     const v256 b) {
+    v256 ret;
+    ret.v[0] = veorq_u8(a.v[0], b.v[0]);
+    ret.v[1] = veorq_u8(a.v[1], b.v[1]);
     return ret;
 }
 
+/// \param a [a_0, ..., a_15], a_i \in GF256
+/// \param b [b_0, ..., b_15], b_i \in GF256
+/// \return [a_0*b_0, ..., a_15*b_15]
+static inline
 uint8x16_t gf256v_mul_u128(const uint8x16_t a,
                            const uint8x16_t b) {
     return vmulq_p8(a, b);
 }
 
-vec256_t gf256v_mul_u256(const vec256_t a,
-                         const vec256_t b) {
-    vec256_t ret;
-    const poly8x16 a1 = a.v[0];
-    const poly8x16 a2 = a.v[1];
-    const poly8x16 b1 = a.v[0];
-    const poly8x16 b2 = a.v[1];
+/// \param a [a_0, ..., a_31], a_i \in GF256
+/// \param b [b_0, ..., b_31], b_i \in GF256
+/// \return [a_0*b_0, ..., a_31*b_31]
+static inline
+v256 gf256v_mul_u256(const v256 a,
+                     const v256 b) {
+    v256 ret;
+    const poly8x16_t a1 = a.v[0];
+    const poly8x16_t a2 = a.v[1];
+    const poly8x16_t b1 = b.v[0];
+    const poly8x16_t b2 = b.v[1];
 
     ret.v[0] = vmulq_p8(a1, b1);
     ret.v[1] = vmulq_p8(a2, b2);
     return ret;
 }
-#endif /// end USE_AVX2
+#endif /// end USE_NEON/ USE_AVX2
 #undef MODULUS
 
