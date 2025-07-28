@@ -40,8 +40,8 @@ static __m256i gf2v_mul_u256(const __m256i a, const __m256i b) {
 }
 
 static __m256i gf2v_scalar_u256(const __m256i a, const gf2 b) {
-    const __m256i _b = _mm256_set1_epi8(b);
-    return gf2_mul_u256(a, _b);
+    const __m256i _b = _mm256_set1_epi8(-b);
+    return gf2v_mul_u256(a, _b);
 }
 
 /// horizontal xor

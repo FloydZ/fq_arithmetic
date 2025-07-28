@@ -194,7 +194,9 @@ uint32_t test_vector_mul_acc() {
 int main() {
 #if defined(USE_AVX2) || defined(USE_NEON)
     // if (test_arith_vector_mul()) { return 1; }
+#if defined(USE_NEON)
     if (test_gf2to11v_expand_ff_x8_u128()) { return 1; }
+#endif
 #if defined(USE_AVX2)
     if (test_vector_add()) { return 1; }
     if (test_vector_add_gf2()) { return 1; }
