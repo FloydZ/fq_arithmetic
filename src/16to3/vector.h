@@ -6,7 +6,7 @@
 /// \return
 static inline
 gf16to3* gf16to3_vector_alloc(const uint32_t n) {
-    return (gf16to3 *)malloc(n*sizeof(gf16to3));
+    return (gf16to3 *)calloc(n, sizeof(gf16to3));
 }
 
 /// \param v
@@ -325,12 +325,13 @@ static inline void gf16to3_vector_add_scalar_gf16_u256(gf16to3 *vector1,
                                                        const gf16 *vector2,
                                                        const uint32_t ncols) {
     uint32_t i = ncols;
-    const __m256i s = _mm256_set1_epi16(scalar);
+    const __m256i s1 = _mm256_set1_epi16(scalar);
+    const __m256i s = s1 ^ _mm256_slli_epi16(s1, 8);
 
     // avx2 code
     while (i >= 16u) {
         const __m256i t1 = gf16to3_vector_extend_gf16_x16(vector2);
-        const __m256i t2 = gf16to3v_mul_u256(t1, s);
+        const __m256i t2 = gf16v_mul_u256(t1, s);
         const __m256i t3 = _mm256_loadu_si256((const __m256i *)vector1);
 
         _mm256_storeu_si256((__m256i *)vector1, t2^t3);
@@ -345,7 +346,7 @@ static inline void gf16to3_vector_add_scalar_gf16_u256(gf16to3 *vector1,
         for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = vector2[j]; }
 
         const __m256i t1 = gf16to3_vector_extend_gf16_x16(tmp);
-        const __m256i t2 = gf16to3v_mul_u256(t1, s);
+        const __m256i t2 = gf16v_mul_u256(t1, s);
 
         _mm256_store_si256((__m256i *)tmp, t2);
 
