@@ -9,11 +9,148 @@
 #include <immintrin.h>
 #endif
 
-// GF(2)/(x^192 + x^7 + x^2 + x + 1).
+#ifdef USE_NEON
+#include <arm_neon.h>
+
+#ifdef __ARM_FEATURE_CRYPTO
+/// Vectorized multiplication of GF(2^192) elements using ARM NEON
+/// \param a[in]: First factor (3 64-bit limbs stored in NEON registers)
+/// \param b[in]: Second factor (3 64-bit limbs stored in NEON registers)
+/// \param r[out]: Result of multiplication (3 64-bit limbs)
+/// \note Uses PMULL instruction for carry-less multiplication
+/// \note Implements Karatsuba algorithm to reduce the number of multiplications
+/// \note Requires ARMv8 with Crypto extension
+static inline
+void gf2to192v_mul_u256_neon(const uint64_t a[3], 
+                            const uint64_t b[3],
+                            uint64_t r[3]) {
+    // Load the modulus into a 64-bit scalar
+    const uint64_t modulus = MODULUS;
+    
+    // Implement Karatsuba multiplication for 3-limb numbers:
+    // a = a0 + B * a1 + B^2 * a2
+    // b = b0 + B * b1 + B^2 * b2
+    // Need to compute c = c0 + ... + B^4 * c4 with 6 multiplications
+    
+    // 1. c0 = a0 * b0
+    poly128_t c0 = vmull_p64((poly64_t)a[0], (poly64_t)b[0]);
+    uint64x2_t c0_v = vreinterpretq_u64_p128(c0);
+    
+    // 2. c4 = a2 * b2
+    poly128_t c4 = vmull_p64((poly64_t)a[2], (poly64_t)b[2]);
+    uint64x2_t c4_v = vreinterpretq_u64_p128(c4);
+    
+    // 3. t = a1 * b1
+    poly128_t t_poly = vmull_p64((poly64_t)a[1], (poly64_t)b[1]);
+    uint64x2_t t = vreinterpretq_u64_p128(t_poly);
+    
+    // 4. c1 = (a0 + a1) * (b0 + b1) - c0 - t
+    uint64_t a01 = a[0] ^ a[1];
+    uint64_t b01 = b[0] ^ b[1];
+    poly128_t c1_poly = vmull_p64((poly64_t)a01, (poly64_t)b01);
+    uint64x2_t c1 = vreinterpretq_u64_p128(c1_poly);
+    c1 = veorq_u64(c1, c0_v);
+    c1 = veorq_u64(c1, t);
+    
+    // 5. c3 = (a1 + a2) * (b1 + b2) - c4 - t
+    uint64_t a12 = a[1] ^ a[2];
+    uint64_t b12 = b[1] ^ b[2];
+    poly128_t c3_poly = vmull_p64((poly64_t)a12, (poly64_t)b12);
+    uint64x2_t c3 = vreinterpretq_u64_p128(c3_poly);
+    c3 = veorq_u64(c3, c4_v);
+    c3 = veorq_u64(c3, t);
+    
+    // 6. c2 = (a0 + a2) * (b0 + b2) - c0 - c4 + t
+    uint64_t a02 = a[0] ^ a[2];
+    uint64_t b02 = b[0] ^ b[2];
+    poly128_t c2_poly = vmull_p64((poly64_t)a02, (poly64_t)b02);
+    uint64x2_t c2 = vreinterpretq_u64_p128(c2_poly);
+    c2 = veorq_u64(c2, c0_v);
+    c2 = veorq_u64(c2, c4_v);
+    c2 = veorq_u64(c2, t);
+    
+    // Now compute d = d0 + B^2 * d1 + B^4 * d2 where d = c and di < B^2
+    
+    // Extract individual values from the vectors
+    uint64_t c0_lo = vgetq_lane_u64(c0_v, 0);
+    uint64_t c0_hi = vgetq_lane_u64(c0_v, 1);
+    uint64_t c1_lo = vgetq_lane_u64(c1, 0);
+    uint64_t c1_hi = vgetq_lane_u64(c1, 1);
+    uint64_t c2_lo = vgetq_lane_u64(c2, 0);
+    uint64_t c2_hi = vgetq_lane_u64(c2, 1);
+    uint64_t c3_lo = vgetq_lane_u64(c3, 0);
+    uint64_t c3_hi = vgetq_lane_u64(c3, 1);
+    uint64_t c4_lo = vgetq_lane_u64(c4_v, 0);
+    uint64_t c4_hi = vgetq_lane_u64(c4_v, 1);
+    
+    // Combine into d0, d1, d2
+    uint64_t d0_lo = c0_lo;
+    uint64_t d0_hi = c0_hi ^ c1_lo;
+    uint64_t d1_lo = c1_hi ^ c2_lo;
+    uint64_t d1_hi = c2_hi ^ c3_lo;
+    uint64_t d2_lo = c3_hi ^ c4_lo;
+    uint64_t d2_hi = c4_hi;
+    
+    // Reduction phase
+    
+    // Reduce w.r.t. high half of d2
+    poly128_t tmp_poly = vmull_p64((poly64_t)d2_hi, (poly64_t)modulus);
+    uint64x2_t tmp = vreinterpretq_u64_p128(tmp_poly);
+    uint64_t tmp_lo = vgetq_lane_u64(tmp, 0);
+    uint64_t tmp_hi = vgetq_lane_u64(tmp, 1);
+    d1_lo ^= tmp_lo;
+    d1_hi ^= tmp_hi;
+    
+    // Reduce w.r.t. low half of d2
+    tmp_poly = vmull_p64((poly64_t)d2_lo, (poly64_t)modulus);
+    tmp = vreinterpretq_u64_p128(tmp_poly);
+    tmp_lo = vgetq_lane_u64(tmp, 0);
+    tmp_hi = vgetq_lane_u64(tmp, 1);
+    d1_hi ^= tmp_lo;
+    d0_lo ^= tmp_hi;
+    
+    // Reduce w.r.t. high half of d1
+    tmp_poly = vmull_p64((poly64_t)d1_hi, (poly64_t)modulus);
+    tmp = vreinterpretq_u64_p128(tmp_poly);
+    tmp_lo = vgetq_lane_u64(tmp, 0);
+    tmp_hi = vgetq_lane_u64(tmp, 1);
+    d0_lo ^= tmp_lo;
+    d0_hi ^= tmp_hi;
+    
+    // Store the final result
+    r[0] = d0_lo;
+    r[1] = d0_hi;
+    r[2] = d1_lo;
+}
+
+/// Vectorized multiplication of multiple GF(2^192) elements using NEON
+/// \param a[in]: Array of GF(2^192) elements, each represented as 3 64-bit limbs
+/// \param b[in]: Array of GF(2^192) elements, each represented as 3 64-bit limbs
+/// \param r[out]: Array to store results of multiplications
+/// \param count[in]: Number of elements to process
+/// \note Processes multiple multiplications by calling the single-element function
+static inline
+void gf2to192v_mul_batch_neon(const uint64_t a[][3], 
+                             const uint64_t b[][3],
+                             uint64_t r[][3],
+                             size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        gf2to192v_mul_u256_neon(a[i], b[i], r[i]);
+    }
+}
+#endif // __ARM_FEATURE_CRYPTO
+
+#endif // USE_NEON
+
+/// GF(2^192) field representation using polynomial basis
+/// Defined using the irreducible polynomial: GF(2)/[x^192 + x^7 + x^2 + x + 1]
+/// Each field element is represented as an array of 3 64-bit unsigned integers
 #define MODULUS 0b10000111
 typedef uint64_t gf2to192[3];
 
-/// \param r[out]: = 0
+/// Set a GF(2^192) element to zero
+/// \param r[out]: GF(2^192) element to be set to zero
+/// \note Initializes all limbs to 0
 static inline
 void gf2to192_set_zero(gf2to192 r) {
     for (uint32_t i = 0; i < 3; i++) {
@@ -21,7 +158,9 @@ void gf2to192_set_zero(gf2to192 r) {
     }
 }
 
-/// \param r[out]: = rand()
+/// Set a GF(2^192) element to a random value
+/// \param r[out]: GF(2^192) element to be set to random value
+/// \note Uses standard rand() function to generate random bits
 static inline
 void gf2to192_set_random(gf2to192 r) {
     for (uint32_t i = 0; i < 3; i++) {
@@ -29,9 +168,11 @@ void gf2to192_set_random(gf2to192 r) {
     }
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a + b
+/// Addition in GF(2^192)
+/// \param r[out]: result of addition
+/// \param a[in]: first addend
+/// \param b[in]: second addend
+/// \note Addition in GF(2^192) is simply bitwise XOR of each limb
 static inline
 void gf2to192_add(gf2to192 r, 
                   const gf2to192 a,
@@ -41,9 +182,11 @@ void gf2to192_add(gf2to192 r,
     r[2] = a[2] ^ b[2];
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a - b
+/// Subtraction in GF(2^192)
+/// \param r[out]: result of subtraction
+/// \param a[in]: minuend
+/// \param b[in]: subtrahend
+/// \note Subtraction in GF(2^192) is the same as addition (XOR) since we're in characteristic 2
 static inline
 void gf2to192_sub(gf2to192 r,
                   const gf2to192 a,
@@ -51,10 +194,12 @@ void gf2to192_sub(gf2to192 r,
     gf2to192_add(r, a, b);
 }
 
-/// NOTE: non ct
-/// \param r[out] = a*b mod 2to192
-/// \param a[in]:
-/// \param b[in]:
+/// Multiplication in GF(2^192) - non-constant time version
+/// \param r[out]: result of multiplication
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \note This implementation is NOT constant-time (vulnerable to timing attacks)
+/// \note Uses the shift-and-add algorithm with conditional reduction by the modulus
 static inline
 void gf2to192_mul_v2(gf2to192 r,
                      const gf2to192 a,
@@ -82,11 +227,12 @@ void gf2to192_mul_v2(gf2to192 r,
     }
 }
 
-/// small helper function, which masks a into r if b is set.
-/// If b is not set, r will be set to zero.
-/// \param r[out]: output number
+/// Helper function for constant-time multiplication
+/// Masks a into r if bit is set, otherwise sets r to zero
+/// \param r[out]: output number (masked value of a or zero)
 /// \param a[in]: value to mask
-/// \param bit[in]: bit which selects the mask
+/// \param bit[in]: bit which selects the mask (0 or 1)
+/// \note Used as part of the constant-time multiplication algorithm
 static inline
 void gf2to192_mul_helper(gf2to192 r,
                          const gf2to192 a,
@@ -97,7 +243,12 @@ void gf2to192_mul_helper(gf2to192 r,
     }
 }
 
-/// Adds two 3-limb big integers a and b, stores result in r.
+/// Addition helper for constant-time multiplication
+/// Adds two 3-limb big integers a and b, stores result in r
+/// \param r[in,out]: result of addition, modified in-place
+/// \param a[in]: first addend
+/// \param b[in]: second addend
+/// \note Handles carries between limbs using 128-bit arithmetic
 static inline
 void gf2to192_mul_addition(gf2to192 r,
                            const gf2to192 a,
@@ -111,10 +262,12 @@ void gf2to192_mul_addition(gf2to192 r,
     }
 }
 
-/// this is ct
-/// \param r
-/// \param a
-/// \param b
+/// Multiplication in GF(2^192) - constant time version
+/// \param r[out]: result of multiplication
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \note This implementation is constant-time (resistant to timing attacks)
+/// \note Implements multiplication using bit-masking to avoid branches
 static inline
 void gf2to192_mul(gf2to192 r,
                   const gf2to192 a,
@@ -132,9 +285,12 @@ void gf2to192_mul(gf2to192 r,
     }
 }
 
-/// \param r[out]: = a * b
-/// \param a[in]: over gf2to192
-/// \param b[int]: over gf2
+/// Multiplication of GF(2^192) element by GF(2) element
+/// \param r[out]: result of multiplication
+/// \param a[in]: GF(2^192) element
+/// \param b[in]: GF(2) element (0 or 1)
+/// \note Optimized for the case when the second operand is from GF(2)
+/// \note Effectively sets r to either 0 or a based on the value of b
 static inline
 void gf2to192_mul_gf2(gf2to192 r,
                       const gf2to192 a,
@@ -147,12 +303,15 @@ void gf2to192_mul_gf2(gf2to192 r,
 
 #ifdef USE_AVX2
 #include <immintrin.h>
-/// main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
+/// AVX2 vectorized implementation for GF(2^192) operations
+/// Main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
 
 
-/// \param out[out]: must be 6 registers
-/// \param in[in]:
-/// \return nothing
+/// Expand GF(2) elements into 256-bit vectors for vectorized operations
+/// \param out[out]: Output array of 256-bit vectors (must be at least 'limit' registers)
+/// \param in[in]: Byte containing GF(2) elements (bits)
+/// \param limit[in]: Number of bits to expand from the input byte
+/// \note Each bit of the input is expanded to a full 256-bit mask (all 1s or all 0s)
 static inline void gf2to192v_expand_gf2_x8_u256(__m256i *out,
                                                 const uint8_t in,
                                                 const uint32_t limit) {
@@ -161,27 +320,34 @@ static inline void gf2to192v_expand_gf2_x8_u256(__m256i *out,
     }
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a + b
+/// Vectorized addition of GF(2^192) elements
+/// \param a[in]: 256-bit vector of GF(2^192) elements
+/// \param b[in]: 256-bit vector of GF(2^192) elements
+/// \return Vector of element-wise sums
+/// \note Implemented as a simple XOR operation since we're in characteristic 2
 static inline
 __m256i gf2to192v_add_u256(const __m256i a,
                            const __m256i b) {
     return a ^ b;
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a + b
+/// Vectorized subtraction of GF(2^192) elements
+/// \param a[in]: 256-bit vector of GF(2^192) elements
+/// \param b[in]: 256-bit vector of GF(2^192) elements
+/// \return Vector of element-wise differences
+/// \note Identical to addition (XOR) since we're in characteristic 2
 static inline
 __m256i gf2to192v_sub_u256(const __m256i a,
                            const __m256i b) {
     return a ^ b;
 }
 
-/// \param a
-/// \param b
-/// \return a*b
+/// Vectorized multiplication of GF(2^192) elements
+/// \param a[in]: 256-bit vector of GF(2^192) elements
+/// \param b[in]: 256-bit vector of GF(2^192) elements
+/// \return Vector of element-wise products
+/// \note Uses Karatsuba algorithm for optimized multiplication
+/// \note Implements reduction using the field's modulus polynomial
 static inline
 __m256i gf2to192v_mul_u256(const __m256i a,
                            const __m256i b) {
@@ -254,9 +420,12 @@ __m256i gf2to192v_mul_u256(const __m256i a,
     return _mm256_set_m128i(d1, d0);
 }
 
-/// \param r = a*b
-/// \param a
-/// \param b
+/// Alternate implementation of multiplication in GF(2^192) using Karatsuba algorithm
+/// \param r[out]: Result of multiplication
+/// \param a[in]: First factor
+/// \param b[in]: Second factor
+/// \note Uses PCLMULQDQ instruction for carry-less multiplication
+/// \note Implements Karatsuba algorithm to reduce the number of multiplications
 static inline
 void gf2to192v_mul_u256_(gf2to192 r,
                          const gf2to192 a,
@@ -329,8 +498,12 @@ void gf2to192v_mul_u256_(gf2to192 r,
     _mm_storel_epi64((__m128i*) &r[2], d1);
 }
 
-/// \param a \in gf2to192
-/// \param b \in gf2 already expanded
+/// Vectorized multiplication of GF(2^192) elements by expanded GF(2) elements
+/// \param a[in]: 256-bit vector containing GF(2^192) elements
+/// \param b[in]: 256-bit vector containing expanded GF(2) elements (full masks)
+/// \return 256-bit vector with element-wise products
+/// \note Optimized version for when b contains expanded GF(2) elements
+/// \note In this case, the GF(2) elements in b are already expanded to full 256-bit masks
 static inline
 __m256i gf2to192v_mul_gf2_u256(const __m256i a,
                                const __m256i b) {
@@ -338,3 +511,134 @@ __m256i gf2to192v_mul_gf2_u256(const __m256i a,
 }
 
 #endif
+
+#ifdef USE_NEON
+#include <arm_neon.h>
+
+/// TODO untested
+/// Vectorized multiplication of GF(2^192) elements using ARM NEON
+/// \param a[in]: First factor (3 64-bit limbs stored in NEON registers)
+/// \param b[in]: Second factor (3 64-bit limbs stored in NEON registers)
+/// \param r[out]: Result of multiplication (3 64-bit limbs)
+/// \note Uses PMULL instruction for carry-less multiplication
+/// \note Implements Karatsuba algorithm to reduce the number of multiplications
+/// \note Requires ARMv8 with Crypto extension
+static inline
+void gf2to192v_mul_u256_neon(const uint64_t a[3], 
+                            const uint64_t b[3],
+                            uint64_t r[3]) {
+    // Load the modulus into a 64-bit scalar
+    const uint64_t modulus = MODULUS;
+    
+    // Implement Karatsuba multiplication for 3-limb numbers:
+    // a = a0 + B * a1 + B^2 * a2
+    // b = b0 + B * b1 + B^2 * b2
+    // Need to compute c = c0 + ... + B^4 * c4 with 6 multiplications
+    
+    // 1. c0 = a0 * b0
+    poly128_t c0 = vmull_p64((poly64_t)a[0], (poly64_t)b[0]);
+    uint64x2_t c0_v = vreinterpretq_u64_p128(c0);
+    
+    // 2. c4 = a2 * b2
+    poly128_t c4 = vmull_p64((poly64_t)a[2], (poly64_t)b[2]);
+    uint64x2_t c4_v = vreinterpretq_u64_p128(c4);
+    
+    // 3. t = a1 * b1
+    poly128_t t_poly = vmull_p64((poly64_t)a[1], (poly64_t)b[1]);
+    uint64x2_t t = vreinterpretq_u64_p128(t_poly);
+    
+    // 4. c1 = (a0 + a1) * (b0 + b1) - c0 - t
+    uint64_t a01 = a[0] ^ a[1];
+    uint64_t b01 = b[0] ^ b[1];
+    poly128_t c1_poly = vmull_p64((poly64_t)a01, (poly64_t)b01);
+    uint64x2_t c1 = vreinterpretq_u64_p128(c1_poly);
+    c1 = veorq_u64(c1, c0_v);
+    c1 = veorq_u64(c1, t);
+    
+    // 5. c3 = (a1 + a2) * (b1 + b2) - c4 - t
+    uint64_t a12 = a[1] ^ a[2];
+    uint64_t b12 = b[1] ^ b[2];
+    poly128_t c3_poly = vmull_p64((poly64_t)a12, (poly64_t)b12);
+    uint64x2_t c3 = vreinterpretq_u64_p128(c3_poly);
+    c3 = veorq_u64(c3, c4_v);
+    c3 = veorq_u64(c3, t);
+    
+    // 6. c2 = (a0 + a2) * (b0 + b2) - c0 - c4 + t
+    uint64_t a02 = a[0] ^ a[2];
+    uint64_t b02 = b[0] ^ b[2];
+    poly128_t c2_poly = vmull_p64((poly64_t)a02, (poly64_t)b02);
+    uint64x2_t c2 = vreinterpretq_u64_p128(c2_poly);
+    c2 = veorq_u64(c2, c0_v);
+    c2 = veorq_u64(c2, c4_v);
+    c2 = veorq_u64(c2, t);
+    
+    // Now compute d = d0 + B^2 * d1 + B^4 * d2 where d = c and di < B^2
+    
+    // Extract individual values from the vectors
+    uint64_t c0_lo = vgetq_lane_u64(c0_v, 0);
+    uint64_t c0_hi = vgetq_lane_u64(c0_v, 1);
+    uint64_t c1_lo = vgetq_lane_u64(c1, 0);
+    uint64_t c1_hi = vgetq_lane_u64(c1, 1);
+    uint64_t c2_lo = vgetq_lane_u64(c2, 0);
+    uint64_t c2_hi = vgetq_lane_u64(c2, 1);
+    uint64_t c3_lo = vgetq_lane_u64(c3, 0);
+    uint64_t c3_hi = vgetq_lane_u64(c3, 1);
+    uint64_t c4_lo = vgetq_lane_u64(c4_v, 0);
+    uint64_t c4_hi = vgetq_lane_u64(c4_v, 1);
+    
+    // Combine into d0, d1, d2
+    uint64_t d0_lo = c0_lo;
+    uint64_t d0_hi = c0_hi ^ c1_lo;
+    uint64_t d1_lo = c1_hi ^ c2_lo;
+    uint64_t d1_hi = c2_hi ^ c3_lo;
+    uint64_t d2_lo = c3_hi ^ c4_lo;
+    uint64_t d2_hi = c4_hi;
+    
+    // Reduction phase
+    
+    // Reduce w.r.t. high half of d2
+    poly128_t tmp_poly = vmull_p64((poly64_t)d2_hi, (poly64_t)modulus);
+    uint64x2_t tmp = vreinterpretq_u64_p128(tmp_poly);
+    uint64_t tmp_lo = vgetq_lane_u64(tmp, 0);
+    uint64_t tmp_hi = vgetq_lane_u64(tmp, 1);
+    d1_lo ^= tmp_lo;
+    d1_hi ^= tmp_hi;
+    
+    // Reduce w.r.t. low half of d2
+    tmp_poly = vmull_p64((poly64_t)d2_lo, (poly64_t)modulus);
+    tmp = vreinterpretq_u64_p128(tmp_poly);
+    tmp_lo = vgetq_lane_u64(tmp, 0);
+    tmp_hi = vgetq_lane_u64(tmp, 1);
+    d1_hi ^= tmp_lo;
+    d0_lo ^= tmp_hi;
+    
+    // Reduce w.r.t. high half of d1
+    tmp_poly = vmull_p64((poly64_t)d1_hi, (poly64_t)modulus);
+    tmp = vreinterpretq_u64_p128(tmp_poly);
+    tmp_lo = vgetq_lane_u64(tmp, 0);
+    tmp_hi = vgetq_lane_u64(tmp, 1);
+    d0_lo ^= tmp_lo;
+    d0_hi ^= tmp_hi;
+    
+    // Store the final result
+    r[0] = d0_lo;
+    r[1] = d0_hi;
+    r[2] = d1_lo;
+}
+
+/// Vectorized multiplication of multiple GF(2^192) elements using NEON
+/// \param a[in]: Array of GF(2^192) elements, each represented as 3 64-bit limbs
+/// \param b[in]: Array of GF(2^192) elements, each represented as 3 64-bit limbs
+/// \param r[out]: Array to store results of multiplications
+/// \param count[in]: Number of elements to process
+/// \note Processes multiple multiplications by calling the single-element function
+static inline
+void gf2to192v_mul_batch_neon(const uint64_t a[][3], 
+                             const uint64_t b[][3],
+                             uint64_t r[][3],
+                             size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        gf2to192v_mul_u256_neon(a[i], b[i], r[i]);
+    }
+}
+#endif // USE_NEON

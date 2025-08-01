@@ -3,37 +3,40 @@
 #include <stdint.h>
 #include "../2/arith.h"
 
-/// main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
-// GF(2)/[x^32 + x^22 + x^2 + x^1 + 1]
-//#define MODULUS 0b100000000010000000000000000000111
-// NOTE: the following modulus is better as its speeds up the reduction in 'gf2to32v_mul_u256_v2'
-// GF(2)/[x^32 + x^15 + x^7 + x^1 + 1]
+/// GF(2^32) field representation using polynomial basis
+/// Main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
+/// 
+/// Initially defined with polynomial: GF(2)/[x^32 + x^22 + x^2 + x^1 + 1]
+/// 
+/// Now using a more efficient polynomial for faster reduction in 'gf2to32v_mul_u256_v2':
+/// GF(2)/[x^32 + x^15 + x^7 + x^1 + 1]
 #define MODULUS 0b000000000000000010000000100000011ull
 typedef uint32_t gf2to32;
 
-/// \param a
-/// \param b
-/// \return a + b \mod 2**32
+/// Addition in GF(2^32)
+/// \param a[in]: first addend
+/// \param b[in]: second addend
+/// \return a + b mod irreducible polynomial
 static inline
 gf2to32 gf2to32_add(const gf2to32 a,
                     const gf2to32 b) {
     return a ^ b;
 }
 
-///
-/// \param a
-/// \param b
-/// \return
+/// Subtraction in GF(2^32)
+/// \param a[in]: minuend
+/// \param b[in]: subtrahend
+/// \return a - b mod irreducible polynomial (same as addition in characteristic 2)
 static inline
 gf2to32 gf2to32_sub(const gf2to32 a,
                     const gf2to32 b) {
     return a ^ b;
 }
 
-/// NOTE: non ct
-/// \param a
-/// \param b
-/// \return
+/// Multiplication in GF(2^32) - non constant-time implementation
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a * b mod irreducible polynomial
 static inline
 gf2to32 gf2to32_mul_v2(const gf2to32 a,
                        const gf2to32 b) {
@@ -56,10 +59,10 @@ gf2to32 gf2to32_mul_v2(const gf2to32 a,
     return result;
 }
 
-/// this is ct
-/// \param a
-/// \param b
-/// \return
+/// Multiplication in GF(2^32) - constant-time implementation
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a * b mod irreducible polynomial
 static inline
 gf2to32 gf2to32_mul(const gf2to32 a,
                     const gf2to32 b) {
@@ -71,16 +74,18 @@ gf2to32 gf2to32_mul(const gf2to32 a,
     return r;
 }
 
-/// \param a
-/// \return -a
+/// Negation in GF(2^32)
+/// \param a[in]: value to negate
+/// \return -a mod irreducible polynomial
 static inline
 gf2to32 gf2to32_neg(const gf2to32 a) {
     return ~a;
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a*b
+/// Multiplication of GF(2^32) element by GF(2) element
+/// \param a[in]: GF(2^32) element
+/// \param b[in]: GF(2) element (0 or 1)
+/// \return a*b in GF(2^32)
 static inline
 gf2to32 gf2to32_mul_gf2(const gf2to32 a,
                         const gf2 b) {
@@ -90,30 +95,32 @@ gf2to32 gf2to32_mul_gf2(const gf2to32 a,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-/// \param a
-/// \param b
-/// \return
+/// AVX2 vectorized addition of 8 GF(2^32) elements
+/// \param a[in]: first vector of 8 GF(2^32) elements
+/// \param b[in]: second vector of 8 GF(2^32) elements
+/// \return vector of a+b in each 32-bit position
 static inline
 __m256i gf2to32v_add_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
 }
 
-///
-/// \param a
-/// \param b
-/// \return
+/// AVX2 vectorized subtraction of 8 GF(2^32) elements
+/// \param a[in]: vector of 8 GF(2^32) minuends
+/// \param b[in]: vector of 8 GF(2^32) subtrahends
+/// \return vector of a-b in each 32-bit position
 static inline
 __m256i gf2to32v_sub_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
 }
 
-/// https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYM9DgDJ4GmADl3ACNMYhAAZlIAB1QFQlsGZzcPPVj4mwFffyCWUPCoy0xrRKECJmICZPdPLgtMK0yGMoqCbMCQsMiLcsrq1LqFXra/DryuiIBKC1RXYmR2DgBSACYIv2Q3LABqJYjHPBYWPwJiPwA6BD3sJY0AQVWIrBp/bYBZAHkAETlvOSFthpglwNKCwWCQeCodCIVwuLcHvcEaYWCsAKwANjw22AVBWRAiKwAbsYWK5aMZXOiMRA0AwhtsUdTsUxSAjthzOVzuTzuXSGUzMdjgpNdgB2ABC7M5/IIjNJzO2AC8wqhdhEvoyjtTjEoCFxjJhongABwQDSTPZS%2B5c2Xy1FC7YsDDqzWkh0Y3WYfWG42EqAnSafH5/ISWiLWu5cwVY7nEV3bCAxvCTd064L0BjoEnRBRQGOTFXEVCkRMF1llhWYyYiq3SjnJ7aiYjEACeCaTVaxqe1mOMGYcObznY9hdVpZH1MmzvQE4LxHDkfr2wA9Cvthjtn4hsRXCUBApttEwttaKhUNFl/x4xATluExENFb79c9pqnxHtgBaL8p8WR3kmwPOVG31Dtkx7D1%2B0zbNjFzfMuzHYs50QitJ2rNM%2BwUWhaDwX08H9YJSwiLhf0mRdl1tYD7UVAgVgTMCljRbAmwqNs6xtXk7VAiIGPopiWMwz0mHQdB8P9MhtgXDio15eM322AgIhkwDmzbcCuxTIToMHODhwLIsS0rUcZxQ0dpIjZcljFL4EWXYhvTmBgpJk6yvg4aZaE4NFeE8DgtFIVBOEcbYFFmeZMF2NYeFIAhNA86YAGsQEkABOc4xQ0OETQiDE0RWDQVlSjF9E4SRfPiwLOF4BQQA0WL4umOBYCQNAWGNegyAoWlUHaugumQTZDGAAqQT4OgCDCWqIGCSrgj8CpW04GL5uYNsPmCbRiji7heDathBA%2BBhaCW/zeCwYJXGARwxFoWrdtILAWGG8QzsevAHJKIlMHugLMFUYpXEm5beBOBpKtw4JiEW5wsEq05DhB0hvuIYI4kwL5MGeoxcKMRq%2BAMYAFAANTwTAAHcPmPPyYv4QQRDEdgpBkQRFBUdQ3t0FZ9GGkBTGMcxIdqyBpgvJp7q/D5eK/Z6iVUb9ZdUejeFQFGziwYWIGmIp908CAHH6WpSB8UZcnyNI4gSARDYtjJEnaM2ukGBpttKYYbedxo3daB3OnCQZ3ZcGo9CGH3Tb9iRtfChY9HJwwCCpggAEkGH4EHPO8iq3qCjhtlUE0MS/DFJCbAwjG2Arzi4c4NETXBCBIKKSMmXgdq0cjSGStENHOIqTRNLgMQiSQxVSzLJEH0qOHK0g/ICnOarqhqzo7ryOBWLP5%2Bq5f2%2BmFH4jsSQgA%3D%3D%3D
-/// instructions 2 + 6*31 = 188
-/// \param a
-/// \param b
-/// \return
+/// AVX2 vectorized multiplication of 8 GF(2^32) elements
+/// Uses constant-time approach with 188 instructions (2 + 6*31)
+/// See: https://godbolt.org/#z:OYLghAFBqd5QCxAYwPYBMCmBRdBLAF1QCcAaPECAMzwBtMA7AQwFtMQByARg9KtQYEAysib0QXACx8BBAKoBnTAAUAHpwAMvAFYTStJg1AB9U8lJL6yAngGVG6AMKpaAVxYM9DgDJ4GmADl3ACNMYhAAZlIAB1QFQlsGZzcPPVj4mwFffyCWUPCoy0xrRKECJmICZPdPLgtMK0yGMoqCbMCQsMiLcsrq1LqFXra/DryuiIBKC1RXYmR2DgBSACYIv2Q3LABqJYjHPBYWPwJiPwA6BD3sJY0AQVWIrBp/bYBZAHkAETlvOSFthpglwNKCwWCQeCodCIVwuLcHvcEaYWCsAKwANjw22AVBWRAiKwAbsYWK5aMZXOiMRA0AwhtsUdTsUxSAjthzOVzuTzuXSGUzMdjgpNdgB2ABC7M5/IIjNJzO2AC8wqhdhEvoyjtTjEoCFxjJhongABwQDSTPZS%2B5c2Xy1FC7YsDDqzWkh0Y3WYfWG42EqAnSafH5/ISWiLWu5cwVY7nEV3bCAxvCTd064L0BjoEnRBRQGOTFXEVCkRMF1llhWYyYiq3SjnJ7aiYjEACeCaTVaxqe1mOMGYcObznY9hdVpZH1MmzvQE4LxHDkfr2wA9Cvthjtn4hsRXCUBApttEwttaKhUNFl/x4xATluExENFb79c9pqnxHtgBaL8p8WR3kmwPOVG31Dtkx7D1%2B0zbNjFzfMuzHYs50QitJ2rNM%2BwUWhaDwX08H9YJSwiLhf0mRdl1tYD7UVAgVgTMCljRbAmwqNs6xtXk7VAiIGPopiWMwz0mHQdB8P9MhtgXDio15eM322AgIhkwDmzbcCuxTIToMHODhwLIsS0rUcZxQ0dpIjZcljFL4EWXYhvTmBgpJk6yvg4aZaE4NFeE8DgtFIVBOEcbYFFmeZMF2NYeFIAhNA86YAGsQEkABOc4xQ0OETQiDE0RWDQVlSjF9E4SRfPiwLOF4BQQA0WL4umOBYCQNAWGNegyAoWlUHaugumQTZDGAAqQT4OgCDCWqIGCSrgj8CpW04GL5uYNsPmCbRiji7heDathBA%2BBhaCW/zeCwYJXGARwxFoWrdtILAWGG8QzsevAHJKIlMHugLMFUYpXEm5beBOBpKtw4JiEW5wsEq05DhB0hvuIYI4kwL5MGeoxcKMRq%2BAMYAFAANTwTAAHcPmPPyYv4QQRDEdgpBkQRFBUdQ3t0FZ9GGkBTGMcxIdqyBpgvJp7q/D5eK/Z6iVUb9ZdUejeFQFGziwYWIGmIp908CAHH6WpSB8UZcnyNI4gSARDYtjJEnaM2ukGBpttKYYbedxo3daB3OnCQZ3ZcGo9CGH3Tb9iRtfChY9HJwwCCpggAEkGH4EHPO8iq3qCjhtlUE0MS/DFJCbAwjG2Arzi4c4NETXBCBIKKSMmXgdq0cjSGStENHOIqTRNLgMQiSQxVSzLJEH0qOHK0g/ICnOarqhqzo7ryOBWLP5%2Bq5f2%2BmFH4jsSQgA%3D%3D%3D
+/// \param a[in]: first vector of 8 GF(2^32) elements
+/// \param b[in]: second vector of 8 GF(2^32) elements
+/// \return vector of a*b mod irreducible polynomial in each 32-bit position
 static inline
 __m256i gf2to32v_mul_u256(const __m256i a,
                           const __m256i b) {
@@ -134,12 +141,13 @@ __m256i gf2to32v_mul_u256(const __m256i a,
     return r;
 }
 
-/// helper function computing the multiplication and reduction of
-/// two input values < 2**32.
-///                0   32  64   96  128
-/// \param a1[in]: [a1_1, 0, a1_2, 0]
-/// \param c1[in]: [b1_1, 0, b1_2, 0]
-/// \return
+/// Helper function for GF(2^32) multiplication and reduction using CLMUL
+/// Computes multiplication and reduction of two input values < 2^32
+/// \param a1[in]: 128-bit vector containing two 32-bit values at positions [0,64]
+///                Format: [a1_1, 0, a1_2, 0] at bit positions [0,32,64,96]
+/// \param c1[in]: 128-bit vector containing two 32-bit values at positions [0,64]
+///                Format: [b1_1, 0, b1_2, 0] at bit positions [0,32,64,96]
+/// \return 128-bit vector with reduced products in positions [0,64]
 static inline
 __m128i gf2to32v_mul_u256_helper(__m128i a1,
                                  __m128i c1) {
@@ -160,10 +168,11 @@ __m128i gf2to32v_mul_u256_helper(__m128i a1,
     return a1c1t3 ^ a1c1t5;
 }
 
-/// based on clmulepi_64
-/// \param a[in]: [a_0, ..., a_7]
-/// \param b[in]: [b_0, ..., b_7]
-/// \return [a_0*b_0 mod 2**32, ..., a_7*b_7 mod 2**32]
+/// AVX2 vectorized multiplication of 8 GF(2^32) elements using CLMUL (optimized version)
+/// Uses the PCLMULQDQ instruction for faster multiplication
+/// \param a[in]: vector of 8 GF(2^32) elements [a_0, ..., a_7]
+/// \param b[in]: vector of 8 GF(2^32) elements [b_0, ..., b_7]
+/// \return vector of [a_0*b_0 mod irreducible polynomial, ..., a_7*b_7 mod irreducible polynomial]
 static inline
 __m256i gf2to32v_mul_u256_v2(const __m256i a,
                              const __m256i b) {
@@ -195,9 +204,9 @@ __m256i gf2to32v_mul_u256_v2(const __m256i a,
     return ret;
 }
 
-/// \param in[in]: 8bits = [in_0, ..., in_7]
-///         0    32         255
-/// \return [in_0, ..., in_7];
+/// Expand 8 GF(2) elements to 8 GF(2^32) elements
+/// \param in[in]: 8-bit value containing 8 GF(2) elements [in_0, ..., in_7]
+/// \return 256-bit vector containing 8 GF(2^32) elements derived from input bits
 static inline
 __m256i gf2to32v_expand_gf2_x8_u256(const uint8_t in) {
     const uint64_t t1 = _pdep_u64(in, 0x0101010101010101ull);
@@ -205,18 +214,19 @@ __m256i gf2to32v_expand_gf2_x8_u256(const uint8_t in) {
     return _mm256_cvtepi8_epi32(t2);
 }
 
-/// \param in[in]: 8bits = [in_0, ..., in_7]
-///         0    32         255
-/// \return [in_0, ..., in_7]; // bit extended
+/// Expand 8 GF(2) elements to 8 GF(2^32) elements with bit extension
+/// \param in[in]: 8-bit value containing 8 GF(2) elements [in_0, ..., in_7]
+/// \return 256-bit vector containing 8 GF(2^32) elements with full bit extension
 static inline
 __m256i gf2to32v_expand_gf2_x8_ext_u256(const uint8_t in) {
     const __m256i t = gf2to32v_expand_gf2_x8_u256(in);
     return _mm256_cmpgt_epi32(t, _mm256_setzero_si256());
 }
 
-/// \param a[in]: [a_0, ..., a_7] \in (F2^32)^8
-/// \param b[in]: [b_0, ..., b_7] \in (F2)^8 already bit extended
-/// \return [a_0*b_0, ..., a]
+/// Vectorized multiplication of GF(2^32) elements by GF(2) elements
+/// \param a[in]: vector of 8 GF(2^32) elements [a_0, ..., a_7]
+/// \param b[in]: vector of 8 GF(2) elements [b_0, ..., b_7] already bit-extended
+/// \return vector of products [a_0*b_0, ..., a_7*b_7]
 static inline
 __m256i gf2to32v_mul_gf2_u256(const __m256i a,
                               const __m256i b) {

@@ -14,7 +14,6 @@ BM_gf127_matrix_transpose_opt/320      21026 ns        20984 ns        33235
 BM_gf127_matrix_transpose_opt/384      30289 ns        30231 ns        23116
 BM_gf127_matrix_transpose_opt/448      41067 ns        40986 ns        17022
 BM_gf127_matrix_transpose_opt/512      60378 ns        60259 ns        11639
-:W
 
 blocksize = 32
 BM_gf127_matrix_transpose_opt/64         874 ns          873 ns       800510

@@ -5,21 +5,39 @@
 
 #include "../helper.h"
 
-/// Representation:
-/// 0= X^2 + X + 1
+/// GF(4) field representation with X^2 + X + 1 as the irreducible polynomial
+/// Field elements: {0, 1, X, X+1}
 typedef uint8_t ff_t;
 
-// = { b*X^0, b*X^1 }
+/// Multiplication lookup table for GF(4)
+/// Table stores values for {b*X^0, b*X^1} for each possible value of b
 const uint8_t gf4_mult_table[] = {0x00,0x00,0x01,0x02,0x02,0x03,0x03,0x01};
 
+/// Addition in GF(4)
+/// \param a[in]: first addend
+/// \param b[in]: second addend
+/// \return a+b in GF(4) (implemented as XOR)
 static ff_t gf4_add(const ff_t a, const ff_t b) { return a ^ b; }
+
+/// Subtraction in GF(4)
+/// \param a[in]: minuend
+/// \param b[in]: subtrahend
+/// \return a-b in GF(4) (same as addition since we're in characteristic 2)
 static ff_t gf4_sub(const ff_t a, const ff_t b) { return a ^ b; }
+
+/// Multiplication in GF(4) using lookup table
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(4)
 static ff_t gf4_mul(const ff_t a, const ff_t b) {
     return ((a&1u )*gf4_mult_table[b*2 + 0]) ^
            ((a>>1u)*gf4_mult_table[b*2 + 1]);
 }
 
-/// same as `gf4_mul` but without a multiplication
+/// Alternative multiplication in GF(4) without using multiplication operations
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(4)
 static inline
 ff_t gf4_mul_v2(const ff_t a,
 				const ff_t b) {
@@ -31,13 +49,32 @@ ff_t gf4_mul_v2(const ff_t a,
     return  tmpl2 ^ tmph3;
 }
 
+/// Vectorized addition of 32 GF(4) elements packed in 64-bit integers
+/// \param a[in]: first vector of 32 GF(4) elements
+/// \param b[in]: second vector of 32 GF(4) elements
+/// \return vector of a+b in each 2-bit position
 static inline uint64_t gf4v_add_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
+
+/// Vectorized subtraction of 32 GF(4) elements packed in 64-bit integers
+/// \param a[in]: vector of 32 GF(4) minuends
+/// \param b[in]: vector of 32 GF(4) subtrahends
+/// \return vector of a-b in each 2-bit position
 static inline uint64_t gf4v_sub_u64(const uint64_t a, const uint64_t b) { return a ^ b; }
+
+/// NOTE: not constant time.
+/// Vectorized scalar multiplication of 32 GF(4) elements by a single value
+/// \param a[in]: vector of 32 GF(4) elements
+/// \param b[in]: scalar GF(4) element to multiply by
+/// \return vector of a*b in each 2-bit position
 static inline uint64_t gf4v_scalar_u64(const uint64_t a, const ff_t b) {
 	return (( a&0x5555555555555555    )*gf4_mult_table[b*2 + 0]) ^ 
 		   (((a&0xaaaaaaaaaaaaaaaa)>>1)*gf4_mult_table[b*2 + 1]);
 }
 
+/// Vectorized multiplication of 32 GF(4) elements packed in 64-bit integers
+/// \param a[in]: first vector of 32 GF(4) elements
+/// \param b[in]: second vector of 32 GF(4) elements
+/// \return vector of a*b in each 2-bit position
 static inline
 uint64_t gf4v_mul_u64(const uint64_t a,
 					  const uint64_t b) {
@@ -56,7 +93,10 @@ uint64_t gf4v_mul_u64(const uint64_t a,
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-/// TODO
+/// AVX2 vectorized multiplication of GF(4) elements
+/// \param a[in]: first vector of GF(4) elements
+/// \param b[in]: second vector of GF(4) elements
+/// \return vector of a*b in each 2-bit position
 static inline
 __m256i gf4v_mul_u256(const __m256i a,
 				      const __m256i b) {
@@ -73,7 +113,10 @@ __m256i gf4v_mul_u256(const __m256i a,
     return ret;
 }
 
-/// TODO
+/// AVX2 vectorized scalar multiplication of GF(4) elements by a single value
+/// \param a[in]: vector of GF(4) elements
+/// \param b[in]: scalar GF(4) element to multiply by
+/// \return vector of a*b in each 2-bit position
 static inline
 __m256i gf4v_scalar_u256(const __m256i a,
 						 const uint8_t b) {
@@ -93,10 +136,12 @@ __m256i gf4v_scalar_u256(const __m256i a,
 }
 
 #elif defined(USE_NEON)
+#include <arm_neon.h>
 
-/// \param a [a_0, ..., a_15], a_i \in GF4
-/// \param b \in GF4
-/// \return [a_0*b, ..., a_15*b]
+/// NEON vectorized scalar multiplication of GF(4) elements by a single value
+/// \param a[in]: vector of GF(4) elements [a_0, ..., a_31], a_i \in GF(4)
+/// \param b[in]: scalar GF(4) element
+/// \return vector of a*b in each 2-bit position [a_0*b, ..., a_31*b]
 static inline
 uint8x8_t gf4v_scalar_neon_u64(const uint8x8_t a,
 							   const uint8_t b) {

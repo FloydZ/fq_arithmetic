@@ -13,11 +13,11 @@ const uint32_t ncols  = 7;
 const uint32_t ncols2 = 32;
 
 
-static void BM_gf2_mul_u64(benchmark::State& state) {
+static void BM_gf2v_mul_u64(benchmark::State& state) {
     uint64_t a = 1;
     uint8_t b = 2;
     for (auto _ : state) {
-        a = gf2_mul_u64(a, b);
+        a = gf2v_mul_u64(a, b);
         a += 1;
         b += 1;
         benchmark::DoNotOptimize(a);
@@ -115,14 +115,14 @@ static void BM_gf2_matrix_mul_u256(benchmark::State& state) {
 }
 
 
-//BENCHMARK(BM_gf2_mul_u256);
+//BENCHMARK(BM_gf2v_mul_u256);
 //BENCHMARK(BM_gf2_vector_eval_u256);
 //BENCHMARK(BM_gf2_vector_add_u256);
 //BENCHMARK(BM_gf2_vector_scalar_add_v2_u256);
 BENCHMARK(BM_gf2_matrix_mul_u256);
 #endif
 
-//BENCHMARK(BM_gf2_mul_u64);
+//BENCHMARK(BM_gf2v_mul_u64);
 
 
 

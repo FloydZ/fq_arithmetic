@@ -1,32 +1,38 @@
 #include <stdint.h>
 
-/// main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
-// GF(2)/[x^64 + x^4 + x^3 + x + 1]
+/// GF(2^64) field representation using polynomial basis
+/// Main source: https://github.com/scipr-lab/libff/tree/develop/libff/algebra/fields/binary
+/// 
+/// Defined using the irreducible polynomial: GF(2)/[x^64 + x^4 + x^3 + x + 1]
+/// Each field element is represented as a 64-bit unsigned integer
 #define MODULUS 0b11011ul
 typedef uint64_t gf2to64;
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a + b
+/// Addition in GF(2^64)
+/// \param a[in]: first addend
+/// \param b[in]: second addend
+/// \return a+b in GF(2^64)
 static inline
 gf2to64 gf2to64_add(const gf2to64 a,
                  const gf2to64 b) {
     return a ^ b;
 }
 
-/// \param a[in]:
-/// \param b[in]:
-/// \return a - b
+/// Subtraction in GF(2^64)
+/// \param a[in]: minuend
+/// \param b[in]: subtrahend
+/// \return a-b in GF(2^64)
 static inline
 gf2to64 gf2to64_sub(const gf2to64 a,
                  const gf2to64 b) {
     return a ^ b;
 }
 
-/// NOTE: non ct
-/// \param a[in]:
-/// \param b[in]:
-/// \return a*b \mod 2**64
+/// Multiplication in GF(2^64) - non-constant time version
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(2^64)
+/// \note This implementation is NOT constant-time
 static inline
 gf2to64 gf2to64_mul_v2(const gf2to64 a,
                        const gf2to64 b) {
@@ -49,10 +55,11 @@ gf2to64 gf2to64_mul_v2(const gf2to64 a,
     return result;
 }
 
-/// NOTE: this is ct
-/// \param a
-/// \param b
-/// \return a*b
+/// Multiplication in GF(2^64) - constant time version
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(2^64)
+/// \note This implementation is constant-time 
 static inline
 gf2to64 gf2to64_mul(const gf2to64 a,
                     const gf2to64 b) {
@@ -64,8 +71,9 @@ gf2to64 gf2to64_mul(const gf2to64 a,
     return r;
 }
 
-/// \param a
-/// \return -a mod 2**32
+/// Negation in GF(2^64)
+/// \param a[in]: value to negate
+/// \return -a in GF(2^64)
 static inline
 gf2to64 gf2to64_neg(const gf2to64 a) {
     return ~a;
@@ -74,27 +82,34 @@ gf2to64 gf2to64_neg(const gf2to64 a) {
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-/// \param a[in]: [a_0, ..., a_3]
-/// \param b[in]: [b_0, ..., b_3]
-/// \return a + b: [a_0 + b_0, ..., a_3 + b_3]
+/// Vectorized addition of 4 GF(2^64) elements
+/// \param a[in]: vector of 4 GF(2^64) elements [a_0, ..., a_3]
+/// \param b[in]: vector of 4 GF(2^64) elements [b_0, ..., b_3]
+/// \return vector of element-wise sums [a_0 + b_0, ..., a_3 + b_3]
+/// \note Implemented as a simple XOR operation since we're in characteristic 2
 static inline
 __m256i gf2to64v_add_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
 }
 
-/// \param a[in]: [a_0, ..., a_3]
-/// \param b[in]: [b_0, ..., b_3]
-/// \return a - b: [a_0 - b_0, ..., a_3 - b_3]
+/// Vectorized subtraction of 4 GF(2^64) elements
+/// \param a[in]: vector of 4 GF(2^64) elements [a_0, ..., a_3]
+/// \param b[in]: vector of 4 GF(2^64) elements [b_0, ..., b_3]
+/// \return vector of element-wise differences [a_0 - b_0, ..., a_3 - b_3]
+/// \note Identical to addition (XOR) since we're in characteristic 2
 static inline
 __m256i gf2to64v_sub_u256(const __m256i a,
                           const __m256i b) {
     return a ^ b;
 }
 
-/// \param a[in]: [a_0, ..., a_3]
-/// \param b[in]: [b_0, ..., b_3]
-/// \return a * b: [a_0 * b_0, ..., a_3 * b_3]
+/// Multiplication in GF(2^64) using hardware acceleration
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(2^64)
+/// \note Uses the PCLMULQDQ instruction for carry-less multiplication
+/// \note Implements reduction using the field's modulus polynomial
 static inline
 gf2to64 gf2to64v_mul_u256(const gf2to64 a,
                           const gf2to64 b) {
@@ -113,6 +128,12 @@ gf2to64 gf2to64v_mul_u256(const gf2to64 a,
     return (uint64_t)_mm_movepi64_pi64(rem);
 }
 
+/// Vectorized multiplication of 4 GF(2^64) elements
+/// \param a[in]: vector of 4 GF(2^64) elements [a_0, ..., a_3]
+/// \param b[in]: vector of 4 GF(2^64) elements [b_0, ..., b_3]
+/// \return vector of element-wise products [a_0 * b_0, ..., a_3 * b_3]
+/// \note Uses the PCLMULQDQ instruction for carry-less multiplication
+/// \note Processes 4 multiplications in parallel using AVX2 and CLMUL instructions
 static inline
 __m256i gf2to64v_mul_u256_(const __m256i a,
                            const __m256i b) {
@@ -154,4 +175,105 @@ __m256i gf2to64v_mul_u256_(const __m256i a,
 }
 
 #endif
+
+#ifdef USE_NEON
+#include <arm_neon.h>
+
+#ifdef __ARM_FEATURE_CRYPTO
+/// TODO test
+/// Multiplication in GF(2^64) using ARM PMULL instruction
+/// \param a[in]: first factor
+/// \param b[in]: second factor
+/// \return a*b in GF(2^64)
+/// \note Uses PMULL instruction for carry-less multiplication
+/// \note Requires ARMv8 with Crypto extension
+static inline
+gf2to64 gf2to64v_mul_pmull(const gf2to64 a,
+                           const gf2to64 b) {
+    // Load values into NEON registers
+    uint64x1_t a_val = vdup_n_u64(a);
+    uint64x1_t b_val = vdup_n_u64(b);
+    uint64x1_t modulus_val = vdup_n_u64(MODULUS);
+    
+    // Perform carry-less multiplication using PMULL
+    poly128_t mul128 = vmull_p64((poly64_t)vget_lane_u64(a_val, 0), 
+                                (poly64_t)vget_lane_u64(b_val, 0));
+    
+    // Extract low and high 64-bit parts
+    uint64x2_t mul_result = vreinterpretq_u64_p128(mul128);
+    uint64_t mul_lo = vgetq_lane_u64(mul_result, 0);
+    uint64_t mul_hi = vgetq_lane_u64(mul_result, 1);
+    
+    // Reduce higher 64 bits using the modulus
+    poly128_t mul96 = vmull_p64((poly64_t)vget_lane_u64(modulus_val, 0), 
+                               (poly64_t)mul_hi);
+    
+    uint64x2_t mul96_result = vreinterpretq_u64_p128(mul96);
+    uint64_t mul96_lo = vgetq_lane_u64(mul96_result, 0);
+    uint64_t mul96_hi = vgetq_lane_u64(mul96_result, 1);
+    
+    // XOR with the original lower bits
+    uint64_t rem = mul_lo ^ mul96_lo;
+    
+    // Reduce the remaining higher bits
+    poly128_t mul64 = vmull_p64((poly64_t)vget_lane_u64(modulus_val, 0), 
+                               (poly64_t)mul96_hi);
+    
+    uint64x2_t mul64_result = vreinterpretq_u64_p128(mul64);
+    uint64_t mul64_lo = vgetq_lane_u64(mul64_result, 0);
+    
+    // Final reduction
+    rem = rem ^ mul64_lo;
+    
+    return rem;
+}
+
+/// Vectorized multiplication of 2 GF(2^64) elements using PMULL
+/// \param a[in]: vector of 2 GF(2^64) elements [a_0, a_1]
+/// \param b[in]: vector of 2 GF(2^64) elements [b_0, b_1]
+/// \return vector of element-wise products [a_0 * b_0, a_1 * b_1]
+/// \note Uses PMULL instruction for carry-less multiplication
+static inline
+uint64x2_t gf2to64v_mul_u128_pmull(const uint64x2_t a,
+                                  const uint64x2_t b) {
+    // Extract individual elements
+    uint64_t a0 = vgetq_lane_u64(a, 0);
+    uint64_t a1 = vgetq_lane_u64(a, 1);
+    uint64_t b0 = vgetq_lane_u64(b, 0);
+    uint64_t b1 = vgetq_lane_u64(b, 1);
+    
+    // Perform multiplications using PMULL
+    uint64_t r0 = gf2to64v_mul_pmull(a0, b0);
+    uint64_t r1 = gf2to64v_mul_pmull(a1, b1);
+    
+    // Create result vector
+    return vcombine_u64(vcreate_u64(r0), vcreate_u64(r1));
+}
+
+/// Vectorized multiplication of 4 GF(2^64) elements using PMULL
+/// \param a[in]: array of 4 GF(2^64) elements [a_0, ..., a_3]
+/// \param b[in]: array of 4 GF(2^64) elements [b_0, ..., b_3]
+/// \param result[out]: array to store 4 products [a_0*b_0, ..., a_3*b_3]
+/// \note Uses PMULL instruction for carry-less multiplication
+static inline
+void gf2to64v_mul_u256_pmull(const uint64_t a[4],
+                            const uint64_t b[4],
+                            uint64_t result[4]) {
+    // Process first two elements
+    uint64x2_t a_vec1 = vld1q_u64(&a[0]);
+    uint64x2_t b_vec1 = vld1q_u64(&b[0]);
+    uint64x2_t r_vec1 = gf2to64v_mul_u128_pmull(a_vec1, b_vec1);
+    
+    // Process next two elements
+    uint64x2_t a_vec2 = vld1q_u64(&a[2]);
+    uint64x2_t b_vec2 = vld1q_u64(&b[2]);
+    uint64x2_t r_vec2 = gf2to64v_mul_u128_pmull(a_vec2, b_vec2);
+    
+    // Store results
+    vst1q_u64(&result[0], r_vec1);
+    vst1q_u64(&result[2], r_vec2);
+}
+#endif // __ARM_FEATURE_CRYPTO
+
+#endif // USE_NEON
 
