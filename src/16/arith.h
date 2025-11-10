@@ -69,7 +69,7 @@ static inline ff_t gf16_add(const ff_t a,
 /// \return a-b in GF(16), which is the same as a+b (XOR) since we're in characteristic 2
 /// In characteristic 2 fields, addition and subtraction are identical operations
 static inline ff_t gf16_sub(const ff_t a,
-              const ff_t b) {
+                            const ff_t b) {
 	return a ^ b;
 }
 
