@@ -129,6 +129,16 @@ static inline void gf2to128v_expand_gf2_x8_u256(__m256i *out,
     out[3] = _mm256_bsrli_epi128(t52, 8);
 }
 
+/// llvm-mca
+///     Iterations:        100
+///     Instructions:      600
+///     Total Cycles:      210
+///     Total uOps:        800
+///     
+///     Dispatch Width:    4
+///     uOps Per Cycle:    3.81
+///     IPC:               2.86
+///     Block RThroughput: 2.0
 /// Expand 2 GF(2) elements into a 256-bit vector
 /// \param in[in]: Byte containing at least 2 GF(2) elements (bits)
 /// \return 256-bit vector with format [0, in_1, 0, in_0]
@@ -139,6 +149,41 @@ static inline __m256i gf2to128v_expand_gf2_x2_u256(const uint8_t in) {
     const __m256i t2 = _mm256_setr_epi64x(t1, 0, 0, 0);
     const __m256i t3 = _mm256_permutevar8x32_epi32(t2, mask);
     return t3;
+}
+
+/// llvm-mca
+///     Iterations:        100
+///     Instructions:      800
+///     Total Cycles:      309
+///     Total uOps:        1000
+///     
+///     Dispatch Width:    4
+///     uOps Per Cycle:    3.24
+///     IPC:               2.59
+///     Block RThroughput: 3.0
+static inline __m256i gf2to128v_expand_gf2_x2_u256_v2(const uint8_t x) {
+    const __m128i lo = _mm_cvtsi32_si128(x & 1);
+    const __m128i hi = _mm_cvtsi32_si128((x >> 1) & 1);
+    return _mm256_set_m128i(hi, lo);
+}
+
+/// llvm-mca:
+///     Iterations:        100
+///     Instructions:      700
+///     Total Cycles:      261
+///     Total uOps:        900
+///     
+///     Dispatch Width:    4
+///     uOps Per Cycle:    3.45
+///     IPC:               2.68
+///     Block RThroughput: 2.3
+static inline __m256i gf2to128v_expand_gf2_x2_u256_(const uint8_t in) {
+    const __m256i mask = _mm256_setr_epi32(0x0, 0x0, 0x0, 0x0, 0x1, 0x1, 0x1, 0x1);
+    const uint64_t t1 = _pdep_u64(in, 0x8000000080000000);
+    const __m256i t2 = _mm256_setr_epi64x(t1, 0, 0, 0);
+    const __m256i t3 = _mm256_permutevar8x32_epi32(t2, mask);
+    const __m256i t4 = _mm256_srai_epi32(t3, 32);
+    return t4;
 }
 
 /// Expand 1 GF(2) element into a GF(2^128) element

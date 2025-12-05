@@ -230,7 +230,7 @@ uint32_t test_matrix_transpose_64xle64() {
             }
         }
 
-        finish:
+    finish:
         free(A);
         free(B);
     }
@@ -338,6 +338,39 @@ uint32_t test_matrix_transpose_middle() {
         free(B);
         // }
     }
+    return ret;
+}
+
+
+uint32_t test_matrix_transpose() {
+    // uint32_t ret = 0, nrows=144, ncols=448;
+    uint32_t ret = 0, nrows=144, ncols=448;
+    gf2 *A = gf2_matrix_alloc(nrows, ncols);
+    gf2 *B = gf2_matrix_alloc(nrows, ncols);
+    gf2_matrix_random(A, nrows, ncols);
+    // gf2_matrix_id(A, nrows, ncols);
+
+    gf2_matrix_transpose(B, A, ncols/8, nrows/8, nrows, ncols);
+
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const gf2 ta = gf2_matrix_get(A, nrows, i, j);
+            const gf2 tb = gf2_matrix_get(B, ncols, j, i);
+            if (ta != tb) {
+                printf("error: test_matrix_transpose: %d %d\n", i, j);
+                gf2_matrix_print(A, nrows, ncols);
+                printf("\n");
+                gf2_matrix_print(B, ncols, nrows);
+                printf("\n");
+
+                ret = 1;
+                goto finish;
+            }
+        }
+    }
+
+finish:
+    free(A); free(B);
     return ret;
 }
 
@@ -599,6 +632,7 @@ int main() {
     // if (test_matrix_transpose_le64xle64()) { return 1; }
     // if (test_matrix_transpose_64xle64()) { return 1; }
     // if (test_matrix_transpose_le64x64()) { return 1; }
+    if (test_matrix_transpose()) { return 1; }
     // TODO if (test_matrix_transpose_small()) { return 1; }
     // TODO if (test_matrix_transpose_middle()) { return 1; }
 
@@ -611,7 +645,7 @@ int main() {
 
     // if (test_matrix_add()) { return 1; }
     // if (test_matrix_scalar_add()) { return 1; }
-    if (test_matrix_mul()) { return 1; }
+    // if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all done!\n");

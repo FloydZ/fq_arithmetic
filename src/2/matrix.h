@@ -153,7 +153,7 @@ static inline void gf2_matrix_random(gf2 *matrix,
     const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t i = 0; i < n_cols; i++) {
         for (uint32_t j = 0; j < p; j++) {
-            matrix[i*p + j] = rand() &0x1F;
+            matrix[i*p + j] = rand();
         }
     }
 }
@@ -1049,12 +1049,16 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
     /// Therefore, wk starts at the first row and then has rowstride
     /// added j times, running over the rows of A, then skips C
 
-    const uint32_t rowstride_dst = (_rowstride_dst + 7)/8;
-    const uint32_t rowstride_src = (_rowstride_src + 7)/8;
-    uint64_t m               = (uint64_t)0xFFFFFFFF;
-    uint32_t j_rowstride_dst = rowstride_dst * 64;
-    uint32_t j_rowstride_src = rowstride_src * 32;
+    // const uint32_t rowstride_dst = (_rowstride_dst + 7)/8;
+    // const uint32_t rowstride_src = (_rowstride_src + 7)/8;
+    // uint32_t j_rowstride_dst = rowstride_dst * 64;
+    // uint32_t j_rowstride_src = rowstride_src * 32;
+    const uint32_t rowstride_dst = _rowstride_dst;
+    const uint32_t rowstride_src = _rowstride_src;
+    uint32_t j_rowstride_dst = rowstride_dst * 8;
+    uint32_t j_rowstride_src = rowstride_src * 4;
     uint64_t *const end      = ((uint64_t *)(dst)) + j_rowstride_dst;
+    uint64_t m               = 0xFFFFFFFF;
     // We start with j = 32, and a one-time unrolled loop, where
     // we copy from src and write the result to dst, swapping
     // the two 32x32 corner matrices.
@@ -1450,6 +1454,131 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
         wk += rowstride_dst;
     }
 }
+
+
+
+///  taken from hackers delight
+void gf2_matrix_tranpose_8x8(uint8_t *b,
+                             const uint8_t *a,
+                             const uint64_t dst_stride,
+                             const uint64_t src_stride) {
+    uint32_t x = (uint32_t)a[7*src_stride]<<24 | (uint32_t)a[6*src_stride]<<16 | (uint32_t)a[5*src_stride]<<8 | ((uint32_t)a[4*src_stride])<<0;
+    uint32_t y = (uint32_t)a[3*src_stride]<<24 | (uint32_t)a[2*src_stride]<<16 | (uint32_t)a[1*src_stride]<<8 | ((uint32_t)a[0*src_stride])<<0;
+
+    uint32_t t = (x ^ (x >> 7)) & 0x00AA00AA;  x = x ^ t ^ (t << 7);
+    t = (y ^ (y >> 7)) & 0x00AA00AA;  y = y ^ t ^ (t << 7);
+
+    t = (x ^ (x >>14)) & 0x0000CCCC;  x = x ^ t ^ (t <<14);
+    t = (y ^ (y >>14)) & 0x0000CCCC;  y = y ^ t ^ (t <<14);
+
+    t = (x & 0xF0F0F0F0) | ((y >> 4) & 0x0F0F0F0F);
+    y = ((x << 4) & 0xF0F0F0F0) | (y & 0x0F0F0F0F);
+    x = t;
+
+    b[7*dst_stride]=x>>24; b[6*dst_stride]=x>>16; b[5*dst_stride]=x>>8; b[4*dst_stride]=x;
+    b[3*dst_stride]=y>>24; b[2*dst_stride]=y>>16; b[1*dst_stride]=y>>8; b[0*dst_stride]=y;
+}
+
+#define REVERSE_BYTE(b) (((uint64_t)b * 0x80200802ULL) & 0x0884422110ULL) * 0x0101010101ULL >> 32
+
+/// \param a[in,out]: Array of 64 uint64_t values representing a 64x64 bit matrix
+void gf2_matrix_transpose_64x64_inplace(uint64_t a[64]) {
+    for (uint64_t j = 32, m = 0x00000000FFFFFFFF; j; j >>= 1, m ^= m << j) {
+        for (uint64_t k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+            const uint64_t t = (a[k] ^ (a[k | j] >> j)) & m;
+            a[k] ^= t;
+            a[k | j] ^= (t << j);
+        }
+    }
+}
+void gf2_matrix_transpose_64x64_(uint8_t *a,
+                                 const uint8_t *b,
+                                 const uint64_t dst_stride,
+                                 const uint64_t src_stride) {
+    for (uint64_t j = 32, m = 0x00000000FFFFFFFF; j; j >>= 1, m ^= m << j) {
+        for (uint64_t k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+            const uint64_t s1 = *(uint64_t *)(b +  k     *src_stride);
+            const uint64_t s2 = *(uint64_t *)(b + (k | j)*src_stride);
+            const uint64_t t = (s1 ^ (s2 >> j)) & m;
+            *(uint64_t *)(a +  k     *dst_stride) ^= t;
+            *(uint64_t *)(a + (k | j)*dst_stride) ^= t<<j;
+        }
+        b = a;
+    }
+}
+
+void gf2_matrix_transpose_64x64_v3(uint8_t *a,
+                                   const uint8_t *b,
+                                   const uint64_t dst_stride,
+                                   uint64_t src_stride) {
+    const uint64_t mask[6][2] = {
+        {0X5555555555555555, 0XAAAAAAAAAAAAAAAA},
+        {0X3333333333333333, 0XCCCCCCCCCCCCCCCC},
+        {0X0F0F0F0F0F0F0F0F, 0XF0F0F0F0F0F0F0F0},
+        {0X00FF00FF00FF00FF, 0XFF00FF00FF00FF00},
+        {0X0000FFFF0000FFFF, 0XFFFF0000FFFF0000},
+        {0X00000000FFFFFFFF, 0XFFFFFFFF00000000}
+    };
+
+    for (int64_t j = 5; j >= 0; j--) {
+        const uint64_t s = 1 << j;
+        for (uint64_t p = 0; p < 32/s; p++) {
+            for (uint64_t i = 0; i < s; i++) {
+                const uint64_t idx0 = p*2*s + i;
+                const uint64_t idx1 = p*2*s + i + s;
+                const uint64_t in0 = *(uint64_t *)(b + idx0 * src_stride);
+                const uint64_t in1 = *(uint64_t *)(b + idx1 * src_stride);
+                const uint64_t x =  (in0 & mask[j][0])       | ((in1 & mask[j][0]) << s);
+                const uint64_t y = ((in0 & mask[j][1]) >> s) |  (in1 & mask[j][1]);
+                *(uint64_t *)(a + idx0*dst_stride) = x;
+                *(uint64_t *)(a + idx1*dst_stride) = y;
+            }
+        }
+
+        b = a;
+        src_stride = dst_stride;
+    }
+}
+
+static inline void gf2_matrix_transpose(uint8_t *__restrict__ dst,
+                                        uint8_t const *__restrict__ src,
+                                        const uint32_t dst_stride,
+                                        const uint32_t src_stride,
+                                        const uint32_t nrows,
+                                        const uint32_t ncols) {
+    const size_t bsize = 64;
+    uint64_t rb = 0;
+    for (; rb < nrows / bsize; rb++) {
+        for (uint64_t cb = 0; cb < ncols / bsize; cb++) {
+            const uint8_t* src_origin = src + (8*cb*src_stride+rb)*(bsize/8);
+            uint8_t*       dst_origin = dst + (8*rb*dst_stride+cb)*(bsize/8);
+            gf2_matrix_transpose_64x64_v3(dst_origin, src_origin, dst_stride, src_stride);
+        }
+    }
+
+    if (nrows % bsize) {
+        for(uint32_t j = rb*bsize; j + 8 <= nrows; j+=8) {
+            for (uint32_t i = 0; i+8 <= ncols; i+=8) {
+                const uint8_t* src_origin = src + i * src_stride + j/8;
+                uint8_t*       dst_origin = dst + j * dst_stride + i/8;
+
+                gf2_matrix_tranpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
+            }
+        }
+    }
+
+    if (ncols % bsize) {
+        for(uint32_t j = (ncols/bsize)*bsize; j + 8 <= ncols; j+=8) {
+            for (uint32_t i = 0; i+8 <= nrows; i+=8) {
+                const uint8_t* src_origin = src + j * src_stride + i/8;
+                uint8_t*       dst_origin = dst + i * dst_stride + j/8;
+
+                gf2_matrix_tranpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
+            }
+        }
+    }
+}
+
 ///
 /// \param fwd
 /// \param fws
