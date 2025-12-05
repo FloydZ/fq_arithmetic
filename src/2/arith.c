@@ -583,9 +583,9 @@ finish:
 }
 
 uint32_t test_matrix_mul() {
-    const uint32_t nrows1 = 33; //321
-    const uint32_t ncols1 = 4; //1443
-    const uint32_t ncols2 = 38;
+    const uint32_t nrows1 = 144; //321
+    const uint32_t ncols1 = 448; //1443
+    const uint32_t ncols2 = 128;
     uint32_t ret= 0;
 
     gf2 *A  = gf2_matrix_alloc(nrows1, ncols1);
@@ -597,7 +597,8 @@ uint32_t test_matrix_mul() {
     gf2_matrix_random(B, ncols1, ncols2);
 
     gf2_matrix_mul(C1, A, B, nrows1, ncols1, ncols2);
-    gf2_matrix_mul_u256(C2, A, B, nrows1, ncols1, ncols2);
+    // gf2_matrix_mul_u256(C2, A, B, nrows1, ncols1, ncols2);
+    gf2_matrix_mul_transpose(C2, A, B, nrows1, ncols1, ncols2);
 
     for (uint32_t i = 0; i < nrows1; i++) {
         for (uint32_t j = 0; j < ncols2; j++) {
@@ -632,7 +633,7 @@ int main() {
     // if (test_matrix_transpose_le64xle64()) { return 1; }
     // if (test_matrix_transpose_64xle64()) { return 1; }
     // if (test_matrix_transpose_le64x64()) { return 1; }
-    if (test_matrix_transpose()) { return 1; }
+    // if (test_matrix_transpose()) { return 1; }
     // TODO if (test_matrix_transpose_small()) { return 1; }
     // TODO if (test_matrix_transpose_middle()) { return 1; }
 
@@ -645,7 +646,7 @@ int main() {
 
     // if (test_matrix_add()) { return 1; }
     // if (test_matrix_scalar_add()) { return 1; }
-    // if (test_matrix_mul()) { return 1; }
+    if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all done!\n");

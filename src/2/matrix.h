@@ -91,6 +91,17 @@ static inline uint64_t gf2_read8rows(const uint8_t *ptr,
 }
 
 
+static inline void gf2_write8rows(uint8_t *ptr,
+                                  const uint64_t data,
+                                  const uint32_t len) {
+    uint64_t t = data;
+    for (uint32_t i = 0; i < len; i++) {
+        ptr[i] = t;
+        t >>= 8;
+    }
+}
+
+
 /// \return a new matrix
 static inline gf2* gf2_matrix_alloc(const uint32_t n_rows, 
                                     const uint32_t n_cols) {
@@ -483,7 +494,7 @@ static inline void gf2_matrix_mul_u256_Axle8xC(gf2 *result,
     for (uint32_t colA = 0; colA < n_cols1; colA++) {
         const uint8_t *m1 = matrix1 + (colA*bytes_per_col);
         // load up to 8 columns
-        uint64_t a = gf2_read8rows(m1, bytes_per_col);
+        const uint64_t a = gf2_read8rows(m1, bytes_per_col);
         // iterate over all columns in B
         for (uint32_t col = 0; col < n_cols2; col++) {
             const uint64_t b1 = (matrix2[col]>>colA) & 1u;
@@ -1491,6 +1502,7 @@ void gf2_matrix_transpose_64x64_inplace(uint64_t a[64]) {
         }
     }
 }
+
 void gf2_matrix_transpose_64x64_(uint8_t *a,
                                  const uint8_t *b,
                                  const uint64_t dst_stride,
@@ -1707,3 +1719,53 @@ void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
     gf2_matrix_transpose_small(fwd, fws, rowstride_dst, rowstride_src, nrows, ncols, maxsize2);
 }
 
+void gf2_matrix_mul_transpose(uint8_t *c,
+                              const uint8_t *a,
+                              const uint8_t *b,
+                              const uint64_t nrows1,
+                              const uint64_t ncols1,
+                              const uint64_t ncols2) {
+    uint8_t aT[1u<<15] __attribute__((aligned(32)));
+    gf2_matrix_transpose(aT, a, ncols1/8, nrows1/8, nrows1, ncols1);
+    const uint64_t bsize = 64;
+    const uint64_t bbyte = bsize / 8;
+
+    const uint64_t a_stride = (ncols1+7) / 8;
+    const uint64_t b_stride = (ncols1+7) / 8;
+    const uint64_t c_stride = (nrows1+7) / 8;
+
+    // iterate over the cols of B
+    for (uint64_t k = 0; k < ncols2; k += 1) {
+        uint64_t cs = 0;
+        // iterate over the rows of A = cols of AT
+        for (uint64_t i = 0; i < nrows1; i += 1) {
+            uint64_t acc = 0;
+            uint64_t j = 0;
+            for (; j+bbyte <= ncols1/8; j += bbyte) {
+                const uint64_t A = *(uint64_t *)(aT + i*a_stride + j);
+                const uint64_t B = *(uint64_t *)(b  + k*b_stride + j);
+                acc ^= A & B;
+            }
+
+            // tail mngt.
+            for (; j < ncols1/8; j += 1) {
+                const uint8_t A = aT[i*a_stride + j];
+                const uint8_t B = b [k*b_stride + j];
+                acc ^= A & B;
+            }
+
+            acc = __builtin_popcountll(acc) & 1;
+            cs ^= acc << (i % bsize);
+            if (i % bsize == 0x3f) {
+                *(uint64_t *)(c + k*c_stride + (i-63)/8) = cs;
+                cs = 0;
+            }
+        }
+
+        // tail mngt.
+        if (nrows1 % bsize) {
+            const uint64_t off = bbyte * (nrows1 / bsize);
+            gf2_write8rows(c + k*c_stride + off, cs, nrows1 / bsize);
+        }
+    }
+}
