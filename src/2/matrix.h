@@ -90,7 +90,9 @@ static inline uint64_t gf2_read8rows(const uint8_t *ptr,
     return t;
 }
 
-
+/// \param ptr
+/// \param data
+/// \param len how many bytes to write
 static inline void gf2_write8rows(uint8_t *ptr,
                                   const uint64_t data,
                                   const uint32_t len) {
@@ -1569,23 +1571,54 @@ static inline void gf2_matrix_transpose(uint8_t *__restrict__ dst,
     }
 
     if (nrows % bsize) {
-        for(uint32_t j = rb*bsize; j + 8 <= nrows; j+=8) {
-            for (uint32_t i = 0; i+8 <= ncols; i+=8) {
+        uint32_t j = rb*bsize;
+        for(; j + 8 <= nrows; j+=8) {
+            uint32_t i = 0;
+            for (; i+8 <= ncols; i+=8) {
                 const uint8_t* src_origin = src + i * src_stride + j/8;
                 uint8_t*       dst_origin = dst + j * dst_stride + i/8;
 
                 gf2_matrix_tranpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
             }
+
+            for (; i < ncols; i++) {
+                for (uint32_t k = 0; k < 8; k++) {
+                    const uint8_t t = gf2_matrix_get(src, nrows, j+k, i);
+                    gf2_matrix_set(dst, ncols, i, j+k, t);
+                }
+            }
+        }
+
+        for(; j < nrows; j++) {
+            for (uint32_t i = 0; i < ncols; i++) {
+                const uint8_t t = gf2_matrix_get(src, nrows, j, i);
+                gf2_matrix_set(dst, ncols, i, j, t);
+            }
         }
     }
 
     if (ncols % bsize) {
-        for(uint32_t j = (ncols/bsize)*bsize; j + 8 <= ncols; j+=8) {
-            for (uint32_t i = 0; i+8 <= nrows; i+=8) {
+        uint32_t j = (ncols/bsize)*bsize;
+        for(; j + 8 <= ncols; j+=8) {
+            uint32_t i = 0;
+            for (; i+8 <= nrows; i+=8) {
                 const uint8_t* src_origin = src + j * src_stride + i/8;
                 uint8_t*       dst_origin = dst + i * dst_stride + j/8;
 
                 gf2_matrix_tranpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
+            }
+
+            for (; i < nrows; i++) {
+                for (uint32_t k = 0; k < 8; k++) {
+                    const uint8_t t = gf2_matrix_get(src, nrows, i, i+k);
+                    gf2_matrix_set(dst, ncols, j, i+k, t);
+                }
+            }
+        }
+        for(; j < ncols; j++) {
+            for (uint32_t i = 0; i < nrows; i++) {
+                const uint8_t t = gf2_matrix_get(src, nrows, i, j);
+                gf2_matrix_set(dst, ncols, j, i, t);
             }
         }
     }
@@ -1726,7 +1759,8 @@ void gf2_matrix_mul_transpose(uint8_t *c,
                               const uint64_t ncols1,
                               const uint64_t ncols2) {
     uint8_t aT[1u<<15] __attribute__((aligned(32)));
-    gf2_matrix_transpose(aT, a, ncols1/8, nrows1/8, nrows1, ncols1);
+    gf2_matrix_transpose(aT, a, (ncols1+7)/8, (nrows1+7)/8, nrows1, ncols1);
+
     const uint64_t bsize = 64;
     const uint64_t bbyte = bsize / 8;
 
@@ -1748,12 +1782,13 @@ void gf2_matrix_mul_transpose(uint8_t *c,
             }
 
             // tail mngt.
-            for (; j < ncols1/8; j += 1) {
+            for (; j < (ncols1+7)/8; j += 1) {
                 const uint8_t A = aT[i*a_stride + j];
                 const uint8_t B = b [k*b_stride + j];
                 acc ^= A & B;
             }
 
+            // after accumulating 64 bits write them
             acc = __builtin_popcountll(acc) & 1;
             cs ^= acc << (i % bsize);
             if (i % bsize == 0x3f) {
@@ -1764,8 +1799,9 @@ void gf2_matrix_mul_transpose(uint8_t *c,
 
         // tail mngt.
         if (nrows1 % bsize) {
+            const uint32_t bytes = ((nrows1 % bsize)+7) / 8;
             const uint64_t off = bbyte * (nrows1 / bsize);
-            gf2_write8rows(c + k*c_stride + off, cs, nrows1 / bsize);
+            gf2_write8rows(c + k*c_stride + off, cs, bytes);
         }
     }
 }

@@ -912,7 +912,7 @@ __m128i gf256v_mul_u128(const __m128i a,
 static inline __m256i gf256v_mul_u256_v2(const __m256i a_,
                                          const __m256i b) {
 #ifdef __AVX512VL__
-    return _mm256_gf2p8mul_epi8(a, b);
+    return _mm256_gf2p8mul_epi8(a_, b);
 #endif
     const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
     const __m256i zero      = _mm256_set1_epi8(0x00);

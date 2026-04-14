@@ -583,9 +583,9 @@ finish:
 }
 
 uint32_t test_matrix_mul() {
-    const uint32_t nrows1 = 144; //321
-    const uint32_t ncols1 = 448; //1443
-    const uint32_t ncols2 = 128;
+    const uint32_t nrows1 = 272; // 144; // 321
+    const uint32_t ncols1 = 892; // 448; //1443
+    const uint32_t ncols2 = 256; // 128;
     uint32_t ret= 0;
 
     gf2 *A  = gf2_matrix_alloc(nrows1, ncols1);

@@ -360,7 +360,6 @@ __m256i gf2to192v_mul_u256(const __m256i a,
     const __m128i ab0 = _mm256_castsi256_si128(t1);
     const __m128i ab1 = _mm256_castsi256_si128(t2);
     const __m128i ab2 = _mm256_extracti128_si256(t1, 1);
-    const __m128i ab3 = _mm256_extracti128_si256(t2, 1);
     const __m128i modulus = _mm_set_epi64x(MODULUS, MODULUS);
 
     /* here we implement a Karatsuba-like approach for multiplying 3-limb numbers.
@@ -475,8 +474,7 @@ void gf2to192v_mul_u256_(gf2to192 r,
        where d = c and di < B^2 */
     __m128i d0 = _mm_xor_si128(c0, _mm_slli_si128(c1, 8));
     __m128i d2 = _mm_xor_si128(c4, _mm_srli_si128(c3, 8));
-    __m128i d1 = _mm_xor_si128(_mm_xor_si128(c2, _mm_srli_si128(c1, 8)),
-                                _mm_slli_si128(c3, 8));
+    __m128i d1 = _mm_xor_si128(_mm_xor_si128(c2, _mm_srli_si128(c1, 8)), _mm_slli_si128(c3, 8));
 
     /* done with the multiplication, time to reduce */
 

@@ -340,7 +340,7 @@ static inline __m128i gf16v_mul_u128(const __m128i a,
 /// \note Processes 64 GF(16) multiplications in parallel using AVX2 instructions
 static inline __m256i gf16v_mul_u256(const __m256i a,
                                      const __m256i b) {
-    const __m256i mask_lvl2 = _mm256_load_si256((__m256i const *) (__gf16_mulbase +   32));
+    const __m256i mask_lvl2 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*1));
     const __m256i mask_lvl3 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*2));
     const __m256i mask_lvl4 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*3));
     const __m256i zero = _mm256_setzero_si256();

@@ -64,15 +64,15 @@ static inline gf16to3 gf16to3_mul(const gf16to3 a,
     const gf16 p1 = gf16_mul(a1, b1);
     const gf16 p2 = gf16_mul(a2, b2);
 
-    const ff_t a01 = gf16_add(a0, a1);
-    const ff_t a12 = gf16_add(a1, a2);
-    const ff_t a02 = gf16_add(a0, a2);
-    const ff_t b01 = gf16_add(b0, b1);
-    const ff_t b12 = gf16_add(b1, b2);
-    const ff_t b02 = gf16_add(b0, b2);
-    const ff_t p01 = gf16_mul(a01, b01);
-    const ff_t p12 = gf16_mul(a12, b12);
-    const ff_t p02 = gf16_mul(a02, b02);
+    const gf16 a01 = gf16_add(a0, a1);
+    const gf16 a12 = gf16_add(a1, a2);
+    const gf16 a02 = gf16_add(a0, a2);
+    const gf16 b01 = gf16_add(b0, b1);
+    const gf16 b12 = gf16_add(b1, b2);
+    const gf16 b02 = gf16_add(b0, b2);
+    const gf16 p01 = gf16_mul(a01, b01);
+    const gf16 p12 = gf16_mul(a12, b12);
+    const gf16 p02 = gf16_mul(a02, b02);
 
     r = gf16_add(p1, p2);
     r = gf16_add(r, p12);
