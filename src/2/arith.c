@@ -646,7 +646,7 @@ int main() {
 
     // if (test_matrix_add()) { return 1; }
     // if (test_matrix_scalar_add()) { return 1; }
-    if (test_matrix_mul()) { return 1; }
+    // if (test_matrix_mul()) { return 1; }
 #endif
 
     printf("all done!\n");

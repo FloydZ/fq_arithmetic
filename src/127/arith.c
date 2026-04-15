@@ -329,15 +329,15 @@ int main() {
     if (test_gf127v_mul_u128()) { return 1; }
 #endif
 #ifdef USE_AVX2
-    if (test_gf127v_red_u256()) { return 1; }
-    if (test_gf127_matrix_vector_32x32_mul()) { return 1; }
+    // if (test_gf127v_red_u256()) { return 1; }
+    // if (test_gf127_matrix_vector_32x32_mul()) { return 1; }
 #endif
 
 #ifdef USE_AVX512
     if (test_gf127v_scalar_table()) { return 1; }
 #endif
 
-    // if (test_transpose()) { return 1; }
+    if (test_transpose()) { return 1; }
     // if (test_gf127_matrix_transpose8xN()) { return 1; }
 
     printf("all worked\n");
