@@ -387,7 +387,7 @@ static inline void gf2to12_vector_scalar_add_gf2_u256(gf2to12 *__restrict__ out,
     uint32_t i = d;
     const uint16_t aa = (-a) & 0xFFF;
     const __m256i a256 = _mm256_set1_epi16(aa);
-    const __m128i a128 = _mm_set1_epi16(aa);
+    // const __m128i a128 = _mm_set1_epi16(aa);
 
     // avx2 code
     while (i >= 16u) {

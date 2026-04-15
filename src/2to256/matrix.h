@@ -394,7 +394,6 @@ void gf2to256_matrix_add_gf2_u256(gf2to256 *matrix1,
 
     const uint32_t gf2_col_bytes = gf2_matrix_bytes_per_column(n_rows);
     __m256i buffer[8];
-    gf2to256 *buffer2 = (gf2to256 *)buffer;
     for (uint32_t col = 0; col < n_cols; ++col) {
         uint32_t i = n_rows;
 

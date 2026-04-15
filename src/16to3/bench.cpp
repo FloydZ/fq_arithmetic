@@ -17,16 +17,16 @@ static void BM_gf16to3_mul(benchmark::State& state) {
     }
 }
 
-static void BM_gf16to3v_mul(benchmark::State& state) {
-    uint64_t a = 1;
-    uint64_t b = 2;
-    for (auto _ : state) {
-        a = gf16to3v_mul(a, b);
-        a += 1;
-        b += 1;
-        benchmark::DoNotOptimize(a);
-    }
-}
+//static void BM_gf16to3v_mul(benchmark::State& state) {
+//    uint64_t a = 1;
+//    uint64_t b = 2;
+//    for (auto _ : state) {
+//        a = gf16to3v_mul(a, b);
+//        a += 1;
+//        b += 1;
+//        benchmark::DoNotOptimize(a);
+//    }
+//}
 
 static void BM_gf16to3_matrix_mul(benchmark::State& state) {
     const uint32_t nrows = 32, ncols = 6, ncols2 = 16;
@@ -302,6 +302,5 @@ BENCHMARK(BM_gf16to3_vector_extend_gf16_x8);
 // BENCHMARK(BM_gf16to3_matrix_mul_gf16);
 // BENCHMARK(BM_gf16to3_matrix_add_multiple_2);
 // BENCHMARK(BM_gf16to3_matrix_add_multiple_3);
-// TODO BENCHMARK(BM_gf16to3v_mul);
 BENCHMARK_MAIN();
 

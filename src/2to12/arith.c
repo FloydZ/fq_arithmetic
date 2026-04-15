@@ -196,7 +196,6 @@ uint32_t test_vector_set_to_gf2() {
 
     gf2_vector_random(v1, N);
 
-    gf2to12 t = 1;
     gf2to12_vector_set_to_gf2(v2, v1, N);
     gf2to12_vector_set_to_gf2_u256(v3, v1, N);
 

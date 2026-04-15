@@ -215,12 +215,8 @@ __m256i gf127v_add_u256_v2(const __m256i a,
 /// NOTE: assumes that each gf127 element is in a single uint8_t
 __m256i gf127v_mul_u256(const __m256i a,
                         const __m256i b) {
-    __m256i a_lo, b_lo, a_hi, b_hi, t, r;
+    __m256i a_lo, b_lo, a_hi, b_hi;
     __m128i tmp;
-
-    const __m256i shuffle = _mm256_load_si256((const __m256i *)shuff_low_half),
-                  c8_127 = _mm256_set1_epi8(127), 
-                  c8_1 = _mm256_set1_epi8(1);
 
     tmp = _mm256_extracti128_si256(a, 0);
     a_lo = _mm256_cvtepu8_epi16(tmp);

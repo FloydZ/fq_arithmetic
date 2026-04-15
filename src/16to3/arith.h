@@ -88,16 +88,16 @@ static inline gf16to3 gf16to3_mul(const gf16to3 a,
     return r;
 }
 
-static inline gf16to3 gf16to3v_mul(const uint64_t a,
-                                   const uint64_t b) {
-    const uint64_t m0 = 0x00F00F00F00F, m1 = 0x0F00F00F00F0,
-                   m2 = 0xF00F00F00F00;
-    uint64_t r;
-
-    // TODO
-
-    return r;
-}
+//static inline gf16to3 gf16to3v_mul(const uint64_t a,
+//                                   const uint64_t b) {
+//    const uint64_t m0 = 0x00F00F00F00F, m1 = 0x0F00F00F00F0,
+//                   m2 = 0xF00F00F00F00;
+//    uint64_t r;
+//
+//    // TODO
+//
+//    return r;
+//}
 
 
 #ifdef USE_AVX2

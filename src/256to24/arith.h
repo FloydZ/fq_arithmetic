@@ -94,11 +94,11 @@ static inline void gf256to24_mul(gf256to24 res,
 #ifdef USE_AVX2
 static inline __m256i gf256to24v_mul(const __m256i a,
                                      const __m256i b) {
-    const __m256i pi = a ^ b;
+    // const __m256i pi = a ^ b;
     const __m256i a0i = a ^ _mm256_permute4x64_epi64(a, 0b00010000);
     const __m256i b0i = b ^ _mm256_permute4x64_epi64(b, 0b00010000);
     const __m256i p0i = gf256to8v_mul_u256(a0i, b0i);
-    return pi;
+    return p0i;
 }
 #endif
 

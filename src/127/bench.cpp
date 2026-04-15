@@ -193,11 +193,11 @@ static void BM_gf127v_add_u256_v2(benchmark::State& state) {
 BENCHMARK(BM_gf127v_add_u256);
 BENCHMARK(BM_gf127v_add_u256_v2);
 
-// BENCHMARK(BM_gf127v_mul_u256);
-// BENCHMARK(BM_gf127v_mul_u256_v2);
+BENCHMARK(BM_gf127v_mul_u256);
+BENCHMARK(BM_gf127v_mul_u256_v2);
 
-// BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
-// BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
+BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
+BENCHMARK(BM_gf127_matrix_transpose_opt_avx2)->DenseRange(64, 512, 64);
 #endif
 
 #ifdef USE_AVX512 
@@ -229,8 +229,6 @@ BENCHMARK(BM_gf127v_scalar_u512);
 
 #endif
 
-// BENCHMARK(BM_gf127_matrix_transpose)->DenseRange(64, 512, 64);
-// BENCHMARK(BM_gf127_matrix_transpose_opt)->DenseRange(64, 512, 64);
-
-
+BENCHMARK(BM_gf127_matrix_transpose)->DenseRange(64, 512, 64);
+BENCHMARK(BM_gf127_matrix_transpose_opt)->DenseRange(64, 512, 64);
 BENCHMARK_MAIN();

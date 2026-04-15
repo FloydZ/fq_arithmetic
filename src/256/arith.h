@@ -837,7 +837,7 @@ uint32_t gf256v_hadd_u32_u256(const __m256i in) {
 /// \return [a_0*a_0 mod 256, ..., a_31*a_31 mod 256]
 static inline
 __m256i gf256v_sqr_u256(const __m256i a) {
-#ifdef __AVX512VL__
+#ifdef __
     return _mm256_gf2p8mul_epi8(a,a);
 #else
 	const __m256i m1  = _mm256_set1_epi8(0x01);
@@ -911,7 +911,7 @@ __m128i gf256v_mul_u128(const __m128i a,
 /// \return [a_0 * b_0 mod 256, ..., a_31*b_31 mod 256]
 static inline __m256i gf256v_mul_u256_v2(const __m256i a_,
                                          const __m256i b) {
-#ifdef __AVX512VL__
+#ifdef USE_AVX512
     return _mm256_gf2p8mul_epi8(a_, b);
 #endif
     const __m256i mask_msb  = _mm256_set1_epi8((char)0x80);
@@ -1304,24 +1304,24 @@ void gf256v_generate_multab_le16_u256(__m256i *multabs,
 }
 
 /// NOTE: ncols1 <= 16
-static inline
-void gf256mat_prod_small_avx2(uint8_t *c, 
-                              const uint8_t *a,
-                              const uint8_t *b,
-                              const uint32_t nrows1,
-                              const uint32_t ncols1,
-                              const uint32_t ncols2) {
-    __m256i multabs[16];
-    for(uint32_t i = 0; i < ncols2; i++) {
-        const __m128i x = (ncols1 == 16u) ?
-                            _mm_loadu_si128((const __m128i*)(b+i)) : 
-                            _load_xmm((b+i), ncols1);
-        for (uint32_t j = 0; j < ncols1; j++) {
-            // TODO
-        
-        }
-	}
-}
+//static inline
+//void gf256mat_prod_small_avx2(uint8_t *c, 
+//                              const uint8_t *a,
+//                              const uint8_t *b,
+//                              const uint32_t nrows1,
+//                              const uint32_t ncols1,
+//                              const uint32_t ncols2) {
+//    __m256i multabs[16];
+//    for(uint32_t i = 0; i < ncols2; i++) {
+//        const __m128i x = (ncols1 == 16u) ?
+//                            _mm_loadu_si128((const __m128i*)(b+i)) : 
+//                            _load_xmm((b+i), ncols1);
+//        for (uint32_t j = 0; j < ncols1; j++) {
+//            // TODO
+//        
+//        }
+//	}
+//}
 
 #elif defined(USE_NEON)
 

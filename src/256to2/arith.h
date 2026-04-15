@@ -81,8 +81,7 @@ static inline uint64_t gf256to2v_sub(const uint64_t a,
 }
 
 static inline uint64_t gf256to2v_add_gf256(const uint64_t a,
-                            const uint8_t b) {
-    uint64_t b_ = ((uint64_t)b) -1ull;
+                                           const uint8_t b) {
     return a^b;
 }
 
@@ -297,7 +296,7 @@ static inline void gf256to2_vector_add_scalar_u256(gf256to2 *out,
 }
 #endif // USE_AVX2
 
-#ifdef __AVX512F__
+#ifdef USE_AVX512
 /// full multiplication: every 16bit limb is multiplied
 /// \param a input
 /// \param b input

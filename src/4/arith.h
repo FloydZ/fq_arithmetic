@@ -120,7 +120,6 @@ __m256i gf4v_mul_u256(const __m256i a,
 static inline
 __m256i gf4v_scalar_u256(const __m256i a,
 						 const uint8_t b) {
-	const __m256i m0 = _mm256_set1_epi8(0x55);
 	const __m256i m1 = _mm256_set1_epi8(0xaa);
 	const __m256i s0 = _mm256_set1_epi16(gf4_mult_table[b*2 + 0]);
 	const __m256i s1 = _mm256_set1_epi16(gf4_mult_table[b*2 + 1]);

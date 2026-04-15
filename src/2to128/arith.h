@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../2/arith.h"
 
@@ -313,8 +314,10 @@ gf2to128 gf2to128_mul_u128_slow(const gf2to128 a,
 
 		tmp[i-2] ^= s;
 	}
-
-	return *((gf2to128*)tmp);
+    
+    gf2to128 ret;
+    memcpy((void *)&ret, (void *)tmp, 16);
+	return ret;
 }
 
 

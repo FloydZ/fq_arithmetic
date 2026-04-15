@@ -180,7 +180,6 @@ static inline void gf2_matrix_rng_full_rank(gf2 *matrix,
                                             const uint32_t nrows,
                                             const uint32_t ncols,
                                             const uint32_t padded) {
-    const uint32_t p = gf2_matrix_bytes_per_column(nrows);
     for (uint32_t i = 0; i < ncols; i++) {
         for (uint32_t j = 0; j < nrows; j++) {
             gf2_matrix_set(matrix, nrows, i, j, i==j);
@@ -818,7 +817,7 @@ void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
     uint8_t const *__restrict__ wks  = src;
     uint64_t w                   = *wks;
     int shift                    = 0;
-    for (uint32_t i = 1; i < n; ++i) {
+    for (int i = 1; i < n; ++i) {
         wks += rowstride_src;
     	const uint8_t t1 = *wks;
     	const uint64_t t2 = t1;
@@ -989,7 +988,7 @@ static inline void gf2_matrix_transpose_le32xle32(uint8_t *__restrict__ dst,
       wks += rowstride_src;
     } while (--i);
   } else {
-    uint32_t j = 0;
+    int j = 0;
     for (; j < n; ++j) {
       t[j] = *wks;
       wks += rowstride_src;
@@ -1206,7 +1205,7 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *__restrict__ dst,
     uint64_t t[64];
     uint8_t const *__restrict__ wks = src;
     uint64_t const m      = __LEFT_BITMASK(n);
-    int k;
+    uint32_t k;
     for (k = 0; k < n; ++k) {
         t[k] = *(uint64_t *)wks;
         t[k] &= m;
@@ -1430,7 +1429,7 @@ static inline void gf2_matrix_transpose_64xle64(uint8_t *__restrict__ dst,
     int j = 1 << log2j;
     _mzd_transpose_Nxjx64(t, j);
     uint8_t *__restrict__ wk = dst;
-    for (int k = 0; k < n; ++k) {
+    for (uint32_t k = 0; k < n; ++k) {
         *(uint64_t *)wk = t[k] & mask;
         wk += rowstride_dst;
     }
@@ -1452,7 +1451,7 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
     uint8_t const *__restrict__ wks = src;
     uint64_t t[64];
     const uint64_t mask = __LEFT_BITMASK(m);
-    int k;
+    uint32_t k;
     for (k = 0; k < n; ++k) {
         t[k] = *(uint64_t *)wks;
         t[k] &= mask;
@@ -1704,14 +1703,13 @@ void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
         uint64_t const *__restrict__ fws_delayed = NULL;
         int even                         = 0;
         while (1) {
-            for (int j = js; j < whole_64cols; ++j) {
+            for (uint32_t j = js; j < whole_64cols; ++j) {
                 if (!even) {
                     fwd_delayed = fwd_current;
                     fws_delayed = fws_current;
                 } else {
-                    // TODO wont compile on C++
-                    // gf2_matrix_transpose_64x64_2(fwd_delayed, fwd_current, fws_delayed, fws_current,
-                    //                             rowstride_dst, rowstride_src);
+                    gf2_matrix_transpose_64x64_2((uint8_t *)fwd_delayed, (uint8_t *)fwd_current, (uint8_t *)fws_delayed, (uint8_t *)fws_current,
+                                                rowstride_dst, rowstride_src);
                 }
                 fwd_current += rowstride_64_dst;
                 ++fws_current;

@@ -912,7 +912,7 @@ static inline void gf16to3_matrix_mul_gf16_v2_u256(gf16to3 *result,
             const __m256i c = gf16v_mul_u256(b, m1);
             /// TODO assumes ncols == 16
             const __m256i r = _mm256_loadu_si256((__m256i *)(result + j*n_rows));
-            const __m256i t = r ^ m1;
+            const __m256i t = r ^ c;
             _mm256_storeu_si256((__m256i *)(result + j*n_rows), t);
         }
     }

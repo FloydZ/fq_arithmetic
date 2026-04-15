@@ -57,7 +57,6 @@ uint32_t test_gf127_matrix_vector_32x32_mul() {
         }
     }
 
-exit_:
     free(A);
     free(B);
     free(C1);

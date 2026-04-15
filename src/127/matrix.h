@@ -87,7 +87,7 @@ void gf127_matrix_id(gf127 *m,
                const uint32_t nrows,
                const uint32_t ncols) {
     gf127_matrix_zero(m, nrows, ncols);
-    for (int i = 0; i < nrows; ++i) {
+    for (uint32_t i = 0; i < nrows; ++i) {
         gf127_matrix_set(m, nrows, i, i, 1);
     }
 }
@@ -315,7 +315,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i] = _mm256_loadu_si256((const __m256i *)(src_origin + i*src_stride));
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 32; i+=2) {
         const __m256i t0 = _mm256_unpacklo_epi8(t[i+0], t[i+1]);
         const __m256i t1 = _mm256_unpackhi_epi8(t[i+0], t[i+1]);
@@ -323,7 +323,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+1] = t1;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 32; i+=4) {
         const __m256i t0 = _mm256_unpacklo_epi16(t[i+0], t[i+2]);
         const __m256i t1 = _mm256_unpacklo_epi16(t[i+1], t[i+3]);
@@ -335,7 +335,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+3] = t3;
     }
 
-    #pragma unroll
+    //#pragma unroll
     for (uint32_t i = 0; i < 32; i+=8) {
         const __m256i t0 = _mm256_unpacklo_epi32(t[i+0], t[i+4]);
         const __m256i t1 = _mm256_unpacklo_epi32(t[i+1], t[i+5]);
@@ -355,7 +355,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+7] = t7;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 8; i++) {
         const __m256i t0 = _mm256_unpacklo_epi64(t[i+ 0], t[i+ 8]);
         const __m256i t1 = _mm256_unpackhi_epi64(t[i+ 0], t[i+ 8]);
@@ -367,7 +367,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+24] = t3;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 16; i++) {
         const __m256i t0 = _mm256_permute2x128_si256(t[i+0], t[i+16], 0b100000);
         const __m256i t1 = _mm256_permute2x128_si256(t[i+0], t[i+16], 0b110001);
@@ -375,7 +375,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+16] = t1;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 16; i++) {
         const uint32_t pos = matrix_transpose_table[i];
         _mm256_storeu_si256((__m256i *)(dst_origin + i*dst_stride), t[pos]);

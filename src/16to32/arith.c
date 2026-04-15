@@ -24,7 +24,7 @@ bool test_mul() {
     for (uint32_t i = 1; i < 1u << 12; ++i) {
         gf16to32_set_u(a, 1);
         gf16to32_set_u(b, i);
-        gf16to32_mul_v3(c, a, b);
+        gf16to32_mul_v2(c, a, b);
 
         if (gf16to32_cmp(c, b) != 0) {
             printf("error gf16to32_mul\n");

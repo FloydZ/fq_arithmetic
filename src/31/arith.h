@@ -128,7 +128,6 @@ static inline
 __m256i gf31v_mul_u256(const __m256i a,
                        const __m256i b) {
     __m256i tl, th, sl, sh, r;
-    const __m256i one = _mm256_set1_epi16(1);
 
     const __m256i m = _mm256_set1_epi16(0xFF);
     const __m256i al = a & m;

@@ -14,7 +14,7 @@
 #include <immintrin.h>
 
 uint32_t test_vector_mul() {
-    uint8_t tmp[16];
+    uint8_t tmp[32] = {0};
     for (uint32_t i = 1; i < (1u<<4); i++) {
         for (uint32_t j = 1; j < (1u<<4); j++) {
             const ff_t c = gf16_mul(i, j);

@@ -302,9 +302,9 @@ static inline void gf256_vector_add_u256(gf256 *out,
 /// \param in1
 /// \param in2
 /// \param n
-static inline void gf256_vector_add_2_gf2_u256(gf256 *__restrict__ out,
-                                               const gf256 *__restrict__ in1,
-                                               const gf2 *__restrict__ in2,
+static inline void gf256_vector_add_2_gf2_u256(gf256 *out,
+                                               const gf256 *in1,
+                                               const gf2 *in2,
                                                const uint32_t n) {
     uint32_t i = n;
     while (i >= 32u) {
@@ -341,7 +341,7 @@ static inline void gf256_vector_add_2_gf2_u256(gf256 *__restrict__ out,
     }
 
     if (i) {
-        uint8_t tmp[8];
+        uint8_t tmp[16] = {0};
         const uint8_t mask = (1u << i) - 1u;
         const uint32_t t1 = (*in2) & mask;
 
@@ -642,7 +642,7 @@ static inline void gf256_vector_set_to_gf16_u256(gf256 *out,
     uint32_t i = n;
     const gf16 *in2 = in;
 
-    const __m256i perm256 = _mm256_load_si256((const __m256i *)gf256_expand_tab);
+    // const __m256i perm256 = _mm256_load_si256((const __m256i *)gf256_expand_tab);
     const __m128i perm128 = _mm_load_si128((const __m128i *)gf256_expand_tab);
     const __m128i mask  = _mm_set1_epi8(0x0F);
 

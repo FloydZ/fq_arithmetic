@@ -92,19 +92,19 @@ static inline uint16_t gf2to12_hadd_u256(const __m256i in) {
     return _mm256_extract_epi16(ret, 0);
 }
 
-static inline __m128i gf2to12v_mul_u128(const __m128i a,
-                                        const __m128i b) {
-    const __m128i mod  = _mm_set1_epi16((short)MODULUS);
-    const __m128i one  = _mm_set1_epi8(-1);
-    const __m128i zero = _mm_set1_epi8(0);
-    const uint32_t mask = 0b1010101010101010;
-    __m128i mr, r;
-    uint32_t ma;
-    // TODO
-    // 11
-
-    return r;
-}
+// static inline __m128i gf2to12v_mul_u128(const __m128i a,
+//                                         const __m128i b) {
+//     const __m128i mod  = _mm_set1_epi16((short)MODULUS);
+//     const __m128i one  = _mm_set1_epi8(-1);
+//     const __m128i zero = _mm_set1_epi8(0);
+//     const uint32_t mask = 0b1010101010101010;
+//     __m128i mr, r;
+//     uint32_t ma;
+//     // TODO
+//     // 11
+// 
+//     return r;
+// }
 
 #ifdef USE_AVX512
 

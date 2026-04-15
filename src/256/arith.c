@@ -609,7 +609,7 @@ uint32_t test_vector_set_to_gf2_u256() {
 
 uint32_t test_vector_add_gf2_2_u256() {
     uint32_t ret = 0;
-    const uint32_t N = 31;
+    const uint32_t N = 32;
     gf2 *A = gf2_vector_alloc(N);
     gf256 *B = gf256_vector_alloc(N);
     gf256 *C1 = gf256_vector_alloc(N);
@@ -633,7 +633,7 @@ uint32_t test_vector_add_gf2_2_u256() {
 
 uint32_t test_vector_add_gf16_2_u256() {
     uint32_t ret = 0;
-    const uint32_t N = 33;
+    const uint32_t N = 32;
     gf16  *A  = gf16_vector_alloc(N);
     gf256 *B  = gf256_vector_alloc(N);
     gf256 *C1 = gf256_vector_alloc(N);

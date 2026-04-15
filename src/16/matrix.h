@@ -1084,7 +1084,6 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
                                           const unsigned int nr_cols_A,
                                           const uint8_t *__restrict__ b) {
     const uint32_t *a32 = (const uint32_t *) a;
-    uint64_t *c64 = (uint64_t *) c;
     assert(column_A_bytes <= 8);
     assert(nr_cols_A <= 8);
 
@@ -1098,7 +1097,7 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
 
     const uint32_t n = nr_cols_A;
     const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 < n ? -1 : 0, 2 < n ? -1 : 0, 3 < n ? -1 : 0, 4 < n ? -1 : 0, 5 < n ? -1 : 0, 6 < n ? -1 : 0, 7 < n ? -1 : 0);
-    __m256i tmp1, tmp2, Al1, Ah1;
+    __m256i tmp1, tmp2, Al1, Ah1 = zero;
 
     const uint32_t BMask = (1u << (8u*nr_bytes_B_col)) - 1u;
     Al1 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 0u, Amask, gather_mask, 4u);
@@ -1106,7 +1105,7 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
         Ah1 = _mm256_mask_i32gather_epi32(zero, (const int *)a32 + 1u, Amask, gather_mask, 4u);
 
 
-    uint64_t rdata;
+    uint64_t rdata = 0;
     for (uint32_t i = 0; i < nr_cols_B; ++i) {
         uint32_t b_data = 0;
         if (i == nr_cols_B-1) {
@@ -1238,7 +1237,7 @@ void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
         A3 = A31;
     }
 
-    uint32_t rdata2;
+    uint32_t rdata2 = 0;
 
     for (uint32_t i = 0; i < nr_cols_B; ++i) {
         uint32_t b_data = *((uint32_t *) (b + (nr_bytes_B_col * i)));
@@ -1292,9 +1291,9 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
     const uint32_t *a32 = (const uint32_t *) a;
     assert(column_A_bytes <= 4);
     assert(nr_cols_A <= 16);
-    __m256i Al1, Al2, tmp1, tmp2;
-
     const __m256i zero = _mm256_setzero_si256();
+    __m256i Al1 = zero, Al2 = zero, tmp1, tmp2;
+
     const uint32_t nr_bytes_B_col = nr_cols_A >> 1;
     const uint32_t mask = nr_bytes_B_col == 4 ? 0x0f0f0f0f : (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
     const uint32_t n = ((nr_cols_A + 1) * column_A_bytes) >> 2;
@@ -1347,7 +1346,7 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
 
 
 
-    uint32_t rdata;
+    uint32_t rdata = 0;
     for (uint32_t i = 0; i < nr_cols_B; ++i) {
         uint32_t b_data = 0;
         if (i == nr_cols_B - 1) {
@@ -1412,17 +1411,15 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
                                           const unsigned int nr_cols_A,
                                           const uint8_t *__restrict__ b) {
     const uint32_t *a32 = (const uint32_t *) a;
-    uint64_t *c64 = (uint64_t *) c;
     assert(column_A_bytes < 8);
     assert(column_A_bytes > 4);
     assert(column_A_bytes == 5);
     assert(nr_cols_A <= 16);
     __m256i A1, A2, A3, A4, tmp1, tmp2;
 
-    const __m256i zero = _mm256_setzero_si256();
     const uint32_t nr_bytes_B_col = nr_cols_A >> 1;
     const uint32_t mask =nr_bytes_B_col%4==0 ? 0x0f0f0f0f : (0x0f0f0f0f & ((1u << nr_bytes_B_col * 8) - 1ul));
-    const uint32_t n = ((nr_cols_A + 1) * column_A_bytes) >> 2;
+    // const uint32_t n = ((nr_cols_A + 1) * column_A_bytes) >> 2;
     const __m256i perm = _mm256_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3,
                                           3, 3, 3, 3, 3, 3);
 
@@ -1431,9 +1428,9 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
     const __m256i Ashup = _mm256_setr_epi32(0, 24, 16, 8, 0, 24, 16, 8);
     const __m256i Ashfl = _mm256_setr_epi32(0, ((1<<8)-1)<<24, ((1<<16)-1)<<16, ((1<<24)-1)<<8,
                                             0, ((1<<8)-1)<<24, ((1<<16)-1)<<16, ((1<<24)-1)<<8);
-    const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 <= n ? -1 : 0, 2 <= n ? -1 : 0,
-                                                  3 <= n ? -1 : 0, 4 <= n ? -1 : 0, 5 <= n ? -1 : 0,
-                                                  6 <= n ? -1 : 0, 7 <= n ? -1 : 0);
+    //const __m256i gather_mask = _mm256_setr_epi32(0 <= n ? -1 : 0, 1 <= n ? -1 : 0, 2 <= n ? -1 : 0,
+    //                                              3 <= n ? -1 : 0, 4 <= n ? -1 : 0, 5 <= n ? -1 : 0,
+    //                                              6 <= n ? -1 : 0, 7 <= n ? -1 : 0);
 
     A1 = _mm256_i32gather_epi32((const int *)(a32 + 0u), Amask, 4u);
     A2 = _mm256_i32gather_epi32((const int *)(a32 + 1u), Amask, 4u);
@@ -1451,7 +1448,7 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
         A3 = _mm256_blendv_epi8(A31, A42, Ashfl);
     }
 
-    uint64_t rdata;
+    uint64_t rdata = 0;
     for (uint32_t i = 0; i < nr_cols_B; ++i) {
         uint32_t b_data = 0;
         if (i == nr_cols_B - 1) {

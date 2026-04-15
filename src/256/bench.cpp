@@ -249,7 +249,7 @@ static void BM_gf256v_vector_set_to_gf16_u256_v2(benchmark::State& state) {
 }
 
 static void BM_gf256v_vector_add_scalar_u256(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 
@@ -391,9 +391,9 @@ BENCHMARK(BM_gf256_matrix_transpose_32x32);
 BENCHMARK(BM_gf256_matrix_transpose_32x32_v2);
 #endif
 
-#ifdef __AVX512VL__
+#ifdef USE_AVX512
 static void BM_gf256v_vector_add_scalar_u512(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 

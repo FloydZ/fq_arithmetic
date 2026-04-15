@@ -740,7 +740,7 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
     const __m256i tab = gf256v_generate_multab_16_single_element_u256(scalar);
     const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
     const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
-    const __m256i mask = _mm256_set1_epi8(0xf);
+    // const __m256i mask = _mm256_set1_epi8(0xf);
 
     const __m128i ml128 = _mm256_extracti128_si256(ml, 0);
     const __m128i mh128 = _mm256_extracti128_si256(mh, 0);
@@ -914,7 +914,7 @@ static inline void gf256_matrix_product_gf2_2_slim_u256(gf256 *result,
                                                          const gf2 *matrix2,
                                                          const uint32_t n_rows1,
                                                          const uint32_t n_cols1) {
-    uint16_t tmp[16] __attribute__((aligned(32)));
+    // uint16_t tmp[16] __attribute__((aligned(32)));
 
     const uint32_t limit = n_rows1 % 32;
     const uint32_t bytes_per_col = gf2_matrix_bytes_per_column(n_rows1);
@@ -936,7 +936,7 @@ static inline void gf256_matrix_product_gf2_2_slim_u256(gf256 *result,
         }
 
         if (limit) {
-
+            // TODO
         }
     }
 }
