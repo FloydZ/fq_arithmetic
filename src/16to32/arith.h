@@ -15,31 +15,60 @@
 typedef uint8_t gf16to32[16];
 
 
+static
+void gf16to32_set_u(gf16to32 r, const uint64_t d) {
+    *(((uint64_t *)r) + 0) = d;
+    *(((uint64_t *)r) + 1) = 0;
+}
+static
+void gf16to32_set_uu(gf16to32 r, const uint64_t hi, const uint64_t lo) {
+    *(((uint64_t *)r) + 0) = lo;
+    *(((uint64_t *)r) + 1) = hi;
+}
+
+static
+int gf16to32_cmp(const gf16to32 a, const gf16to32 b) {
+    for (int64_t i = 15; i >= 0; i--) {
+        if (a[i] > b[i]) {
+            return 1;
+        }
+
+        if (a[i] > b[i]) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static
 void gf16to32_add(gf16to32 r, const gf16to32 a, const gf16to32 b) {
-    for (int i = 0; i < 16; i++) {
+    for (uint32_t i = 0; i < 16; i++) {
         r[i] = a[i] ^ b[i];
     }
 }
 
+static
 void gf16to32_sub(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     gf16to32_add(r, a, b);
 }
 
+static
 void gf16to32_mul(gf16to32 r, const gf16to32 a, const gf16to32 b) {
-    uint8_t t[32] = {0};
+    uint8_t t[64] = {0};
 
     /* schoolbook multiply over GF(16) */
     for (uint32_t i = 0; i < 32; i++) {
         uint8_t ai = (a[i >> 1] >> ((i & 1) * 4)) & 0xF;
         for (uint32_t j = 0; j < 32; j++) {
-            uint8_t bj = (b[j >> 1] >> ((j & 1) * 4)) & 0xF;
+            const uint8_t bj = (b[j >> 1] >> ((j & 1) * 4)) & 0xF;
             t[i + j] ^= gf16_mul(ai, bj);
         }
     }
 
     /* modular reduction */
     for (uint32_t k = 63; k >= 32; k--) {
-        uint8_t c = t[k];
+        const uint8_t c = t[k];
         if (!c) continue;
         t[k] = 0;
         t[k - 32] ^= c;
@@ -53,11 +82,37 @@ void gf16to32_mul(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     }
 }
 
-/// TODO test
+/// NOTE: needs the gnu (gcc) extension of __uint128_t
+static
 void gf16to32_mul_v2(gf16to32 c, const gf16to32 a, const gf16to32 b) {
-    const uint8_t mask = 0xF;
+    const __uint128_t aa = *(__uint128_t *)a;
+    const __uint128_t bb = *(__uint128_t *)b;
+    const __int128_t mask  = (__int128_t)1ll;
+    __uint128_t r = 0;
+
+    const __uint128_t mod = 0b1001;
+    for (uint64_t i = 0; i < 128; i++) {
+        const __uint128_t t0 = r+r;
+        const __uint128_t t1 = (((__int128_t)r) >> 127) & mod;
+
+        const __int128_t t2 = (__int128_t)bb >> (127 - i);
+        const __int128_t t3 = t2 & mask;
+        const __int128_t t4 = -t3;
+        const __uint128_t t5 = (__uint128_t) t4 & aa;
+        r = t0 ^ t1 ^ t5;
+    }
+
+    *(__uint128_t *)c = r;
+}
+
+
+#ifdef USE_AVX2
+/// TODO test
+static
+void gf16to32_mul_u128(gf16to32 c, const gf16to32 a, const gf16to32 b) {
     const __m128i zero = _mm_set1_epi8(0);
-    __m128i r = zero, mod = _mm_set1_epi8(0b1001);
+    const __m128i mod = _mm_set1_epi8(0b1001);
+    __m128i r = zero;
 
     const __m128i aa = _mm_loadu_si128((const __m128i *)a);
     for (uint32_t i = 0; i < 16; i++) {
@@ -75,33 +130,15 @@ void gf16to32_mul_v2(gf16to32 c, const gf16to32 a, const gf16to32 b) {
 
     _mm_storeu_si128((__m128i *)c, r);
 }
-
-// TODO test
-void gf16to32_mul_v3(gf16to32 c, const gf16to32 a, const gf16to32 b) {
-    const __uint128_t aa = *(__uint128_t *)a;
-    const __uint128_t bb = *(__uint128_t *)b;
-    __uint128_t r = 0;
-
-    const __uint128_t mod = 0b1001;
-    for (uint64_t i = 0; i < 128; i++) {
-        const __uint128_t t0 = r+r;
-        const __uint128_t t1 = (((__int128_t)r) >> 127) & mod;
-        const __uint128_t t2 = (-((((__int128_t)bb) >>   i) & (__int128_t)1ll)) & aa;
-
-        r = t0 ^ t1 ^ t2;
-    }
-
-    *(__uint128_t *)c = r;
-}
+#endif
 
 // a^{-1} = a^(16^32 - 2)
-void gf_div(gf16to32 r, const gf16to32 a, const gf16to32 b)
-{
+static
+void gf_div(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     gf16to32 x, y;
     memcpy(x, b, 16);
-
     memcpy(y, b, 16);
-    for (int i = 0; i < 32 * 4 - 1; i++) { /* log2(16^32 - 2) */
+    for (uint64_t i = 0; i < 32 * 4 - 1; i++) { /* log2(16^32 - 2) */
         gf16to32_mul(y, y, y);  /* square */
         gf16to32_mul(y, y, b);  /* multiply */
     }

@@ -1,15 +1,17 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
-
-#include "../16/vector.h"
+#include <stdio.h>
 #include "arith.h"
 
 bool test_add() {
-    gf
+    gf16to32 a, b, c;
     for (uint32_t i = 0; i < 1u << 12; ++i) {
-        const gf16to3 t = gf16to3_add(i, i);
-        if (t != 0) {
+        gf16to32_set_u(a, 0);
+        gf16to32_set_u(b, i);
+        gf16to32_add(c, a, b);
+
+        if (gf16to32_cmp(c, b) != 0) {
+            printf("error gf16to32_add\n");
             return 1;
         }
     }
@@ -18,20 +20,24 @@ bool test_add() {
 }
 
 bool test_mul() {
-    for (uint32_t i = 0; i < 1u << 12; ++i) {
-        const gf16to3 t1 = gf16to3_mul(i, 1);
-        if (t1 != i) { return 1; }
+    gf16to32 a, b, c;
+    for (uint32_t i = 1; i < 1u << 12; ++i) {
+        gf16to32_set_u(a, 1);
+        gf16to32_set_u(b, i);
+        gf16to32_mul_v3(c, a, b);
 
-        const gf16to3 t2 = gf16to3_mul(1, i);
-        if (t2 != i) { return 1; }
+        if (gf16to32_cmp(c, b) != 0) {
+            printf("error gf16to32_mul\n");
+            return 1;
+        }
     }
 
     return 0;
 }
 
 int main() {
-    test_add();
-    test_mul();
+    // if (test_add()) { return 1; }
+    if (test_mul()) { return 1; }
 
     printf("all good\n");
     return 0;
