@@ -9,18 +9,18 @@ from typing import List, Union, Tuple
 # SHAPE class:
 #   - the shape class exports to many internal values. make them private
 # TESTS:
-#   - well, start adding tests. The problem is: I dont want to have string comparisons in the tests. They would be simply too naiv. 
+#   - well, start adding tests. The problem is: I dont want to have string comparisons in the tests. They would be simply too naiv.
 
 
-# NOTE: this will not be implemented, otherwise we needed to keep track of all 
-# kinds of register allocation, for example memory loads needed to always use 
-# the rcx register as a memory offset in a loop. 
+# NOTE: this will not be implemented, otherwise we needed to keep track of all
+# kinds of register allocation, for example memory loads needed to always use
+# the rcx register as a memory offset in a loop.
 # global variable/configuration:
 # if this value is true, the code generators will emit pure assembly.
 # if this value is false, the code generators will emit C intrinsics
 # use_assembly = True
 
-list_of_arguments = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", 
+list_of_arguments = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
                      "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v"]
 list_of_variables = ["t" + str(i) for i in range(100)]
 
@@ -62,21 +62,21 @@ def get_var_name():
 
 def reset():
     """resets the whole script"""
-    get_var_name.ctr = 0 
+    get_var_name.ctr = 0
     global_variables = []
 
-def generate_function_declaration(name: str, 
-                                  typ: Union[str, List[str]], 
+def generate_function_declaration(name: str,
+                                  typ: Union[str, List[str]],
                                   nr_args: int) -> Tuple[str, List[str]]:
     """generates a simple C function header of the form:
         {name}({typ} *out_var, {typ} *in_var1, {typ} *in_var2,..., {typ} *in_var_n-2, const size_t t)
-    :param name: name of the function 
-    :param typ: type of the input arguments, either a single string/type, than 
+    :param name: name of the function
+    :param typ: type of the input arguments, either a single string/type, than
         all input/output arguments will have the same type. Or a list of types,
-        than the arguments can have a different 
+        than the arguments can have a different
     :param nr_args: number of input arguments
     :return [
-        `void {name}({typ} *arg1, {typ} *arg2);`, 
+        `void {name}({typ} *arg1, {typ} *arg2);`,
         ["arg1", "arg2"]
     ]
     """
@@ -161,7 +161,7 @@ class SIMD:
 
     def decl(self, regs: List[str]) -> str:
         """
-        :param regs: list of registers the declare 
+        :param regs: list of registers the declare
         :return a string containing the register declaration
         """
         return self.register_name + " " + ", ".join(regs) + ";\n"
@@ -176,7 +176,7 @@ class SIMD:
         """
         del out_var; del in_var;
         raise NotImplemented
-    
+
     def load_multiple(self,
                       out_vars: List[str],
                       in_var: str,
@@ -220,7 +220,7 @@ class SIMD:
              in_var: str) -> str:
         """
         :param out_var: name of the register variable to output
-        :param in_var: input value 
+        :param in_var: input value
         """
         del out_var; del in_var;
         raise NotImplementedError
@@ -237,14 +237,14 @@ class SIMD:
         for i, out_var in enumerate(out_vars):
             ret += self.expand(out_var, in_vars[i])
         return ret
-    
+
     def setX(self,
              o: str,
              a: str,
              n: int) -> str:
         """
         :param o: name of the output variable (register)
-        :param a: name of pointer to read n elements from 
+        :param a: name of pointer to read n elements from
         :param n: number of elements to extend
         """
         del o; del a; del n;
@@ -305,8 +305,8 @@ class SIMD:
              a: str) -> str:
         """ computes the horizontal xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output variable (non register) 
-        :param a: input register 
+        :param o: output variable (non register)
+        :param a: input register
         :return a string with the instrucions/intrinsics performing the operation
         """
         del p; del o; del a;
@@ -317,8 +317,8 @@ class SIMD:
                       a: List[str]) -> str:
         """
         :param p: number of limbs to xor up
-        :param o: output variable (non register) 
-        :param a: input register 
+        :param o: output variable (non register)
+        :param a: input register
         """
         ret = ""
         for i, out_var in enumerate(o):
@@ -332,16 +332,16 @@ class SIMD:
         """
         NOTE: this is the Fq addition
         :param oreg: output Register
-        :param ireg1: first input register 
+        :param ireg1: first input register
         :param ireg2: second input register
         :return: a string containing the call to the vectorized addition function
         """
         return f"{oreg} = gf{self.q_str}v_add_u{self.n}({ireg1}, {ireg2});\n"
-    
+
 
     def add_multiple(self,
                      oregs: List[str],
-                     iregs1: List[str], 
+                     iregs1: List[str],
                      iregs2: List[str]) -> str:
         """
         :param oreg: output Registers
@@ -355,7 +355,7 @@ class SIMD:
             oreg, ireg1, ireg2 = oregs[i], iregs1[i], iregs2[i]
             ret += self.add(oreg, ireg1, ireg2)
         return ret
-    
+
     def mul(self,
             oreg: str,
             ireg1: str,
@@ -363,7 +363,7 @@ class SIMD:
         """
         NOTE: this is the Fq mul
         :param oreg: output Register
-        :param ireg1: first input register 
+        :param ireg1: first input register
         :param ireg2: second input register
         :return: a string containing the call to the vectorized addition function
         """
@@ -371,7 +371,7 @@ class SIMD:
 
     def mul_multiple(self,
                      oregs: List[str],
-                     iregs1: List[str], 
+                     iregs1: List[str],
                      iregs2: List[str]) -> str:
         """
         :param oreg: output Registers
@@ -405,7 +405,7 @@ class SSE(SIMD):
         m = t // 2
         for i in range(m):
             if (p[i] >= m) or p[i + m] < m:
-                return True 
+                return True
         return False
 
     def load(self,
@@ -431,7 +431,7 @@ class SSE(SIMD):
         if self.aligned_instructions:
             return f"_mm_store_si128((__m128i *)({out_var}), {in_var});\n"
         return f"_mm_storeu_si128((__m128i *)({out_var}), {in_var});\n"
-    
+
     def set1(self,
              out_var: str,
              in_var: str) -> str:
@@ -448,13 +448,13 @@ class SSE(SIMD):
              n: int) -> str:
         """
         :param o: name of the output variable (register)
-        :param a: name of pointer to read n elements from 
+        :param a: name of pointer to read n elements from
         :param n: number of elements to extend
         :return TODO
         """
         del o; del a; del n;
         raise NotImplementedError
-    
+
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
@@ -467,7 +467,7 @@ class SSE(SIMD):
         """
         ret = ""
         t = len(p)
-        assert t in [2, 4, 8, 16, # limb operations 
+        assert t in [2, 4, 8, 16, # limb operations
                      32, 64, 128] # sub-limb operations
         if t == 2: # uint64_t
             if p[0] == 0:
@@ -514,14 +514,14 @@ class SSE(SIMD):
         if t == 128: # uint1_t
             raise NotImplementedError()
         return ret;
-    
+
     def hxor(self, p: int,
              o: str,
              a: str) -> str:
         """ computes the horizonatl xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output variable (non register) 
-        :param a: input register 
+        :param o: output variable (non register)
+        :param a: input register
         :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, # normal limb operations
@@ -553,7 +553,7 @@ class SSE(SIMD):
             t += f"{o} = {o} ^ ({o} >> 1);\n"
         return t
 
-    @staticmethod 
+    @staticmethod
     def test():
         a = SSE(16)
         # print(a.shuffle([0,1,2,3], "o", "a"))
@@ -562,7 +562,7 @@ class SSE(SIMD):
         # print(a.shuffle([4,5,6,7,0,1,2,3], "o", "a"))
         # print(global_variables)
         # reset()
-    
+
         print(a.hxor(4, "o", "a"))
         print(a.hxor(8, "o", "a"))
         print(a.hxor(16, "o", "a"))
@@ -573,7 +573,7 @@ class AVX(SIMD):
         super().__init__(q)
         self.register_width = 256
         self.register_name = "__m256i"
-    
+
     @staticmethod
     def __check_lanes128(p: List[int]) -> bool:
         """
@@ -586,7 +586,7 @@ class AVX(SIMD):
         m = t // 2
         for i in range(m):
             if (p[i] >= m) or p[i + m] < m:
-                return True 
+                return True
         return False
 
     def load(self,
@@ -610,7 +610,7 @@ class AVX(SIMD):
         if self.aligned_instructions:
             return f"_mm256_store_si256((__m256i *)({out_var}), {in_var});\n"
         return f"_mm256_storeu_si256((__m256i *)({out_var}), {in_var});\n"
-    
+
     def set1(self,
              out_var: str,
              in_var: str) -> str:
@@ -619,17 +619,17 @@ class AVX(SIMD):
         :param in_var: value to set
         """
         return f"{out_var} = _mm256_set1_epi{self.n}({in_var});\n"
-    
+
     def setX(self,
              o: str,
              a: str,
              n: int) -> str:
         """
         Expand functions..
-        Reads n (mod q) numbers (also called elements) from `a`. Each of the 
-        log(q)-bits numbers (elements) are then extended to 256//n bits and 
+        Reads n (mod q) numbers (also called elements) from `a`. Each of the
+        log(q)-bits numbers (elements) are then extended to 256//n bits and
         returned in such a avx register.
-        
+
         Input:
             bits: 0  log(q)             n*log(q)
             a:    [a_0, a_1, ..., a_{n-1}]
@@ -638,19 +638,19 @@ class AVX(SIMD):
             o:    [a_0, a_1, ..., a_{n-1}]
 
         :param o: name of the output variable (register)
-        :param a: name of pointer variable to read n elements from 
+        :param a: name of pointer variable to read n elements from
         :param n: number of elements to extend
         """
         nr_of_bits = self.bits_q * n
         assert nr_of_bits <= self.register_width
         # output limb type within a register
         out_sublimb_type_simd = self.register_width//n
-    
+
         t1 = get_var_name()
         t2 = get_var_name()
 
         ret = ""
-        if self.bits_q < 8: # sub limb case: 
+        if self.bits_q < 8: # sub limb case:
             # NOTE: this is a implementation limitation. Should be fixable
             assert nr_of_bits <= 64
 
@@ -683,7 +683,7 @@ class AVX(SIMD):
                 ret += f"{t1} = _pdep_u64((uint64_t){t1}, {mask});\n"
                 ret += f"{t1} = _mm_setr_epi64({t1}, {t3});\n"
             elif n <= 32:
-                # NOTE: this is a sub-limb case, e.g. the resulting avx register 
+                # NOTE: this is a sub-limb case, e.g. the resulting avx register
                 # will contain sub-limb values
                 raise NotImplementedError()
         else: # limb case
@@ -704,7 +704,7 @@ class AVX(SIMD):
             ret += f"__m128i {t2} = _mm_set1_epi64x({t1});\n"
             ret += f"{o} = _mm256_cvtepu8_epi32({t2});\n"
             return ret
-            
+
         if out_sublimb_type_simd == 16: # simd_limb_type == uint16_t
             # assumes t1 is of type `uint128_t/__m128i`
             ret += f"{o} = _mm256_cvtepu8_epi16({t2});\n"
@@ -719,7 +719,7 @@ class AVX(SIMD):
         if out_sublimb_type_simd == 1: # simd_limb_type == uint1_t
             return f"{o} = _mm256_load_si256({a});\n"
         return ret
-    
+
     def shuffle(self, p: List[int],
                 o: str,
                 a: str) -> str:
@@ -727,8 +727,8 @@ class AVX(SIMD):
         o[p[i]] = a[i] for in 0..N
         NOTE: may emit global variables
         :param p: a permutation of length 32/16/8/4/2
-        :param o: output register 
-        :param a: input register 
+        :param o: output register
+        :param a: input register
         :return a string which applies the permutation to the input register.
             NOTE: maybe global variables are emitted.
         """
@@ -737,7 +737,7 @@ class AVX(SIMD):
 
         global global_variables
         assert t in [2, 4, 8, 16, 32, # limb permutation
-                     64, 128, 256] # sub-limb permutations 
+                     64, 128, 256] # sub-limb permutations
         if AVX.__check_lanes128(p):
             # hard part, permutation across lanes
             if t == 2: # uint128_t
@@ -809,9 +809,9 @@ class AVX(SIMD):
              a: str) -> str:
         """ computes the horizontal xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output register. NOTE: is some cases this must be a variable 
+        :param o: output register. NOTE: is some cases this must be a variable
                 name, and not a register.
-        :param a: input register 
+        :param a: input register
         :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256]:
@@ -863,7 +863,7 @@ class AVX(SIMD):
 
         return ret
 
-    @staticmethod 
+    @staticmethod
     def test():
         a = AVX(16)
         #print(a.hxor(2, "o", "i"))
@@ -879,7 +879,7 @@ class AVX(SIMD):
         #print(a.shuffle([7,6,5,4,3,2,1,0], "o", "i"))
         #print(global_variables)
         #reset()
-        
+
         #print(a.shuffle([7,6,5,4,3,2,1,0,8,9,10,11,12,13,14,15], "o", "i"))
         #print(a.shuffle([8,9,10,11,12,13,14,15,7,6,5,4,3,2,1,0], "o", "i"))
         #print(global_variables)
@@ -907,7 +907,7 @@ class AVX512(AVX):
         super().__init__(q)
         self.register_width = 512
         self.register_name = "__m512i"
-    
+
     def load(self,
              out_var: str,
              in_var: str) -> str:
@@ -929,7 +929,7 @@ class AVX512(AVX):
         if self.aligned_instructions:
             return f"_mm512_store_si512((__m512i *)({out_var}), {in_var});\n"
         return f"_mm512_storeu_si512((__m512i *)({out_var}), {in_var});\n"
-    
+
     def set1(self,
              out_var: str,
              in_var: str) -> str:
@@ -945,7 +945,7 @@ class AVX512(AVX):
              n: int) -> str:
         """
         :param o: name of the output variable (register)
-        :param a: name of pointer to read n elements from 
+        :param a: name of pointer to read n elements from
         :param n: number of elements to extend
         """
         del o; del a; del n;
@@ -956,12 +956,12 @@ class AVX512(AVX):
                 a: str) -> str:
         """
         :param p: a permutation of length 32/16/8/4/2
-        :param o: output register 
-        :param a: input register 
+        :param o: output register
+        :param a: input register
         :return a string which applies the permutation to the input register.
             NOTE: maybe global variables are emitted.
 
-        TODO: 
+        TODO:
             - implement sub-limb operations
             - use special instruction of the permutation allows it. This saves on global variables.
         """
@@ -970,20 +970,20 @@ class AVX512(AVX):
                      128, 256, 512] # sub-limb operations
 
         if t == 2: # u256
-            if p[0] == 0: # good case, do nothing 
+            if p[0] == 0: # good case, do nothing
                 return ""
             return f"{o} = _mm512_inserti64x4(_mm512_castsi256_si512(_mm512_extracti64x4_epi64({a}, 0)), _mm512_extracti64x4_epi64({a}, 1), 0);\n"
         if t == 4: # u128
             imm = "0b" + "".join(['{0:02b}'.format(l) for l in p[::-1]])
             return f"{o} = _mm512_shuffle_i32x4({a}, {a}, {imm});\n"
-        
-        if t == 128: # uint4_t 
+
+        if t == 128: # uint4_t
             raise NotImplementedError()
-        if t == 256: # uint2_t 
+        if t == 256: # uint2_t
             raise NotImplementedError()
-        if t == 512: # uint1_t 
+        if t == 512: # uint1_t
             raise NotImplementedError()
-    
+
         # normal case for which intrinsics are available
         global global_variables
         b = get_var_name()
@@ -997,8 +997,8 @@ class AVX512(AVX):
              a: str) -> str:
         """ computes the horizonatl xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output register 
-        :param a: input register 
+        :param o: output register
+        :param a: input register
         :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256, 512]:
@@ -1044,7 +1044,7 @@ class AVX512(AVX):
                 ret += f"{o} = _mm256_extract_epi8(_mm512_castsi512_si256({a}, 0) & 0x3;\n"
         return ret
 
-    @staticmethod 
+    @staticmethod
     def test():
         a = AVX512(16)
         print(a.shuffle([0,1], "a", "o"))
@@ -1080,7 +1080,7 @@ class NEON(SIMD):
         :return a string with a single instruction
         """
         return f"vst1q_u(({self.register_name} *)({out_var}), {in_var});\n"
-    
+
     def set1(self,
              out_var: str,
              in_var: str) -> str:
@@ -1090,14 +1090,14 @@ class NEON(SIMD):
         :return a string with a single instruction
         """
         return f"{out_var} = vdupq_n_u{self.n}({in_var});\n"
-    
+
     def setX(self,
              o: str,
              a: str,
              n: int) -> str:
         """
         :param o: name of the output variable (register)
-        :param a: name of pointer to read n elements from 
+        :param a: name of pointer to read n elements from
         :param n: number of elements to extend
         """
         del o; del a; del n;
@@ -1108,8 +1108,8 @@ class NEON(SIMD):
                 a: str) -> str:
         """ NOTE: cheating with `__builtin_shufflevector()`
         :param p: a permutation of length 32/16/8/4/2
-        :param o: output register 
-        :param a: input register 
+        :param o: output register
+        :param a: input register
         :return a string with a single instruction
         """
         t = len(p)
@@ -1122,9 +1122,9 @@ class NEON(SIMD):
              a: str) -> str:
         """ computes the horizontal xor of all limbs within the given register.
         :param p: number of limbs to xor up
-        :param o: output register. NOTE: is some cases this must be a variable 
+        :param o: output register. NOTE: is some cases this must be a variable
                 name, and not a register.
-        :param a: input register 
+        :param a: input register
         :return a string with the instrucions/intrinsics performing the operation
         """
         if p not in [2, 4, 8, 16, 32, 64, 128, 256]:
@@ -1133,7 +1133,7 @@ class NEON(SIMD):
         del o; del a;
         raise NotImplementedError
 
-    @staticmethod 
+    @staticmethod
     def test():
         a = NEON(16)
         a.shuffle([0,1], "a", "o")
@@ -1161,13 +1161,13 @@ class Shape:
                  ┌───────┐
         Limb     │       │
                  └───────┘
-                 0 1   Example:                        
+                 0 1   Example:
                  ┌─┐
-        Sublimb  │ │        F2                         
+        Sublimb  │ │        F2
                  └─┘
                  0     7
                  ┌─────┐
-        Sublimb  │     │    F127                       
+        Sublimb  │     │    F127
                  └─────┘
 
         This class exports the following values, accessable via `self.{name}`:
@@ -1179,23 +1179,23 @@ class Shape:
           - bits_q_mu[int]: number of bits needed to store q^mu
           - bits_limb_q[int]: number of bits of the smallest type to store q
           - bits_limb_q_mu[int]: number if bits of the smallest type to store q^m
-          - use_sub_limbs_q[bool]: true if q is stored in a sub-limb of size [1,2,4] 
-          - use_sub_limbs_q_mu[bool]: true if q^mu is stored in a sub-limb of size [1,2,4] 
+          - use_sub_limbs_q[bool]: true if q is stored in a sub-limb of size [1,2,4]
+          - use_sub_limbs_q_mu[bool]: true if q^mu is stored in a sub-limb of size [1,2,4]
           - q_per_limb[int]: number of q elements per limb (only available if `use_sub_limbs_q` == true)
           - q_mu_per_limb[int]: number of q^mu elements per limb (only available if `use_sub_limbs_q_mu` == true)
           - q_per_simd[int]: number of q elements per simd register.
           - q_mu_per_simd[int]: number of q^mu elements per simd register.
           - limb_per_simd_q[int]: number of limbs in each simd register
           - limb_per_simd_q_mu[int]: number of limbs in each simd register
-          - scale[int]: 
-          - tmp[int]: 
-          - internal_n[int]: 
-          - number_limbs_q_mu[int]: 
-          - number_simd_q_mu[int]: 
-          - bits[int]: 
-          - limb_type_str[int]: 
-          - simd_type_str[int]: 
-          - expand_number_limbs[int]: number of fq_mu limbs between two 
+          - scale[int]:
+          - tmp[int]:
+          - internal_n[int]:
+          - number_limbs_q_mu[int]:
+          - number_simd_q_mu[int]:
+          - bits[int]:
+          - limb_type_str[int]:
+          - simd_type_str[int]:
+          - expand_number_limbs[int]: number of fq_mu limbs between two
                 consecutive expand calls. It is basically the stride.
 
 
@@ -1204,7 +1204,7 @@ class Shape:
         :param mu: extension degree
         :param simd_width: SIMD class either:
             [AVX, AVX512, SSE, NEON]
-        :param padding: if true the class assumes that each row or column is 
+        :param padding: if true the class assumes that each row or column is
             extended to the next power of 2.
         """
         self.q, self.mu, self.n, self.simd, self.padding =\
@@ -1212,7 +1212,7 @@ class Shape:
         self.tail = not padding
         self.simd_width = self.simd.register_width
 
-        # NOTE: well, actually thats not 100% correct. It could be that only 
+        # NOTE: well, actually thats not 100% correct. It could be that only
         # 7 bits are used, so technically we need to round here
         self.bits_q = ceil(log2(q))
         self.bits_q_mu = ceil(log2(q**mu))
@@ -1248,21 +1248,21 @@ class Shape:
         self.limb_type_str = bits_to_type_str(self.bits_limb_q_mu)
         # something like `__m256i` or `uint8x8_t`
         self.simd_type_str = self.simd.register_name
-        
-        # number of fq_mu limbs between two consecutive expand calls. It is 
+
+        # number of fq_mu limbs between two consecutive expand calls. It is
         # basically the stride
-        self.expand_number_limbs = self.limb_per_simd_q_mu // self.q_per_limb if self.use_sub_limbs_q else self.q_mu_per_simd 
+        self.expand_number_limbs = self.limb_per_simd_q_mu // self.q_per_limb if self.use_sub_limbs_q else self.q_mu_per_simd
 
 
 class Optimizations:
-    """ configuration class, describing options for the `Vector` and `Matrix` 
-        class 
+    """ configuration class, describing options for the `Vector` and `Matrix`
+        class
     """
     def __init__(self) -> None:
         """
         Available Optimizations Options:
           - loop_unroll[bool]: if true all loops will be fully unrolled
-          - aligned_instructions[bool]: if true mem loads/store will use 
+          - aligned_instructions[bool]: if true mem loads/store will use
                 aligned instructions (Only usefule for x86-64 machines)
         """
         self.loop_unroll = False
@@ -1272,8 +1272,8 @@ class Optimizations:
 class Loop:
     """ Helper class to emit loops """
     def __init__(self, start: int = 0, end: int = 1, step: int = 1) -> None:
-        self.__start = start 
-        self.__end = end 
+        self.__start = start
+        self.__end = end
         self.__step = step
         self.__step_variable_name = get_var_name()
         self.__s = ""
@@ -1283,7 +1283,7 @@ class Loop:
         :return TODO
         """
         return self.__step_variable_name
-    
+
     def add(self, s: Union[str, List[int]]):
         if isinstance(s, str):
             self.__s += s
@@ -1313,20 +1313,20 @@ class Vector:
         print(s.__dict__)
         print(opt.__dict__)
 
-    def gen_add(self, 
+    def gen_add(self,
                 fn_name: str = "vector_add",
                 first_extension=True,
                 second_extension=True,
                 inplace=False) -> str:
-        """ generates a function which adds two vectors defined over an 
+        """ generates a function which adds two vectors defined over an
         extension field, e.g. a function with the following declare:
             {fn_name}(*out, *v1, *v2, n): out = v1 + v2
-        Where out is the `out` is a pointer to the output vector. `v1` and `v2` 
+        Where out is the `out` is a pointer to the output vector. `v1` and `v2`
         are the two input vectors, which are either defined over the base field,
         or over the extension field.
 
         If `inplace` is true the function declaration will change to:
-            {fn_name}(*out, *v1, n): out += v1 
+            {fn_name}(*out, *v1, n): out += v1
         and v2 will be compelty ignored.
 
         :param fn_name: name of the function to emit. Needed, as this funciton
@@ -1362,7 +1362,7 @@ class Vector:
         else: # not unroll
             l = Loop(0, n_v1, 1)
             i = l.get_step_variable_name()
-           
+
             # TODO expand and stuff
             v1_var_name, v2_var_name, o_var_name = get_var_name(), get_var_name(), get_var_name()
             t1 = self.simd.load(v1_var_name, f"{arguments[1]} + {i}*{stride_v1}")
@@ -1391,17 +1391,17 @@ class Vector:
 
 
 class Matrix:
-    def __init__(self, 
+    def __init__(self,
                  n: int,
                  m: int,
                  k: int,
                  q: int,
-                 mu: int, 
+                 mu: int,
                  simd: SIMD,
                  col_major=True,
                  padding=False) -> None:
         """
-             k           m           k    
+             k           m           k
          ┌───────┐   ┌───────┐   ┌───────┐
          │       │   │       │   │       │
         n│   C   │ = │   A   │n m│   B   │
@@ -1413,7 +1413,7 @@ class Matrix:
         :param n: number of rows in A
         :param m: number of cols in A
         :param k: number of cols in B
-        :param simd_width: TODO 
+        :param simd_width: TODO
         :param col_major: if true, the matrices are column major else row major
         :param padding: if true the script assumes that the allocated length of
         each col (or row if row major) is a multiple (in terms of gf elements)
@@ -1432,7 +1432,7 @@ class Matrix:
 
     def gen_matrix_vector_mul(self, fn_name: str = "matrix_vector_mul") -> str:
         """
-             k           m         1    
+             k           m         1
          ┌───────┐   ┌───────┐     ┌┐
          │       │   │       │     ││
         n│   C   │ = │   A   │n · m││B
@@ -1459,14 +1459,14 @@ class Matrix:
             # load A into registers
             ret += A_s.simd.load_multiple(A_simd_names, arguments[1], A_s.limb_per_simd_q_mu)
 
-            # mul each 
+            # mul each
             for r in A_simd_names:
                 ret += self.simd.mul(r, r, B_simd_name)
 
             # store into C
             ret += self.simd.store_multiple(arguments[0], A_simd_names, A_s.limb_per_simd_q_mu)
 
-            # update the pointers 
+            # update the pointers
             ret += f"a += {A_s.limb_per_simd_q_mu};\n"
             ret += f"c += {A_s.limb_per_simd_q_mu};\n"
         ret += "}\n"
@@ -1474,7 +1474,7 @@ class Matrix:
 
     def gen_matrix_matrix_mul(self, fn_name: str = "matrix_vector_mul") -> str:
         """
-             k           m           k    
+             k           m           k
          ┌───────┐   ┌───────┐     ┌───────┐
          │       │   │       │     │       │
         n│   C   │ = │   A   │n · m│   B   │
@@ -1489,11 +1489,11 @@ class Matrix:
         A_simd_names = [get_var_name() for _ in range(A_s.number_simd_q_mu)]
         B_simd_name = get_var_name()
 
-        ret, arguments = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
+        ret, _ = generate_function_declaration(fn_name, A_s.limb_type_str, 3)
         ret += "{\n"
         ret += A_s.simd.decl(A_simd_names)
         ret += B_s.simd.decl([B_simd_name])
-        
+
         # NOTE: this is the implementation which unrolls the code over k
         for i in range(self.k):
             # TODO
