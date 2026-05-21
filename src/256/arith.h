@@ -989,21 +989,21 @@ __m256i gf256v_mul_u256_v3(__m256i _a, __m256i _b){
         const __m256i zero     = _mm256_setzero_si256();
 	__m256i accu = _mm256_setzero_si256();
 
-        /* Compute the vectorized multiplication in GF(256) */
-        for(j = 0; j < 8; j++){
-                __m256i mask_lsb = _mm256_slli_epi64(_b & lsb, 7);
-                __m256i mask_msb = _a & msb;
-                /* Conditionally xor with a or 0 */
-                accu ^= _mm256_blendv_epi8(zero, _a, mask_lsb);
-                /* Shift right of _a by 1 is simply a global shit right with a AND 0x80 */
-                _a = _mm256_slli_epi64(_a, 1) & rm_lsb;
-                /* Conditionally xor with polynomial reduction or not */
-                _a ^= _mm256_blendv_epi8(zero, red_poly, mask_msb);
-                /* Shift left of _b by 1 is simply a global shift left with a AND 0x01 */
-                _b = _mm256_srli_epi64(_b, 1) & rm_msb;
-        }
+    /* Compute the vectorized multiplication in GF(256) */
+    for(j = 0; j < 8; j++){
+            __m256i mask_lsb = _mm256_slli_epi64(_b & lsb, 7);
+            __m256i mask_msb = _a & msb;
+            /* Conditionally xor with a or 0 */
+            accu ^= _mm256_blendv_epi8(zero, _a, mask_lsb);
+            /* Shift right of _a by 1 is simply a global shit right with a AND 0x80 */
+            _a = _mm256_slli_epi64(_a, 1) & rm_lsb;
+            /* Conditionally xor with polynomial reduction or not */
+            _a ^= _mm256_blendv_epi8(zero, red_poly, mask_msb);
+            /* Shift left of _b by 1 is simply a global shift left with a AND 0x01 */
+            _b = _mm256_srli_epi64(_b, 1) & rm_msb;
+    }
 
-        return accu;
+    return accu;
 }
 
 /// NOTE: only the 32bit limbs in b are used. and those limbs must be < 256

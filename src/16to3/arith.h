@@ -191,7 +191,7 @@ static inline __m256i gf16to3v_mul_u256(const __m256i a,
 
     // bit    0   4    8   12    16
     // p012 = [p01, p12, p02,   0]
-    __m256i p012 = gf16v_mul_full_u256(a01_12, b01_12);
+    const __m256i p012 = gf16v_mul_full_u256(a01_12, b01_12);
 
     // bit 0   4           8         12    16
     // r = [  0, p0^p12^p01, p1^p0^p02,   0]

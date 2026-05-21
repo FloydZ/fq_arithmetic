@@ -11,7 +11,7 @@
 #include "../16/arith.h"
 
 // GF(16^32) element: 32 GF(16) symbols packed as nibbles
-//  reduction by y^32 + y^3 + 1
+//     x^32 + B*x^28 + x^21 + F*x^2 + 9
 typedef uint8_t gf16to32[16];
 
 
@@ -67,44 +67,51 @@ void gf16to32_mul_gf16(gf16to32 c, const gf16to32 a, const gf16 b) {
     }
 }
 
-static
-void gf16to32_mul(gf16to32 r, const gf16to32 a, const gf16to32 b) {
+/// NOTE: non ct
+static void gf16to32_mul(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     uint8_t t[64] = {0};
 
-    /* schoolbook multiply over GF(16) */
+    static const uint8_t MOD[32] = {
+        0x9, 0x0, 0xF, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0xB, 0x0, 0x0, 0x0
+    };
+
     for (uint32_t i = 0; i < 32; i++) {
         uint8_t ai = (a[i >> 1] >> ((i & 1) * 4)) & 0xF;
+
         for (uint32_t j = 0; j < 32; j++) {
-            const uint8_t bj = (b[j >> 1] >> ((j & 1) * 4)) & 0xF;
+            uint8_t bj = (b[j >> 1] >> ((j & 1) * 4)) & 0xF;
             t[i + j] ^= gf16_mul(ai, bj);
         }
     }
-
-    /* modular reduction */
-    for (uint32_t k = 63; k >= 32; k--) {
+    for (uint32_t k = 62; k >= 32; k--) {
         const uint8_t c = t[k];
-        if (!c) continue;
+        if (!c) { continue; }
+
         t[k] = 0;
-        t[k - 32] ^= c;
-        t[k - 29] ^= c;
+
+        for (int i = 0; i < 32; i++) {
+            if (MOD[i]) {
+                t[k - 32 + i] ^= gf16_mul(c, MOD[i]);
+            }
+        }
     }
 
-    /* repack result */
     memset(r, 0, 16);
     for (int i = 0; i < 32; i++) {
         r[i >> 1] |= (t[i] & 0xF) << ((i & 1) * 4);
     }
 }
-
 /// NOTE: needs the gnu (gcc) extension of __uint128_t
 static
 void gf16to32_mul_v2(gf16to32 c, const gf16to32 a, const gf16to32 b) {
     const __uint128_t aa = *(__uint128_t *)a;
     const __uint128_t bb = *(__uint128_t *)b;
-    const __int128_t mask  = (__int128_t)1ll;
+    const __int128_t mask  = 0x1ll;
     __uint128_t r = 0;
-
-    const __uint128_t mod = 0b1001;
+    const __uint128_t mod =  ((__uint128_t)0x90F0000000000000ull << 64) ^ 0x000001000000B000ull;
     for (uint64_t i = 0; i < 128; i++) {
         const __uint128_t t0 = r+r;
         const __uint128_t t1 = (((__int128_t)r) >> 127) & mod;
@@ -172,14 +179,13 @@ void gf16to32_mul_gf16_u128(gf16to32 c, const gf16to32 a, const gf16 b) {
 
 // a^{-1} = a^(16^32 - 2)
 static
-void gf16to32_inv(gf16to32 r, const gf16to32 a, const gf16to32 b) {
-    gf16to32 x, y;
-    memcpy(x, b, 16);
+void gf16to32_inv(gf16to32 r, const gf16to32 b) {
+    gf16to32 y;
     memcpy(y, b, 16);
-    for (uint64_t i = 0; i < 32 * 4 - 1; i++) { /* log2(16^32 - 2) */
-        gf16to32_mul(y, y, y);  /* square */
-        gf16to32_mul(y, y, b);  /* multiply */
+    for (uint64_t i = 0; i < 32 * 4 - 2; i++) {
+        gf16to32_mul(y, y, y);
+        gf16to32_mul(y, y, b);
     }
 
-    gf16to32_mul(r, a, y);
+    gf16to32_mul(r, y, y);
 }
