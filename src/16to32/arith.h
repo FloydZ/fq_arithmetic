@@ -20,11 +20,18 @@ void gf16to32_set_u(gf16to32 r, const uint64_t d) {
     *(((uint64_t *)r) + 0) = d;
     *(((uint64_t *)r) + 1) = 0;
 }
+
 static
 void gf16to32_set_uu(gf16to32 r, const uint64_t hi, const uint64_t lo) {
     *(((uint64_t *)r) + 0) = lo;
     *(((uint64_t *)r) + 1) = hi;
 }
+
+static inline
+void gf16to32_set_zero(gf16to32 v) {
+    memset(v, 0, 16);
+}
+
 
 static
 int gf16to32_cmp(const gf16to32 a, const gf16to32 b) {
@@ -51,6 +58,13 @@ void gf16to32_add(gf16to32 r, const gf16to32 a, const gf16to32 b) {
 static
 void gf16to32_sub(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     gf16to32_add(r, a, b);
+}
+
+void gf16to32_mul_gf16(gf16to32 c, const gf16to32 a, const gf16 b) {
+    for (uint64_t i = 0; i < 16; i++) {
+        c[i] = gf16_mul_v3(a[i] & 0xFFFF, b);
+        c[i] |= gf16_mul_v3(a[i] >> 4, b) << 4;
+    }
 }
 
 static
@@ -107,6 +121,23 @@ void gf16to32_mul_v2(gf16to32 c, const gf16to32 a, const gf16to32 b) {
 
 
 #ifdef USE_AVX2
+// static
+// void gf16to32_add_u128(gf16to32 c, const gf16to32 a, const gf16to32 b) {
+//     const __m128i a128 = _mm_loadu_si128((const __m128i *)a);
+//     const __m128i b128 = _mm_loadu_si128((const __m128i *)b);
+//     const __m128i c128 = _mm_xor_si128(a128, b128);
+//     _mm_storeu_si128((__m128i *)c, c128);
+// }
+static
+__m128i gf16to32_add_u128(const __m128i a128, const __m128i b128) {
+    return _mm_xor_si128(a128, b128);
+}
+
+static
+__m256i gf16to32_add_u256(const __m256i a256, const __m256i b256) {
+    return _mm256_xor_si256(a256, b256);
+}
+
 /// TODO test
 static
 void gf16to32_mul_u128(gf16to32 c, const gf16to32 a, const gf16to32 b) {
@@ -130,11 +161,18 @@ void gf16to32_mul_u128(gf16to32 c, const gf16to32 a, const gf16to32 b) {
 
     _mm_storeu_si128((__m128i *)c, r);
 }
+
+void gf16to32_mul_gf16_u128(gf16to32 c, const gf16to32 a, const gf16 b) {
+    const __m128i a128 = _mm_loadu_si128((const __m128i *)a);
+    const __m128i b128 = _mm_set1_epi8(b);
+    const __m128i c128 = gf16v_mul_u128(a128, b128);
+    _mm_storeu_si128((__m128i *)c, c128);
+}
 #endif
 
 // a^{-1} = a^(16^32 - 2)
 static
-void gf_div(gf16to32 r, const gf16to32 a, const gf16to32 b) {
+void gf16to32_inv(gf16to32 r, const gf16to32 a, const gf16to32 b) {
     gf16to32 x, y;
     memcpy(x, b, 16);
     memcpy(y, b, 16);
