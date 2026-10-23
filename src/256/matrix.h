@@ -8,16 +8,81 @@
 #include "../16/matrix.h"
 #include "../2/matrix.h"
 
-#define gf256_matrix_get_entry(m,n,i,j) m[j*n + i]
-#define gf256_matrix_set_entry(m,n,i,j,v) m[j*n + i] = v
 #define gf256_matrix_bytes_size(x, y) ((x) * (y) * sizeof(gf256))
+
+/// \param m[in]: column-major matrix
+/// \param n_rows[in]: number of rows
+/// \param i[in]: row index
+/// \param j[in]: column index
+/// \return m[i, j]
+static inline
+gf256 gf256_matrix_get(const gf256 *m,
+                       const uint32_t n_rows,
+                       const uint32_t i,
+                       const uint32_t j) {
+    return m[j*n_rows + i];
+}
+
+/// m[i, j] = a
+/// \param m[in/out]: column-major matrix
+/// \param n_rows[in]: number of rows
+/// \param i[in]: row index
+/// \param j[in]: column index
+/// \param a[in]: value to set
+static inline
+void gf256_matrix_set(gf256 *m,
+                      const uint32_t n_rows,
+                      const uint32_t i,
+                      const uint32_t j,
+                      const gf256 a) {
+    m[j*n_rows + i] = a;
+}
 
 /// \param n_rows[in]: number of rows
 /// \param n_cols[in]: number of cols
 static inline
 gf256* gf256_matrix_alloc(const uint32_t n_rows,
                           const uint32_t n_cols) {
-    return (gf256 *)calloc(sizeof(gf256), gf256_matrix_bytes_size(n_rows, n_cols));
+    return (gf256 *)calloc(1, gf256_matrix_bytes_size(n_rows, n_cols));
+}
+
+/// \param m[out]: = 0
+/// \param n_rows[in]: number of rows
+/// \param n_cols[in]: number of cols
+static inline
+void gf256_matrix_zero(gf256 *m,
+                       const uint32_t n_rows,
+                       const uint32_t n_cols) {
+    memset(m, 0, gf256_matrix_bytes_size(n_rows, n_cols));
+}
+
+/// \param m[out]: identity matrix (1 on the diagonal, 0 elsewhere)
+/// \param n_rows[in]: number of rows
+/// \param n_cols[in]: number of cols
+static inline
+void gf256_matrix_id(gf256 *m,
+                     const uint32_t n_rows,
+                     const uint32_t n_cols) {
+    gf256_matrix_zero(m, n_rows, n_cols);
+    for (uint32_t i = 0; i < MIN(n_rows, n_cols); i++) {
+        gf256_matrix_set(m, n_rows, i, i, 1);
+    }
+}
+
+/// \param out[out]: n_cols x n_rows matrix = in^T
+/// \param in[in]: n_rows x n_cols matrix
+/// \param n_rows[in]: number of rows of `in`
+/// \param n_cols[in]: number of cols of `in`
+static inline
+void gf256_matrix_transpose(gf256 *__restrict__ out,
+                            const gf256 *__restrict__ in,
+                            const uint32_t n_rows,
+                            const uint32_t n_cols) {
+    for (uint32_t i = 0; i < n_rows; i++) {
+        for (uint32_t j = 0; j < n_cols; j++) {
+            gf256_matrix_set(out, n_cols, j, i, gf256_matrix_get(in, n_rows, i, j));
+        }
+    }
 }
 
 /// \param matrix1[in]: pointer to the matrix
@@ -29,7 +94,7 @@ void gf256_matrix_print(const gf256 *matrix1,
                         const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            const gf256 t = gf256_matrix_get_entry(matrix1, n_rows, i, j);
+            const gf256 t = gf256_matrix_get(matrix1, n_rows, i, j);
             printf("%3d ", t);
         }
         printf("\n");
@@ -44,7 +109,7 @@ static inline void gf256_matrix_random(gf256 *matrix,
                                        const uint32_t n_rows,
                                        const uint32_t n_cols) {
     for (uint32_t i = 0; i < (n_rows * n_cols); i++) {
-        matrix[i] = rand();
+        matrix[i] = rand() & 0xFF;
     }
 }
 
@@ -92,10 +157,10 @@ static inline void gf256_matrix_add_gf2(gf256 *matrix1,
         for (uint32_t j = 0; j < n_cols; j++) {
             gf256 entry2;
 
-            const gf256 entry1 = gf256_matrix_get_entry(matrix2, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix2, n_rows, i, j);
             entry2 = gf2_matrix_get(matrix3, n_rows, i, j);
             entry2 = entry1 ^ entry2;
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry2);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry2);
         }
     }
 }
@@ -116,11 +181,11 @@ static inline void gf256_matrix_add_gf16(gf256 *matrix1,
         for (uint32_t j = 0; j < n_cols; j++) {
             gf256 entry2;
 
-            const gf256 entry1 = gf256_matrix_get_entry(matrix2, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix2, n_rows, i, j);
             entry2 = gf16_matrix_get(matrix3, n_rows, i, j);
             entry2 = gf256_expand_tab[entry2];
             entry2 = entry1 ^ entry2;
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry2);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry2);
         }
     }
 }
@@ -136,7 +201,7 @@ static inline void gf256_matrix_add_gf16(gf256 *matrix1,
  * \param[in] n_rows number of rows
  * \param[in] n_cols number of columns
  */
-static inline void gf256_matrix_add_multiple_gf2(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_gf2(gf256 *matrix1,
                                                  const gf256 scalar, 
                                                  const gf2 *matrix2,
                                                  const uint32_t n_rows,
@@ -145,10 +210,10 @@ static inline void gf256_matrix_add_multiple_gf2(gf256 *matrix1,
         for (uint32_t j = 0; j < n_cols; j++) {
             gf256 entry2, entry3;
 
-            const gf256 entry1 = gf256_matrix_get_entry(matrix1, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix1, n_rows, i, j);
             entry2 = gf2_matrix_get(matrix2, n_rows, i, j) & 0x01;
             entry3 = entry1 ^ gf256_mul(scalar, entry2);
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
 }
@@ -160,7 +225,7 @@ static inline void gf256_matrix_add_multiple_gf2(gf256 *matrix1,
 /// \param[in] matrix2 Matrix over gf16
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static inline void gf256_matrix_add_multiple_gf16(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_gf16(gf256 *matrix1,
                                                   const gf256 scalar,
                                                   const ff_t *matrix2,
                                                   const uint32_t n_rows,
@@ -169,11 +234,11 @@ static inline void gf256_matrix_add_multiple_gf16(gf256 *matrix1,
         for (uint32_t j = 0; j < n_cols; j++) {
             gf256 entry2, entry3;
 
-            const gf256 entry1 = gf256_matrix_get_entry(matrix1, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix1, n_rows, i, j);
             entry2 = gf16_matrix_get(matrix2, n_rows, i, j);
             entry2 = gf256_expand_tab[entry2];
             entry3 = entry1 ^ gf256_mul(scalar, entry2);
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
 }
@@ -185,18 +250,18 @@ static inline void gf256_matrix_add_multiple_gf16(gf256 *matrix1,
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static void gf256_matrix_add_multiple_2(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar(gf256 *matrix1,
                                         const gf256 scalar,
                                         const gf256 *matrix2,
                                         const uint32_t n_rows,
                                         const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            const gf256 entry1 = gf256_matrix_get_entry(matrix1, n_rows, i, j);
-            const gf256 entry2 = gf256_matrix_get_entry(matrix2, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix1, n_rows, i, j);
+            const gf256 entry2 = gf256_matrix_get(matrix2, n_rows, i, j);
             const gf256 entry3 = entry1 ^ gf256_mul(scalar, entry2);
 
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
 }
@@ -209,7 +274,7 @@ static void gf256_matrix_add_multiple_2(gf256 *matrix1,
 ///\param[in] matrix3 Matrix over gf256
 ///\param[in] n_rows number of rows
 ///\param[in] n_cols number of columns
-static inline void gf256_matrix_add_multiple(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_v2(gf256 *matrix1,
                                              const gf256 *matrix2,
                                              const gf256 scalar,
                                              const gf256 *matrix3,
@@ -217,11 +282,11 @@ static inline void gf256_matrix_add_multiple(gf256 *matrix1,
                                              const uint32_t n_cols) {
     for (uint32_t i = 0; i < n_rows; i++) {
         for (uint32_t j = 0; j < n_cols; j++) {
-            const gf256 entry1 = gf256_matrix_get_entry(matrix2, n_rows, i, j);
-            const gf256 entry2 = gf256_matrix_get_entry(matrix3, n_rows, i, j);
+            const gf256 entry1 = gf256_matrix_get(matrix2, n_rows, i, j);
+            const gf256 entry2 = gf256_matrix_get(matrix3, n_rows, i, j);
             const gf256 entry3 = entry1 ^ gf256_mul(scalar, entry2);
 
-            gf256_matrix_set_entry(matrix1, n_rows, i, j, entry3);
+            gf256_matrix_set(matrix1, n_rows, i, j, entry3);
         }
     }
 }
@@ -234,7 +299,7 @@ static inline void gf256_matrix_add_multiple(gf256 *matrix1,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf2_1(gf256 *result,
+static inline void gf256_matrix_mul_gf2_1(gf256 *result,
                                               const gf2 *matrix1,
                                               const gf256 *matrix2,
                                               const uint32_t n_rows1,
@@ -248,11 +313,11 @@ static inline void gf256_matrix_product_gf2_1(gf256 *result,
 
             for (uint32_t k = 0; k < n_cols1; k++) {
                 entry_i_k = gf2_matrix_get(matrix1, n_rows1, i, k) & 0x01;
-                entry_k_j = gf256_matrix_get_entry(matrix2, n_cols1, k, j);
+                entry_k_j = gf256_matrix_get(matrix2, n_cols1, k, j);
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -266,7 +331,7 @@ static inline void gf256_matrix_product_gf2_1(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf2_2(gf256 *result,
+static inline void gf256_matrix_mul_gf2_2(gf256 *result,
                                               const gf256 *matrix1,
                                               const gf2 *matrix2,
                                               const uint32_t n_rows1,
@@ -278,12 +343,12 @@ static inline void gf256_matrix_product_gf2_2(gf256 *result,
             entry_i_j = 0;
 
             for (uint32_t k = 0; k < n_cols1; k++) {
-                entry_i_k = gf256_matrix_get_entry(matrix1, n_rows1, i, k);
+                entry_i_k = gf256_matrix_get(matrix1, n_rows1, i, k);
                 entry_k_j = gf2_matrix_get(matrix2, n_cols1, k, j) & 0x01;
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -296,7 +361,7 @@ static inline void gf256_matrix_product_gf2_2(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf16_1(gf256 *result,
+static inline void gf256_matrix_mul_gf16_1(gf256 *result,
                                                const ff_t *matrix1,
                                                const gf256 *matrix2,
                                                const uint32_t n_rows1,
@@ -311,11 +376,11 @@ static inline void gf256_matrix_product_gf16_1(gf256 *result,
             for (uint32_t k = 0; k < n_cols1; k++) {
                 entry_i_k = gf16_matrix_get(matrix1, n_rows1, i, k);
                 entry_i_k = gf256_expand_tab[entry_i_k];
-                entry_k_j = gf256_matrix_get_entry(matrix2, n_cols1, k, j);
+                entry_k_j = gf256_matrix_get(matrix2, n_cols1, k, j);
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -328,7 +393,7 @@ static inline void gf256_matrix_product_gf16_1(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf16_2(gf256 *result,
+static inline void gf256_matrix_mul_gf16_2(gf256 *result,
                                                const gf256 *matrix1,
                                                const ff_t *matrix2,
                                                const uint32_t n_rows1,
@@ -341,13 +406,13 @@ static inline void gf256_matrix_product_gf16_2(gf256 *result,
             entry_i_j = 0;
 
             for (uint32_t k = 0; k < n_cols1; k++) {
-                entry_i_k = gf256_matrix_get_entry(matrix1, n_rows1, i, k);
+                entry_i_k = gf256_matrix_get(matrix1, n_rows1, i, k);
                 entry_k_j = gf16_matrix_get(matrix2, n_cols1, k, j);
                 entry_k_j = gf256_expand_tab[entry_k_j];
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -360,7 +425,7 @@ static inline void gf256_matrix_product_gf16_2(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product(gf256 *result,
+static inline void gf256_matrix_mul(gf256 *result,
                                         const gf256 *matrix1,
                                         const gf256 *matrix2,
                                         const uint32_t n_rows1,
@@ -373,12 +438,12 @@ static inline void gf256_matrix_product(gf256 *result,
             entry_i_j = 0;
 
             for (uint32_t k = 0; k < n_cols1; k++) {
-                entry_i_k = gf256_matrix_get_entry(matrix1, n_rows1, i, k);
-                entry_k_j = gf256_matrix_get_entry(matrix2, n_cols1, k, j);
+                entry_i_k = gf256_matrix_get(matrix1, n_rows1, i, k);
+                entry_k_j = gf256_matrix_get(matrix2, n_cols1, k, j);
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -391,7 +456,7 @@ static inline void gf256_matrix_product(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_add_product(gf256 *result,
+static inline void gf256_matrix_add_mul(gf256 *result,
                                             const gf256 *matrix1,
                                             const gf256 *matrix2,
                                             const uint32_t n_rows1,
@@ -401,15 +466,15 @@ static inline void gf256_matrix_add_product(gf256 *result,
 
     for(uint32_t i = 0; i < n_rows1; i++) {
         for (uint32_t j = 0; j < n_cols2; j++) {
-            entry_i_j = gf256_matrix_get_entry(result, n_rows1, i, j);
+            entry_i_j = gf256_matrix_get(result, n_rows1, i, j);
 
             for (uint32_t k = 0; k < n_cols1; k++) {
-                entry_i_k = gf256_matrix_get_entry(matrix1, n_rows1, i, k);
-                entry_k_j = gf256_matrix_get_entry(matrix2, n_cols1, k, j);
+                entry_i_k = gf256_matrix_get(matrix1, n_rows1, i, k);
+                entry_k_j = gf256_matrix_get(matrix2, n_cols1, k, j);
                 entry_i_j ^= gf256_mul(entry_i_k, entry_k_j);
             }
 
-            gf256_matrix_set_entry(result, n_rows1, i, j, entry_i_j);
+            gf256_matrix_set(result, n_rows1, i, j, entry_i_j);
         }
     }
 }
@@ -435,12 +500,12 @@ static inline void gf256_matrix_map_gf16_to_gf256(gf256 *out,
 
 #ifdef USE_AVX2 
 
-/// reads up to 16 bytes from a single columns
-static inline __m128i read16column(const gf256 *col,
-                                   const uint32_t bytes) {
-    if (bytes == 32) { return _mm_loadu_si128((const __m128i *)col); }
+/// reads up to 16 bytes from a single columns, the rest is zero
+static inline __m128i gf256_matrix_read16column(const gf256 *col,
+                                                const uint32_t bytes) {
+    if (bytes >= 16) { return _mm_loadu_si128((const __m128i *)col); }
 
-    uint8_t tmp[16] __attribute__((aligned(16)));
+    uint8_t tmp[16] __attribute__((aligned(16))) = {0};
     for (uint32_t i = 0; i < bytes; ++i) {
         tmp[i] = col[i];
     }
@@ -448,12 +513,12 @@ static inline __m128i read16column(const gf256 *col,
     return _mm_load_si128((const __m128i *)tmp);
 }
 
-/// reads up to 32 bytes from a single columns
-static inline __m256i read32column(const gf256 *col,
-                                   const uint32_t bytes) {
-    if (bytes == 32) { return _mm256_loadu_si256((const __m256i *)col); }
+/// reads up to 32 bytes from a single columns, the rest is zero
+static inline __m256i gf256_matrix_read32column(const gf256 *col,
+                                                const uint32_t bytes) {
+    if (bytes >= 32) { return _mm256_loadu_si256((const __m256i *)col); }
 
-    uint8_t tmp[32] __attribute__((aligned(32)));
+    uint8_t tmp[32] __attribute__((aligned(32))) = {0};
     for (uint32_t i = 0; i < bytes; ++i) {
         tmp[i] = col[i];
     }
@@ -462,9 +527,9 @@ static inline __m256i read32column(const gf256 *col,
 }
 
 /// writes up to 32 bytes into a single colum
-static inline void write32column(gf256 *col,
-                                 const __m256i data,
-                                 const uint32_t bytes) {
+static inline void gf256_matrix_write32column(gf256 *col,
+                                              const __m256i data,
+                                              const uint32_t bytes) {
     uint8_t tmp[32] __attribute__((aligned(32)));
     _mm256_store_si256((__m256i *)tmp, data);
     for (uint32_t i = 0; i < bytes; ++i) {
@@ -509,7 +574,7 @@ static inline void gf256_matrix_add_u256(gf256 *matrix1,
                                          const gf256 *matrix3, 
                                          const uint32_t n_rows,
                                          const uint32_t n_cols) {
-    gf256_vector_add_u256(matrix1, matrix2, matrix3, n_rows*n_cols);
+    gf256_vector_add_u256_v2(matrix1, matrix2, matrix3, n_rows*n_cols);
 }
 
 /// \brief matrix1 = matrix2 + matrix3
@@ -553,13 +618,13 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
 
         while (i >= 16u) {
             const __m128i m2 = _mm_loadu_si128((const __m128i *)in2);
-            const uint32_t t11 = *(uint32_t *)(in +  0);
-            const uint32_t t12 = *(uint32_t *)(in +  4);
+            const uint32_t t11 = gf256_load_u32(in + 0);
+            const uint32_t t12 = gf256_load_u32(in + 4);
 
-            const __m64 t21 = (__m64)_pdep_u64(t11, 0x0f0f0f0f0f0f0f0f);
-            const __m64 t22 = (__m64)_pdep_u64(t12, 0x0f0f0f0f0f0f0f0f);
+            const uint64_t t21 = _pdep_u64(t11, 0x0f0f0f0f0f0f0f0f);
+            const uint64_t t22 = _pdep_u64(t12, 0x0f0f0f0f0f0f0f0f);
 
-            const __m128i t3 = _mm_setr_epi64(t21, t22);
+            const __m128i t3 = _mm_set_epi64x((long long)t22, (long long)t21);
             const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
             const __m128i t5 = t4 ^ m2;
             _mm_storeu_si128((__m128i *)out, t5);
@@ -570,15 +635,15 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
         }
 
         if (i) {
-            uint8_t tmp[16] __attribute__((aligned(32)));
+            uint8_t tmp[16] __attribute__((aligned(32))) = {0};
             for (uint32_t k = 0; k < i; k++) { tmp[k] = in2[k]; }
             const __m128i m2 = _mm_load_si128((const __m128i *) tmp);
 
             for (uint32_t k = 0; k < (i + 1) / 2; k++) { tmp[k] = in[k]; }
-            const __m64 t21 = (__m64) _pdep_u64(*(uint32_t *) (tmp + 0), 0x0f0f0f0f0f0f0f0f);
-            const __m64 t22 = (__m64) _pdep_u64(*(uint32_t *) (tmp + 4), 0x0f0f0f0f0f0f0f0f);
+            const uint64_t t21 = _pdep_u64(gf256_load_u32(tmp + 0), 0x0f0f0f0f0f0f0f0f);
+            const uint64_t t22 = _pdep_u64(gf256_load_u32(tmp + 4), 0x0f0f0f0f0f0f0f0f);
 
-            const __m128i t3 = _mm_setr_epi64(t21, t22);
+            const __m128i t3 = _mm_set_epi64x((long long)t22, (long long)t21);
             const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
             const __m128i t5 = t4 ^ m2;
             _mm_store_si128((__m128i *) tmp, t5);
@@ -596,14 +661,14 @@ static inline void gf256_matrix_add_gf16_u256(gf256 *matrix1,
 /// \param[in] n_cols number of columns
 static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
                                               const gf256 *matrix2,
-                                              const gf16 *matrix3,
+                                              const gf2 *matrix3,
                                               const uint32_t n_rows,
                                               const uint32_t n_cols) {
     const uint32_t bytes_per_column = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t j = 0; j < n_cols; j++) {
         uint32_t i = n_rows;
-        gf16 *in   = (gf16  *)matrix3 + j*bytes_per_column;
-        gf256 *in2 = (gf256 *)matrix2 + j*n_rows;
+        const gf2 *in    = matrix3 + j*bytes_per_column;
+        const gf256 *in2 = matrix2 + j*n_rows;
         gf256 *out = matrix1 + j*n_rows;
         while (i >= 32u) {
             const __m256i m1 = gf256v_expand_gf2_x32_u256(in);
@@ -617,7 +682,7 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
         }
 
         while (i >= 16u) {
-            const __m128i m1 = gf256_expand_gf2_x16_u256(in);
+            const __m128i m1 = gf256v_expand_gf2_x16_u128(in);
             const __m128i m2 = _mm_loadu_si128((const __m128i *)in2);
             const __m128i t1 = m1 ^ m2;
             _mm_storeu_si128((__m128i *)out, t1);
@@ -628,10 +693,10 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
         }
 
         while (i >= 8u) {
-            const uint64_t m1 = gf2to12v_expand_gf2_x8_u256(in);
-            const uint64_t m2 = *(uint64_t *)(in2);
+            const uint64_t m1 = gf256v_expand_gf2_x8_u64(in);
+            const uint64_t m2 = gf256_load_u64(in2);
             const uint64_t t1 = m1 ^ m2;
-            *(uint64_t *)out = t1;
+            gf256_store_u64(out, t1);
             in  += 1u;
             out += 8u;
             in2 += 8u;
@@ -639,13 +704,13 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
         }
 
         if (i) {
-            uint8_t tmp[8] __attribute__((aligned(32)));
-            const uint64_t m1 = gf2to12v_expand_gf2_x8_u256(in);
+            uint8_t tmp[8] __attribute__((aligned(32))) = {0};
+            const uint64_t m1 = gf256v_expand_gf2_x8_u64(in);
 
             for (uint32_t k = 0; k < i; k++) { tmp[k] = in2[k]; }
-            const uint64_t m2 = *(uint64_t *)(tmp);
+            const uint64_t m2 = gf256_load_u64(tmp);
             const uint64_t t1 = m1 ^ m2;
-            *(uint64_t *)tmp = t1;
+            gf256_store_u64(tmp, t1);
             for (uint32_t k = 0; k < i; k++) { out[k] = tmp[k]; }
         }
     }
@@ -658,7 +723,7 @@ static inline void gf256_matrix_add_gf2_u256(gf256 *matrix1,
 /// \param[in] matrix3 Matrix over gf16
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_gf2_u256(gf256 *matrix1,
                                                        const gf256 scalar,
                                                        const gf2 *matrix2,
                                                        const uint32_t nrows,
@@ -676,10 +741,9 @@ static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
         const gf2 *mm2 = matrix2;
         gf256 *out = matrix1;
 
-        /// NOTE: asumes n_cols %2 == 2
         uint32_t col = 0;
         for (; (col+4) <= ncols; col+=4) {
-            const uint32_t a = *(uint32_t *)(matrix2 + col);
+            const uint32_t a = gf256_load_u32(matrix2 + col);
 
             const uint64_t t41 = _pdep_u64(a>> 0u, m);
             const uint64_t t42 = _pdep_u64(a>> 8u, m);
@@ -697,18 +761,11 @@ static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
             mm2 += 4;
         }
 
-        if (limit) {
-            gf256 tmp[16] __attribute__((aligned(32)));
-
-            const uint64_t t41 = _pdep_u64(mm2[0], m);
-            const uint64_t t42 = _pdep_u64(mm2[1], m);
-            const uint64_t t31 = t41 ^ (t42 << 32);
-            const __m128i t  = _mm_set_epi64x(0, t31);
-            const __m128i c1 = gf256v_mul_gf2_u128(s128, t);
-            _mm_store_si128((__m128i *)tmp, c1);
-
-            for (uint32_t i = 0; i < 2*nrows; i++) {
-                out[i] ^= tmp[i];
+        // remaining columns: each column is a single byte (4 bits) in `matrix2`
+        for (uint32_t c = 0; c < limit; c++) {
+            const uint32_t bits = mm2[c];
+            for (uint32_t r = 0; r < 4; r++) {
+                out[c*4 + r] ^= scalar & (gf256)(-(int32_t)((bits >> r) & 1u));
             }
         }
         return;
@@ -730,7 +787,7 @@ static inline void gf256_matrix_add_multiple_gf2_u256(gf256 *matrix1,
 /// \param[in] matrix3 Matrix over gf16
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_gf16_u256(gf256 *matrix1,
                                                        const gf256 scalar,
                                                        const gf16 *matrix3,
                                                        const uint32_t n_rows,
@@ -786,13 +843,13 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
 
         while (i >= 16u) {
             const __m128i m2 = _mm_loadu_si128((const __m128i *)out);
-            const uint32_t t11 = *(uint32_t *)(in +  0);
-            const uint32_t t12 = *(uint32_t *)(in +  4);
+            const uint32_t t11 = gf256_load_u32(in + 0);
+            const uint32_t t12 = gf256_load_u32(in + 4);
 
-            const __m64 t21 = (__m64)_pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-            const __m64 t22 = (__m64)_pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+            const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+            const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
 
-            const __m128i t3 = _mm_setr_epi64(t21, t22);
+            const __m128i t3 = _mm_set_epi64x((long long)t22, (long long)t21);
             const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
             const __m128i t5 = gf256_linear_transform_8x8_128b(ml128, mh128, t4, mask128);
             const __m128i t6 = t5 ^ m2;
@@ -803,39 +860,39 @@ static inline void gf256_matrix_add_multiple_gf16_u256(gf256 *matrix1,
         }
 
         if (limit) {
-            uint8_t tmp1[16] __attribute__((aligned(32)));
-            uint8_t tmp2[16] __attribute__((aligned(32)));
+            uint8_t tmp1[16] __attribute__((aligned(32))) = {0};
+            uint8_t tmp2[16] __attribute__((aligned(32))) = {0};
             for (uint32_t k = 0; k < limit; k++) { tmp1[k] = out[k]; }
             const __m128i m2 = _mm_load_si128((const __m128i *) tmp1);
 
             for (uint32_t k = 0; k < (limit + 1) / 2; k++) { tmp2[k] = in[k]; }
-            const __m64 t21 = (__m64) _pdep_u64(*(uint32_t *) (tmp2 + 0), 0x0F0F0F0F0F0F0F0F);
-            const __m64 t22 = (__m64) _pdep_u64(*(uint32_t *) (tmp2 + 4), 0x0F0F0F0F0F0F0F0F);
+            const uint64_t t21 = _pdep_u64(gf256_load_u32(tmp2 + 0), 0x0F0F0F0F0F0F0F0F);
+            const uint64_t t22 = _pdep_u64(gf256_load_u32(tmp2 + 4), 0x0F0F0F0F0F0F0F0F);
 
-            const __m128i t3 = _mm_setr_epi64(t21, t22);
+            const __m128i t3 = _mm_set_epi64x((long long)t22, (long long)t21);
             const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
             const __m128i t5 = gf256_linear_transform_8x8_128b(ml128, mh128, t4, mask128);
             const __m128i t6 = t5 ^ m2;
             _mm_store_si128((__m128i *) tmp1, t6);
-            for (uint32_t k = 0; k < limit; k++) { out[k] = tmp2[k]; }
+            for (uint32_t k = 0; k < limit; k++) { out[k] = tmp1[k]; }
         }
     }
 }
 
 
 /// \brief matrix1 += scalar * matrix2
-/// 
+///
 /// \param[out] matrix1 Matrix over gf256
 /// \param[in] scalar scalar over gf256
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows number of rows
 /// \param[in] n_cols number of columns
-static void gf256_matrix_add_multiple_2_u256(gf256 *matrix1,
-                                             const gf256 scalar,
-                                             const gf256 *matrix2,
-                                             const uint32_t n_rows,
-                                             const uint32_t n_cols) {
-    gf256_vector_add_scalar_2_u256(matrix1, scalar, matrix2, n_rows * n_cols);
+static inline void gf256_matrix_add_scalar_u256(gf256 *matrix1,
+                                                const gf256 scalar,
+                                                const gf256 *matrix2,
+                                                const uint32_t n_rows,
+                                                const uint32_t n_cols) {
+    gf256_vector_scalar_add_u256(matrix1, scalar, matrix2, n_rows * n_cols);
 }
 
 
@@ -847,14 +904,14 @@ static void gf256_matrix_add_multiple_2_u256(gf256 *matrix1,
 ///\param[in] matrix3 Matrix over gf256
 ///\param[in] n_rows number of rows
 ///\param[in] n_cols number of columns
-static inline void gf256_matrix_add_multiple_u256(gf256 *matrix1,
+static inline void gf256_matrix_add_scalar_u256_v2(gf256 *matrix1,
                                                     const gf256 *matrix2,
                                                     const gf256 scalar,
                                                     const gf256 *matrix3,
                                                     const uint32_t n_rows,
                                                     const uint32_t n_cols) {
 
-    gf256_vector_add_scalar_3_u256(matrix1, matrix2, scalar, matrix3, n_cols*n_rows);
+    gf256_vector_scalar_add_u256_v2(matrix1, matrix2, scalar, matrix3, n_cols*n_rows);
 }
 
 /// \brief result = matrix1 * matrix2
@@ -865,7 +922,7 @@ static inline void gf256_matrix_add_multiple_u256(gf256 *matrix1,
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
-static inline void gf256_matrix_product_gf2_1_slim_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf2_1_slim_u256(gf256 *result,
                                                         const gf2 *matrix1,
                                                         const gf256 *matrix2,
                                                         const uint32_t n_rows1,
@@ -875,6 +932,7 @@ static inline void gf256_matrix_product_gf2_1_slim_u256(gf256 *result,
     const uint32_t limit = n_rows1 % 32;
     const uint32_t bytes_per_col = gf2_matrix_bytes_per_column(n_rows1);
 
+    gf256_vector_zero(result, n_rows1);
     for (uint32_t col = 0; col < n_cols1; ++col) {
         uint32_t i = 0;
         const uint8_t *m1 = matrix1 + col * bytes_per_col;
@@ -892,8 +950,9 @@ static inline void gf256_matrix_product_gf2_1_slim_u256(gf256 *result,
         }
 
         if (limit) {
+            memset(tmp, 0, 4);
             for (uint32_t j = 0; j < (limit+7)/8; ++j) { tmp[j] = m1[j]; }
-            const __m256i a = gf256v_expand_gf2_x32_u256(m1);
+            const __m256i a = gf256v_expand_gf2_x32_u256(tmp);
             __m256i t = gf256v_mul_gf2_u256(b, a);
             _mm256_store_si256((__m256i *)tmp, t);
             for (uint32_t j = 0; j < limit; ++j) { r[j] ^= tmp[j]; }
@@ -909,35 +968,15 @@ static inline void gf256_matrix_product_gf2_1_slim_u256(gf256 *result,
 /// \param[in] matrix2 Matrix over gf2
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
-static inline void gf256_matrix_product_gf2_2_slim_u256(gf256 *result,
-                                                         const gf256 *matrix1,
-                                                         const gf2 *matrix2,
-                                                         const uint32_t n_rows1,
-                                                         const uint32_t n_cols1) {
-    // uint16_t tmp[16] __attribute__((aligned(32)));
-
-    const uint32_t limit = n_rows1 % 32;
-    const uint32_t bytes_per_col = gf2_matrix_bytes_per_column(n_rows1);
-
+static inline void gf256_matrix_mul_gf2_2_slim_u256(gf256 *result,
+                                                    const gf256 *matrix1,
+                                                    const gf2 *matrix2,
+                                                    const uint32_t n_rows1,
+                                                    const uint32_t n_cols1) {
+    gf256_vector_zero(result, n_rows1);
     for (uint32_t col = 0; col < n_cols1; ++col) {
-        uint32_t i = 0;
-        const uint8_t *m1 = matrix1 + col * bytes_per_col;
-        const __m256i b = _mm256_set1_epi16(*(matrix2 + col));
-        gf256 *r = result;
-        while ((i + 32) <= n_rows1) {
-            const __m256i a = gf256_vector_extend_gf16_x32(m1);
-            __m256i t = gf256v_mul_gf2_u256(a, b);
-            t ^= _mm256_loadu_si256((__m256i *)(r));
-            _mm256_storeu_si256((__m256i *)(r), t);
-
-            m1 += 4;
-            r  += 32;
-            i  += 32;
-        }
-
-        if (limit) {
-            // TODO
-        }
+        const gf256 b = gf2_vector_get(matrix2, col);
+        gf256_vector_scalar_add_u256(result, b, matrix1 + col*n_rows1, n_rows1);
     }
 }
 
@@ -949,18 +988,18 @@ static inline void gf256_matrix_product_gf2_2_slim_u256(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf2_1_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf2_1_u256(gf256 *result,
                                                     const gf2 *matrix1,
                                                     const gf256 *matrix2,
                                                     const uint32_t n_rows1,
                                                     const uint32_t n_cols1,
                                                     const uint32_t n_cols2) {
     if (n_cols2 == 1) {
-        gf256_matrix_product_gf2_1_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+        gf256_matrix_mul_gf2_1_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
         return;
     }
 
-    gf256_matrix_product_gf2_1(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+    gf256_matrix_mul_gf2_1(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
 }
 
 /// \brief result = matrix1 * matrix2
@@ -971,15 +1010,23 @@ static inline void gf256_matrix_product_gf2_1_u256(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf2_2_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf2_2_u256(gf256 *result,
                                                     const gf256 *matrix1,
                                                     const gf2 *matrix2,
                                                     const uint32_t n_rows1,
                                                     const uint32_t n_cols1,
                                                     const uint32_t n_cols2) {
     if (n_cols2 == 1) {
-        gf256_matrix_product_gf2_2_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+        gf256_matrix_mul_gf2_2_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
         return;
+    }
+
+    gf256_matrix_zero(result, n_rows1, n_cols2);
+    for (uint32_t j = 0; j < n_cols2; ++j) {
+        for (uint32_t k = 0; k < n_cols1; ++k) {
+            const gf256 b = gf2_matrix_get(matrix2, n_cols1, k, j);
+            gf256_vector_scalar_add_u256(result + j*n_rows1, b, matrix1 + k*n_rows1, n_rows1);
+        }
     }
 }
 
@@ -991,16 +1038,17 @@ static inline void gf256_matrix_product_gf2_2_u256(gf256 *result,
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
-static inline void gf256_matrix_product_gf16_1_vector_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf16_1_vector_u256(gf256 *result,
                                                         const gf16 *matrix1,
                                                         const gf256 *matrix2,
                                                         const uint32_t n_rows1,
                                                         const uint32_t n_cols1) {
-    uint8_t tmp[32] __attribute__((aligned(32)));
+    uint8_t tmp[32] __attribute__((aligned(32))) = {0};
 
     const uint32_t limit = n_rows1 % 32;
     const uint32_t bytes_per_col = gf16_matrix_bytes_per_column(n_rows1);
 
+    gf256_vector_zero(result, n_rows1);
     for (uint32_t col = 0; col < n_cols1; ++col) {
         uint32_t i = 0;
         const uint8_t *m1 = matrix1 + col * bytes_per_col;
@@ -1037,62 +1085,33 @@ static inline void gf256_matrix_product_gf16_1_vector_u256(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf16_1_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf16_1_u256(gf256 *result,
                                                     const gf16 *matrix1,
                                                     const gf256 *matrix2,
                                                     const uint32_t n_rows1,
                                                     const uint32_t n_cols1,
                                                     const uint32_t n_cols2) {
     if (n_cols2 == 1) {
-        return gf256_matrix_product_gf16_1_vector_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+        gf256_matrix_mul_gf16_1_vector_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+        return;
     }
 
-    const uint32_t nr256= n_rows1 >> 5u;
-    const uint32_t tb   = n_rows1 - (nr256 * 32);
-    const uint8_t tail  = (nr256 == 0) || (tb != n_rows1);
-    const __m256i mask2 = _mm256_set1_epi8(0x0F);
+    const uint32_t bytes_per_col = gf16_matrix_bytes_per_column(n_rows1);
+    gf256 *col = (gf256 *)malloc(n_rows1 + 1u);
 
-    // NOTE: set this to the maximal number of gf16 elements you want to support divided by 32
-    __m256i A[3];
-    uint8_t tmp[32] __attribute__((aligned(32)));
+    gf256_matrix_zero(result, n_rows1, n_cols2);
+    for (uint32_t k = 0; k < n_cols1; ++k) {
+        // expand the k-th column of matrix1 to gf256
+        gf256_vector_set_to_gf16_u256(col, matrix1 + k*bytes_per_col, n_rows1);
 
-    // for each row in matrix2
-    for (uint32_t j = 0; j < n_cols1; ++j) {
-        // load A
-        for (uint32_t i = 0; i < nr256; i++) {
-            A[i] = gf256_vector_extend_gf16_x32(matrix1 + j*((n_rows1+1)/2) + i*16);
-        }
-
-        if (tail) {
-            for (uint32_t k = 0; k < (tb+1)/2; ++k) {
-                tmp[k] = matrix1[j*((n_rows1+1)/2) + nr256*16 + k];
-            }
-            A[nr256] = gf256_vector_extend_gf16_x32(tmp);
-        }
-
-        // iterate over one row in matrix2
-        for (uint32_t i = 0; i < n_cols2; ++i) {
-            const gf256 b = *(matrix2 + i*n_cols1 + j);
-            const __m256i m_tab = gf256v_generate_multab_16_single_element_u256(b);
-            const __m256i ml = _mm256_permute2x128_si256(m_tab, m_tab, 0);
-            const __m256i mh = _mm256_permute2x128_si256(m_tab, m_tab, 0x11);
-
-            for (uint32_t s = 0; s < nr256; ++s) {
-                __m256i r = gf256_linear_transform_8x8_256b(ml, mh, A[s], mask2);
-                r ^= _mm256_loadu_si256((__m256i *)(result + i*n_rows1 + s*32));
-                _mm256_storeu_si256((__m256i *)(result + i*n_rows1 + s*32), r);
-            }
-
-            // tail mngt
-            if (tail) {
-                const __m256i r = gf256_linear_transform_8x8_256b(ml, mh, A[nr256], mask2);
-                _mm256_store_si256((__m256i *)tmp, r);
-                for (uint32_t k = 0; k < tb; ++k) {
-                    result[i*n_rows1 + nr256*32 + k] ^= tmp[k];
-                }
-            }
+        // result[:, j] += matrix2[k, j] * matrix1[:, k]
+        for (uint32_t j = 0; j < n_cols2; ++j) {
+            const gf256 b = gf256_matrix_get(matrix2, n_cols1, k, j);
+            gf256_vector_scalar_add_u256(result + j*n_rows1, b, col, n_rows1);
         }
     }
+
+    free(col);
 }
 
 /// \brief result = matrix1 * matrix2
@@ -1103,57 +1122,20 @@ static inline void gf256_matrix_product_gf16_1_u256(gf256 *result,
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_gf16_2_u256(gf256 *result,
+static inline void gf256_matrix_mul_gf16_2_u256(gf256 *result,
                                                     const gf256 *matrix1,
                                                     const gf16 *matrix2,
                                                     const uint32_t n_rows1,
                                                     const uint32_t n_cols1,
                                                     const uint32_t n_cols2) {
+    gf256_matrix_zero(result, n_rows1, n_cols2);
 
-    const uint32_t nr256= n_rows1 >> 5u;
-    const uint32_t tb   = n_rows1 - (nr256 * 32);
-    const uint8_t tail  = (nr256 == 0) || (tb != n_rows1);
-    const __m256i mask2 = _mm256_set1_epi8(0x0F);
-
-    // NOTE: set this to the maximal number of gf256 elements you want to support divided by 32
-    __m256i A[2];
-    uint8_t tmp[32] __attribute__((aligned(32)));
-
-    // for each row in matrix2
-    for (uint32_t j = 0; j < n_cols1; ++j) {
-        for (uint32_t i = 0; i < nr256; i++) {
-            A[i] = _mm256_loadu_si256((const __m256i *)(matrix1 + j*n_rows1 + i*32));
-        }
-
-        if (tail) {
-            for (uint32_t k = 0; k < tb; ++k) {
-                tmp[k] = matrix1[j*n_rows1 + nr256*32 + k];
-            }
-            A[nr256] = _mm256_load_si256((const __m256i *)tmp);
-        }
-
-        // iterate over one row in matrix2
-        for (uint32_t i = 0; i < n_cols2; ++i) {
+    // result[:, i] += matrix2[j, i] * matrix1[:, j]
+    for (uint32_t i = 0; i < n_cols2; ++i) {
+        for (uint32_t j = 0; j < n_cols1; ++j) {
             const gf256 b1 = gf16_matrix_get(matrix2, n_cols1, j, i);
             const gf256 b2 = gf256_expand_tab[b1];
-            const __m256i m_tab = gf256v_generate_multab_16_single_element_u256(b2);
-            const __m256i ml = _mm256_permute2x128_si256(m_tab, m_tab, 0);
-            const __m256i mh = _mm256_permute2x128_si256(m_tab, m_tab, 0x11);
-
-            for (uint32_t s = 0; s < nr256; ++s) {
-                __m256i r = gf256_linear_transform_8x8_256b(ml, mh, A[s], mask2);
-                r ^= _mm256_loadu_si256((__m256i *)(result + i*n_rows1 + s*32));
-                _mm256_storeu_si256((__m256i *)(result + i*n_rows1 + s*32), r);
-            }
-
-            // tail mngt
-            if (tail) {
-                const __m256i r = gf256_linear_transform_8x8_256b(ml, mh, A[nr256], mask2);
-                _mm256_store_si256((__m256i *)tmp, r);
-                for (uint32_t k = 0; k < tb; ++k) {
-                    result[i*n_rows1 + nr256*32 + k] ^= tmp[k];
-                }
-            }
+            gf256_vector_scalar_add_u256(result + i*n_rows1, b2, matrix1 + j*n_rows1, n_rows1);
         }
     }
 }
@@ -1164,7 +1146,7 @@ static inline void gf256_matrix_product_gf16_2_u256(gf256 *result,
 /// \param[in]  A Matrix over gf256 8 by 8 matrix
 /// \param[in]  B Matrix over gf256 8 by c matrix
 /// \param[in] n_colsB number of columns in matrix2
-static inline void gf256_matrix_product_8x8xC_u256(gf256 *C,
+static inline void gf256_matrix_mul_8x8xC_u256(gf256 *C,
                                                    const gf256 *A,
                                                    const gf256 *B,
                                                    const uint32_t c) {
@@ -1204,7 +1186,7 @@ static inline void gf256_matrix_product_8x8xC_u256(gf256 *C,
 /// \param[in]  A Matrix over gf256 16 by 16 matrix
 /// \param[in]  B Matrix over gf256 16 by c matrix
 /// \param[in] n_colsB number of columns in matrix2
-static inline void gf256_matrix_product_16x16xC_u256(gf256 *C,
+static inline void gf256_matrix_mul_16x16xC_u256(gf256 *C,
                                                      const gf256 *A,
                                                      const gf256 *B,
                                                      const uint32_t c) {
@@ -1269,7 +1251,7 @@ static inline void gf256_matrix_product_16x16xC_u256(gf256 *C,
 /// \param[in]  A Matrix over gf256 a by b matrix
 /// \param[in]  B Matrix over gf256 b by c matrix
 /// \param[in] n_colsB number of columns in matrix2
-static inline void gf256_matrix_product_le32xBxle16_u256(gf256 *C,
+static inline void gf256_matrix_mul_le32xBxle16_u256(gf256 *C,
                                                        const gf256 *A,
                                                        const gf256 *B,
                                                        const uint32_t a,
@@ -1281,7 +1263,7 @@ static inline void gf256_matrix_product_le32xBxle16_u256(gf256 *C,
     // for each col in A
     for (uint32_t i = 0; i < b; ++i) {
         // load full col in A
-        const __m256i col_A = read32column(A + i*a, a);
+        const __m256i col_A = gf256_matrix_read32column(A + i*a, a);
 
         // for each element in row i in B
         for (uint32_t j = 0; j < c; ++j) {
@@ -1297,7 +1279,7 @@ static inline void gf256_matrix_product_le32xBxle16_u256(gf256 *C,
     }
 
     for (uint32_t i = 0; i < c; ++i) {
-        write32column(C +i*a, tmp_C[i], a);
+        gf256_matrix_write32column(C +i*a, tmp_C[i], a);
     }
 }
 
@@ -1389,27 +1371,26 @@ static inline void gf256_matrix_product_le32xBxle16_u256(gf256 *C,
 //}
 
 
-/// special matrix multiplication
-/// B <= 8
+/// special matrix multiplication: C += A*B
 /// 32 < a <= 64
 /// \param[out] C Matrix over gf256 a by c matrix
 /// \param[in]  A Matrix over gf256 a by b matrix
 /// \param[in]  B Matrix over gf256 b by c matrix
 /// \param[in] n_colsB number of columns in matrix2
-static inline void gf256_matrix_product_le64xBxle48_u256(gf256 *C,
+static inline void gf256_matrix_mul_le64xBxle48_u256(gf256 *C,
                                                          const gf256 *A,
                                                          const gf256 *B,
                                                          const uint32_t a,
                                                          const uint32_t b,
                                                          const uint32_t c) {
     const __m256i m = _mm256_set1_epi8(0x0F);
-    const uint32_t la = a % 32;
+    const uint32_t la = a - 32;
 
     // for each col in A
     for (uint32_t i = 0; i < b; ++i) {
         // load full col in A
         const __m256i col_A1 = _mm256_loadu_si256((const __m256i *)(A + i*a));
-        const __m256i col_A2 = read32column(A + i*a + 32, la);
+        const __m256i col_A2 = gf256_matrix_read32column(A + i*a + 32, la);
 
         // for each element in row i in B
         for (uint32_t j = 0; j < c; ++j) {
@@ -1424,29 +1405,29 @@ static inline void gf256_matrix_product_le64xBxle48_u256(gf256 *C,
 
 
             const __m256i c1 = _mm256_loadu_si256((const __m256i *)(C + j*a));
-            const __m256i c2 = read32column(C + j*a + 32, la);
+            const __m256i c2 = gf256_matrix_read32column(C + j*a + 32, la);
             _mm256_storeu_si256((__m256i *)(C + j*a), c1^r1);
-            write32column(C + j*a + 32, c2^r2, la);
+            gf256_matrix_write32column(C + j*a + 32, c2^r2, la);
         }
     }
 }
 
 
 
-/// \brief result = matrix1 * matrix2
+/// \brief result += matrix1 * matrix2
 /// `n_cols2` == 1
 ///
 /// \param[out] result Matrix over gf256
-/// \param[in] matrix1 Matrix over gf2
+/// \param[in] matrix1 Matrix over gf256
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
-static inline void gf256_matrix_product_slim_u256(gf256 *result,
+static inline void gf256_matrix_add_mul_slim_u256(gf256 *result,
                                                   const gf256 *matrix1,
                                                   const gf256 *matrix2,
                                                   const uint32_t n_rows1,
                                                   const uint32_t n_cols1) {
-    uint8_t tmp[32] __attribute__((aligned(32)));
+    uint8_t tmp[32] __attribute__((aligned(32))) = {0};
 
     const uint32_t limit = n_rows1 % 32;
 
@@ -1477,32 +1458,72 @@ static inline void gf256_matrix_product_slim_u256(gf256 *result,
 }
 
 /// \brief result = matrix1 * matrix2
-/// 
+/// `n_cols2` == 1
+static inline void gf256_matrix_mul_slim_u256(gf256 *result,
+                                              const gf256 *matrix1,
+                                              const gf256 *matrix2,
+                                              const uint32_t n_rows1,
+                                              const uint32_t n_cols1) {
+    gf256_vector_zero(result, n_rows1);
+    gf256_matrix_add_mul_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+}
+
+/// \brief result += matrix1 * matrix2
+///
 /// \param[out] result Matrix over gf256
 /// \param[in] matrix1 Matrix over gf256
 /// \param[in] matrix2 Matrix over gf256
 /// \param[in] n_rows1 number of rows in matrix1
 /// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
 /// \param[in] n_cols2 number of columns in matrix2
-static inline void gf256_matrix_product_u256(gf256 *result,
+static inline void gf256_matrix_add_mul_u256(gf256 *result,
                                              const gf256 *matrix1,
                                              const gf256 *matrix2,
                                              const uint32_t n_rows1,
                                              const uint32_t n_cols1,
                                              const uint32_t n_cols2) {
     if (n_cols2 == 1) {
-        gf256_matrix_product_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
+        gf256_matrix_add_mul_slim_u256(result, matrix1, matrix2, n_rows1, n_cols1);
         return;
     }
 
-    gf256_matrix_product_le64xBxle48_u256(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+    if ((n_rows1 > 32) && (n_rows1 <= 64)) {
+        gf256_matrix_mul_le64xBxle48_u256(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+        return;
+    }
+
+    // generic: result[:, j] += matrix2[k, j] * matrix1[:, k]
+    for (uint32_t j = 0; j < n_cols2; ++j) {
+        for (uint32_t k = 0; k < n_cols1; ++k) {
+            const gf256 b = gf256_matrix_get(matrix2, n_cols1, k, j);
+            gf256_vector_scalar_add_u256(result + j*n_rows1, b, matrix1 + k*n_rows1, n_rows1);
+        }
+    }
 }
 
-/// \param[out] out Matrix over gf2to12
+/// \brief result = matrix1 * matrix2
+///
+/// \param[out] result Matrix over gf256
+/// \param[in] matrix1 Matrix over gf256
+/// \param[in] matrix2 Matrix over gf256
+/// \param[in] n_rows1 number of rows in matrix1
+/// \param[in] n_cols1 number of columns and rows in matrix1 and matrix2 respectively
+/// \param[in] n_cols2 number of columns in matrix2
+static inline void gf256_matrix_mul_u256(gf256 *result,
+                                         const gf256 *matrix1,
+                                         const gf256 *matrix2,
+                                         const uint32_t n_rows1,
+                                         const uint32_t n_cols1,
+                                         const uint32_t n_cols2) {
+    gf256_matrix_zero(result, n_rows1, n_cols2);
+    gf256_matrix_add_mul_u256(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+
+/// \param[out] out Matrix over gf256
 /// \param[in] input Matrix over gf2
 /// \param[in] nrows number of rows
 /// \param[in] ncols number of columns
-static inline void gf2to12_matrix_map_gf2_u256(gf256 *out,
+static inline void gf256_matrix_map_gf2_u256(gf256 *out,
                                                const gf2 *input,
                                                const uint32_t nrows,
                                                const uint32_t ncols) {
@@ -1528,7 +1549,7 @@ static inline void gf2to12_matrix_map_gf2_u256(gf256 *out,
 /// \param src_mat[in]
 /// \param vec_len[in]
 /// \param src_vec_len[in]
-static
+static inline
 void gf256_matrix_transpose_32x32(uint8_t *mat,
                                   const uint8_t * src_mat,
                                   unsigned vec_len,
@@ -1545,7 +1566,7 @@ void gf256_matrix_transpose_32x32(uint8_t *mat,
 /// \param src_origin[in]: input matrix
 /// \param src_stride[in]: number of bytes (including alignment) in each row for source matrix
 /// \param dst_stride[in]: number of bytes (including alignment) in each row for destination matrix
-static
+static inline
 void gf256_matrix_transpose_32x32_v2(uint8_t* dst_origin,
                                     const uint8_t* src_origin,
                                     const size_t src_stride,
@@ -1787,7 +1808,7 @@ void gf256_matrix_transpose_32x32_v2(uint8_t* dst_origin,
 /// \param dest_mat
 /// \param dest_vec_len
 /// \param src_sqmat
-static  void gf16mat_64x64_sqmat_transpose_neon(uint8_t *dest_mat, unsigned dest_vec_len , const uint8_t *src_sqmat ) {
+static inline void gf16mat_64x64_sqmat_transpose_neon(uint8_t *dest_mat, unsigned dest_vec_len , const uint8_t *src_sqmat ) {
     gf256_matrix_transpose_32x32(dest_mat             ,  src_sqmat ,   dest_vec_len*2 ,64 );     // transpose even rows
     gf256_matrix_transpose_32x32(dest_mat+dest_vec_len,  src_sqmat+32, dest_vec_len*2,64 );  // transpose odd rows
     // transpose 2x2 4-bit blocks
@@ -1809,6 +1830,99 @@ static  void gf16mat_64x64_sqmat_transpose_neon(uint8_t *dest_mat, unsigned dest
         vst1q_u8( dest_mat+(i+1)*dest_vec_len    , out2_0 );
         vst1q_u8( dest_mat+(i+1)*dest_vec_len+16 , out2_1 );
     }
+}
+
+/// \brief matrix1 = matrix2 + matrix3
+static inline void gf256_matrix_add_u128(gf256 *matrix1,
+                                         const gf256 *matrix2,
+                                         const gf256 *matrix3,
+                                         const uint32_t n_rows,
+                                         const uint32_t n_cols) {
+    gf256_vector_add_u128_v2(matrix1, matrix2, matrix3, n_rows*n_cols);
+}
+
+/// \brief matrix1 += scalar * matrix2
+static inline void gf256_matrix_add_scalar_u128(gf256 *matrix1,
+                                                const gf256 scalar,
+                                                const gf256 *matrix2,
+                                                const uint32_t n_rows,
+                                                const uint32_t n_cols) {
+    gf256_vector_scalar_add_u128(matrix1, scalar, matrix2, n_rows*n_cols);
+}
+
+/// \brief result += matrix1 * matrix2
+static inline void gf256_matrix_add_mul_u128(gf256 *result,
+                                             const gf256 *matrix1,
+                                             const gf256 *matrix2,
+                                             const uint32_t n_rows1,
+                                             const uint32_t n_cols1,
+                                             const uint32_t n_cols2) {
+    // result[:, j] += matrix2[k, j] * matrix1[:, k]
+    for (uint32_t j = 0; j < n_cols2; ++j) {
+        for (uint32_t k = 0; k < n_cols1; ++k) {
+            const gf256 b = gf256_matrix_get(matrix2, n_cols1, k, j);
+            gf256_vector_scalar_add_u128(result + j*n_rows1, b, matrix1 + k*n_rows1, n_rows1);
+        }
+    }
+}
+
+/// \brief result = matrix1 * matrix2
+static inline void gf256_matrix_mul_u128(gf256 *result,
+                                         const gf256 *matrix1,
+                                         const gf256 *matrix2,
+                                         const uint32_t n_rows1,
+                                         const uint32_t n_cols1,
+                                         const uint32_t n_cols2) {
+    gf256_matrix_zero(result, n_rows1, n_cols2);
+    gf256_matrix_add_mul_u128(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+#endif
+
+#ifdef USE_AVX512
+
+/// \brief matrix1 = matrix2 + matrix3
+static inline void gf256_matrix_add_u512(gf256 *matrix1,
+                                         const gf256 *matrix2,
+                                         const gf256 *matrix3,
+                                         const uint32_t n_rows,
+                                         const uint32_t n_cols) {
+    gf256_vector_add_u512_v2(matrix1, matrix2, matrix3, n_rows*n_cols);
+}
+
+/// \brief matrix1 += scalar * matrix2
+static inline void gf256_matrix_add_scalar_u512(gf256 *matrix1,
+                                                const gf256 scalar,
+                                                const gf256 *matrix2,
+                                                const uint32_t n_rows,
+                                                const uint32_t n_cols) {
+    gf256_vector_scalar_add_u512(matrix1, scalar, matrix2, n_rows*n_cols);
+}
+
+/// \brief result += matrix1 * matrix2
+static inline void gf256_matrix_add_mul_u512(gf256 *result,
+                                             const gf256 *matrix1,
+                                             const gf256 *matrix2,
+                                             const uint32_t n_rows1,
+                                             const uint32_t n_cols1,
+                                             const uint32_t n_cols2) {
+    // result[:, j] += matrix2[k, j] * matrix1[:, k]
+    for (uint32_t j = 0; j < n_cols2; ++j) {
+        for (uint32_t k = 0; k < n_cols1; ++k) {
+            const gf256 b = gf256_matrix_get(matrix2, n_cols1, k, j);
+            gf256_vector_scalar_add_u512(result + j*n_rows1, b, matrix1 + k*n_rows1, n_rows1);
+        }
+    }
+}
+
+/// \brief result = matrix1 * matrix2
+static inline void gf256_matrix_mul_u512(gf256 *result,
+                                         const gf256 *matrix1,
+                                         const gf256 *matrix2,
+                                         const uint32_t n_rows1,
+                                         const uint32_t n_cols1,
+                                         const uint32_t n_cols2) {
+    gf256_matrix_zero(result, n_rows1, n_cols2);
+    gf256_matrix_add_mul_u512(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
 }
 #endif
 

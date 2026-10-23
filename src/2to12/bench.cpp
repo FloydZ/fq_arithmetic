@@ -209,8 +209,8 @@ static void BM_gf2to12_matrix_mul_u256(benchmark::State& state) {
 BENCHMARK(BM_gf2to12v_mul_u256);
 BENCHMARK(BM_gf2to12v_mul_u256_v2);
 
-//BENCHMARK(BM_gf2to12_vector_add_u256);
-//BENCHMARK(BM_gf2to12_vector_add_gf2_u256);
+BENCHMARK(BM_gf2to12_vector_add_u256);
+BENCHMARK(BM_gf2to12_vector_add_gf2_u256);
 
 BENCHMARK(BM_gf2to12_matrix_mul_gf2_u256);
 BENCHMARK(BM_gf2to12_matrix_mul_u256);
@@ -258,8 +258,8 @@ BENCHMARK(BM_gf2to12v_mul_u512);
 
 BENCHMARK(BM_gf2to12_mul);
 BENCHMARK(BM_gf2to12_mul_v2);
-// BENCHMARK(BM_gf2to12_vector_add);
-// BENCHMARK(BM_gf2to12_vector_add_gf2);
+BENCHMARK(BM_gf2to12_vector_add);
+BENCHMARK(BM_gf2to12_vector_add_gf2);
 
 BENCHMARK(BM_gf2to12_matrix_mul_gf2);
 BENCHMARK(BM_gf2to12_matrix_mul);

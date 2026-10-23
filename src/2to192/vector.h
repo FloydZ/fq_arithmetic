@@ -7,15 +7,14 @@
 #include "arith.h"
 #include "../2/vector.h"
 
-/// \param r[out]:
+/// \param r[out]: = v[i]
 /// \param v[in]: vector
 /// \param i[in]: position to return
-/// \return v[i]
 static inline
 void gf2to192_vector_get(gf2to192 r,
                          const gf2to192 *v,
                          const uint32_t i) {
-    for (uint32_t t = 0; t < 4; t++ ) {
+    for (uint32_t t = 0; t < 3; t++ ) {
         r[t] = v[i][t];
     }
 }
@@ -27,7 +26,7 @@ static inline
 void gf2to192_vector_set(gf2to192 *v,
                          const uint32_t i,
                          const gf2to192 a) {
-    for (uint32_t t = 0; t < 4; t++ ) {
+    for (uint32_t t = 0; t < 3; t++ ) {
         v[i][t] = a[t];
     }
 }
@@ -40,16 +39,17 @@ void gf2to192_vector_print(const gf2to192 *v,
     gf2to192 t;
     for (uint32_t i = 0; i < n; i++) {
         gf2to192_vector_get(t, v, i);
-        printf("%llx ", (unsigned long long)t);
+        printf("%016llx%016llx%016llx ", (unsigned long long)t[2],
+               (unsigned long long)t[1], (unsigned long long)t[0]);
     }
     printf("\n");
 }
 
 /// \param n size of the vector (number of elements)
-/// \return vector with n elements
+/// \return zero initialized vector with n elements
 static inline
 gf2to192* gf2to192_vector_alloc(const uint32_t n) {
-    return (gf2to192 *)malloc(n*sizeof(gf2to192));
+    return (gf2to192 *)calloc(n, sizeof(gf2to192));
 }
 
 /// \param v[out]: vector to set to zero
@@ -66,9 +66,7 @@ static inline
 void gf2to192_vector_random(gf2to192 *v,
                             const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
-        for (uint32_t t = 0; t < 4; t++) {
-            v[i][t] = rand() ^ ((uint64_t)rand() << 32);
-        }
+        gf2to192_set_random(v[i]);
     }
 }
 
@@ -78,11 +76,7 @@ void gf2to192_vector_random(gf2to192 *v,
 static inline void gf2to192_vector_copy(gf2to192 *__restrict__ v1,
                                         const gf2to192 *__restrict__ v2,
                                         const uint32_t n) {
-    for (uint32_t i = 0; i < n; i++) {
-        for (uint32_t t = 0; t < 4; t++) {
-            v1[i][t] = v2[i][t];
-        }
-    }
+    memcpy(v1, v2, n * sizeof(gf2to192));
 }
 
 /// \param out += in
@@ -96,18 +90,14 @@ static inline void gf2to192_vector_add(gf2to192 *out,
     }
 }
 
-
 /// \param out[in/out] += in
-/// \param in[in]
+/// \param in[in]: vector over gf2
 /// \param n[in]: length of the vector (number of elements)
 static inline void gf2to192_vector_add_gf2(gf2to192 *__restrict__ out,
-                                          const gf2 *__restrict__ in,
-                                          const uint32_t n) {
+                                           const gf2 *__restrict__ in,
+                                           const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
-        const gf2 a = gf2_vector_get(in, i);
-        for (uint32_t t = 0; t < 4; t++) {
-            out[i][t] ^= a;
-        }
+        out[i][0] ^= gf2_vector_get(in, i);
     }
 }
 
@@ -128,7 +118,7 @@ void gf2to192_vector_scalar_add(gf2to192 *out,
 }
 
 /// \param out += c*in
-/// \param c
+/// \param c: over gf2
 /// \param in
 /// \param n[in]: length of the vector (number of elements)
 static inline
@@ -144,7 +134,7 @@ void gf2to192_vector_scalar_add_gf2(gf2to192 *__restrict__ out,
 }
 
 /// \param out += t*in
-/// \param in
+/// \param in: over gf2
 /// \param n[in]: length of the vector (number of elements)
 static inline
 void gf2to192_vector_scalar_add_gf2_v3(gf2to192 *__restrict__ out,
@@ -174,38 +164,47 @@ void gf2to192_vector_scalar_add_v2(gf2to192 *__restrict__ out,
     }
 }
 
-/// \param a
-/// \param b
+/// \param r[out]: = sum(a[i] * b[i])
+/// \param a[in]: first input vector
+/// \param b[in]: second input vector
 /// \param n[in]: length of the vector (number of elements)
-/// \return sum(a[i] * b[i])
 static inline
 void gf2to192_vector_mul_acc(gf2to192 r,
                              const gf2to192 *a,
                              const gf2to192 *b,
                              const uint32_t n) {
-    gf2to192 t;
-    gf2to192_set_zero(r);
+    gf2to192 t, acc;
+    gf2to192_set_zero(acc);
     for (uint32_t i = 0; i < n; ++i) {
         gf2to192_mul(t, a[i], b[i]);
-        gf2to192_add(r, t, t);
+        gf2to192_add(acc, acc, t);
     }
+    gf2to192_copy(r, acc);
 }
 
 
-#ifdef USE_AVX2 
+#ifdef USE_AVX2
 
-/// \param out[out]: vector of length n
+/// out += in
+/// \param out[in/out]: vector of length n
 /// \param in[in]: vector of length n
 /// \param n[in]: size of the vector, number of elements
 static inline
 void gf2to192_vector_add_u256(gf2to192 *out,
                               const gf2to192 *in,
                               const uint32_t n) {
-    for (uint32_t i = 0; i < n; i++) {
-        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(in + i));
-        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(out + i));
-        const __m256i t3 = gf2to192v_add_u256(t1, t2);
-        _mm256_storeu_si256((__m256i *)out, t3);
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p = (const uint64_t *)in;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 4) <= limbs; i += 4) {
+        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(p + i));
+        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(o + i));
+        _mm256_storeu_si256((__m256i *)(o + i), gf2to192v_add_u256(t1, t2));
+    }
+
+    for (; i < limbs; i++) {
+        o[i] ^= p[i];
     }
 }
 
@@ -215,82 +214,62 @@ void gf2to192_vector_add_u256(gf2to192 *out,
 /// \param in2[in]
 /// \param n[in] number of elements NOT bytes
 static inline
-void gf2to192_vector_add_u256_v2(gf2to192 *__restrict__ out,
-                                 const gf2to192 *__restrict__ in1,
-                                 const gf2to192 *__restrict__ in2,
+void gf2to192_vector_add_u256_v2(gf2to192 *out,
+                                 const gf2to192 *in1,
+                                 const gf2to192 *in2,
                                  const uint32_t n) {
-    for (uint32_t i = 0; i < n; i++) {
-        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(in1 + i));
-        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(in2 + i));
-        const __m256i t3 = gf2to192v_add_u256(t1, t2);
-        _mm256_storeu_si256((__m256i *)out, t3);
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p1 = (const uint64_t *)in1;
+    const uint64_t *p2 = (const uint64_t *)in2;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 4) <= limbs; i += 4) {
+        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(p1 + i));
+        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(p2 + i));
+        _mm256_storeu_si256((__m256i *)(o + i), gf2to192v_add_u256(t1, t2));
+    }
+
+    for (; i < limbs; i++) {
+        o[i] = p1[i] ^ p2[i];
     }
 }
 
 /// \param out += in
-/// \param in
+/// \param in: over gf2
 /// \param n[in] number of elements NOT bytes
 static inline
 void gf2to192_vector_add_gf2_u256(gf2to192 *__restrict__ out,
                                   const gf2 *__restrict__ in,
                                   const uint32_t n) {
+    const __m256i one = _mm256_setr_epi64x(1, 0, 0, 0);
     __m256i tmp[8];
-    uint32_t i = 0;
-    for (; (i+8) <= n; i += 8) {
-        const uint8_t b = *in;
-        gf2to192v_expand_gf2_x8_u256(tmp, b, 8);
-        for (uint32_t j = 0; j < 8; j++) {
-            const __m256i a = _mm256_loadu_si256((const __m256i *)(out + j));
-            tmp[j] ^= a;
-            _mm256_storeu_si256((__m256i *)(out + j), tmp[j]);
-        }
-
-        in += 1;
-        out += 8;
-    }
-
-    const uint32_t limit = n % 8;
-    if (limit) {
-        gf2to192v_expand_gf2_x8_u256(tmp, *in, limit);
+    for (uint32_t i = 0; i < n; i += 8) {
+        const uint32_t limit = (n - i) < 8 ? (n - i) : 8;
+        gf2to192v_expand_gf2_x8_u256(tmp, in[i/8], limit);
         for (uint32_t j = 0; j < limit; j++) {
-            const __m256i a = _mm256_loadu_si256((const __m256i *)(out + j));
-            tmp[j] ^= a;
-            _mm256_storeu_si256((__m256i *)(out + j), tmp[j]);
+            const __m256i a = gf2to192v_load_u256(out[i + j]);
+            gf2to192v_store_u256(out[i + j], a ^ (tmp[j] & one));
         }
     }
 }
 
 /// \param out = in1 + in2
 /// \param in1[in]:
-/// \param in2[in]:
+/// \param in2[in]: over gf2
 /// \param n[in]: number of elements NOT bytes
 static inline
 void gf2to192_vector_add_gf2_u256_v2(gf2to192 *__restrict__ out,
                                      const gf2to192 *__restrict__ in1,
                                      const gf2 *__restrict__ in2,
                                      const uint32_t n) {
-
+    const __m256i one = _mm256_setr_epi64x(1, 0, 0, 0);
     __m256i tmp[8];
-    uint32_t i = 0;
-    for (; (i+8) <= n; i += 8) {
-        const uint8_t b = *in2;
-        gf2to192v_expand_gf2_x8_u256(tmp, b, 8);
-        for (uint32_t j = 0; j < 8; j++) {
-            const __m256i a = _mm256_loadu_si256((const __m256i *)(in1 + i + j));
-            tmp[j] ^= a;
-            _mm256_storeu_si256((__m256i *)(out + i + j), tmp[j]);
-        }
-
-        in2 += 1;
-    }
-
-    const uint32_t limit = n % 8;
-    if (limit) {
-        gf2to192v_expand_gf2_x8_u256(tmp, *in2, limit);
+    for (uint32_t i = 0; i < n; i += 8) {
+        const uint32_t limit = (n - i) < 8 ? (n - i) : 8;
+        gf2to192v_expand_gf2_x8_u256(tmp, in2[i/8], limit);
         for (uint32_t j = 0; j < limit; j++) {
-            const __m256i a = _mm256_loadu_si256((const __m256i *)(out + j));
-            tmp[j] ^= a;
-            _mm256_storeu_si256((__m256i *)(out + j), tmp[j]);
+            const __m256i a = gf2to192v_load_u256(in1[i + j]);
+            gf2to192v_store_u256(out[i + j], a ^ (tmp[j] & one));
         }
     }
 }
@@ -300,46 +279,61 @@ void gf2to192_vector_add_gf2_u256_v2(gf2to192 *__restrict__ out,
 /// \param in1[in]:
 /// \param a[in]:
 /// \param in2[in]:
-/// \param d[in]: length of the vectors (number of elements)
+/// \param n[in]: length of the vectors (number of elements)
 static inline
-void gf2to192_vector_scalar_add_u256_v2(gf2to192 *__restrict__ out,
-                                        const gf2to192 *__restrict__ in1,
+void gf2to192_vector_scalar_add_u256_v2(gf2to192 *out,
+                                        const gf2to192 *in1,
                                         const gf2to192 a,
-                                        const gf2to192 *__restrict__ in2,
+                                        const gf2to192 *in2,
                                         const uint32_t n) {
-    const __m256i aa = _mm256_loadu_si256((const __m256i *)a);
+    const __m256i aa = gf2to192v_load_u256(a);
     for (uint32_t i = 0; i < n; i++) {
-        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(in1 + i));
-        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(in2 + i));
-
+        const __m256i t1 = gf2to192v_load_u256(in1[i]);
+        const __m256i t2 = gf2to192v_load_u256(in2[i]);
         const __m256i u = gf2to192v_mul_u256(aa, t2);
-        const __m256i v = u ^ t1;
-   
-        _mm256_storeu_si256((__m256i *)(out + i), v);
+        gf2to192v_store_u256(out[i], u ^ t1);
     }
 }
 
-/// poly1 = scalar * poly2
-/// \param poly1[out]
+/// out += scalar * in
+/// \param out[in/out]
 /// \param scalar[in]
-/// \param poly2[in]
+/// \param in[in]
 /// \param n[in]: length of vectors (number of elements)
 static inline
-void gf2to192_vector_scalar_add_u256(gf2to192 *poly1,
+void gf2to192_vector_scalar_add_u256(gf2to192 *out,
                                      const gf2to192 scalar,
-                                     const gf2to192 *poly2,
+                                     const gf2to192 *in,
                                      const uint32_t n) {
-    const __m256i s = _mm256_loadu_si256((const __m256i *)scalar);
+    const __m256i s = gf2to192v_load_u256(scalar);
     for (uint32_t i = 0; i < n; i++) {
-        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(poly2 + i));
-
+        const __m256i t1 = gf2to192v_load_u256(in[i]);
+        const __m256i t2 = gf2to192v_load_u256(out[i]);
         const __m256i u = gf2to192v_mul_u256(s, t1);
-        _mm256_storeu_si256((__m256i *)(poly1 + i), u);
+        gf2to192v_store_u256(out[i], u ^ t2);
     }
 }
 
-/// out = scalar * in
-/// \param out[out]: over gf2to192
+/// \param r[out]: = sum(a[i] * b[i])
+/// \param a[in]: first input vector
+/// \param b[in]: second input vector
+/// \param n[in]: length of the vector (number of elements)
+static inline
+void gf2to192_vector_mul_acc_u256(gf2to192 r,
+                                  const gf2to192 *a,
+                                  const gf2to192 *b,
+                                  const uint32_t n) {
+    __m256i acc = _mm256_setzero_si256();
+    for (uint32_t i = 0; i < n; i++) {
+        const __m256i t1 = gf2to192v_load_u256(a[i]);
+        const __m256i t2 = gf2to192v_load_u256(b[i]);
+        acc ^= gf2to192v_mul_u256(t1, t2);
+    }
+    gf2to192v_store_u256(r, acc);
+}
+
+/// out += scalar * in
+/// \param out[in/out]: over gf2to192
 /// \param scalar[in]: over gf2to192
 /// \param in[in]: over gf2
 /// \param n[in]: length of vectors (number of elements)
@@ -348,32 +342,21 @@ void gf2to192_vector_scalar_add_gf2_u256_v2(gf2to192 *out,
                                             const gf2to192 scalar,
                                             const gf2 *in,
                                             const uint32_t n) {
-    uint32_t i = 0;
-    __m256i buffer[4];
-    const __m256i s = _mm256_loadu_si256((const __m256i *)scalar);
-    for (; (i+8) <= n; i+=8) {
-        gf2to192v_expand_gf2_x8_u256(buffer, *in, 8);
-        for (uint32_t t = 0; t < 8; t++) {
-            const __m256i tmp = gf2to192v_mul_gf2_u256(s, buffer[t]);
-            _mm256_storeu_si256((__m256i *)(out + t), tmp);
-        }
-
-        in += 1;
-        out += 8;
-    }
-
-    const uint32_t limit = n % 8;
-    if (limit) {
-        gf2to192v_expand_gf2_x8_u256(buffer, *in, limit);
+    __m256i buffer[8];
+    const __m256i s = gf2to192v_load_u256(scalar);
+    for (uint32_t i = 0; i < n; i += 8) {
+        const uint32_t limit = (n - i) < 8 ? (n - i) : 8;
+        gf2to192v_expand_gf2_x8_u256(buffer, in[i/8], limit);
         for (uint32_t t = 0; t < limit; t++) {
             const __m256i tmp = gf2to192v_mul_gf2_u256(s, buffer[t]);
-            _mm256_storeu_si256((__m256i *)(out + t), tmp);
+            const __m256i o = gf2to192v_load_u256(out[i + t]);
+            gf2to192v_store_u256(out[i + t], o ^ tmp);
         }
     }
 }
 
-/// out = scalar * in
-/// \param out[out]: over gf2to192
+/// out += scalar * in
+/// \param out[in/out]: over gf2to192
 /// \param scalar[in]: over gf2
 /// \param in[in]: over gf2to192
 /// \param n[in]: length of vectors (number of elements)
@@ -382,16 +365,260 @@ void gf2to192_vector_scalar_add_gf2_u256(gf2to192 *__restrict__ out,
                                          const gf2 scalar,
                                          const gf2to192 *__restrict__ in,
                                          const uint32_t n) {
-    const __m256i s = _mm256_set1_epi8(-scalar);
-    uint32_t i = 0;
-    for (; i < n; i++) {
-        const __m256i t1 = _mm256_loadu_si256((const __m256i *)in);
-        const __m256i t2 = t1 & s;
-        _mm256_storeu_si256((__m256i *)(out), t2);
-
-        in += 2;
-        out += 2;
+    const __m256i s = _mm256_set1_epi64x(-(long long)(scalar & 1u));
+    for (uint32_t i = 0; i < n; i++) {
+        const __m256i t1 = gf2to192v_load_u256(in[i]);
+        const __m256i t2 = gf2to192v_load_u256(out[i]);
+        gf2to192v_store_u256(out[i], t2 ^ gf2to192v_mul_gf2_u256(t1, s));
     }
 }
 
-#endif
+#endif // USE_AVX2
+
+#ifdef USE_AVX512
+
+/// out += in
+/// \param out[in/out]: vector of length n
+/// \param in[in]: vector of length n
+/// \param n[in]: size of the vector, number of elements
+static inline
+void gf2to192_vector_add_u512(gf2to192 *out,
+                              const gf2to192 *in,
+                              const uint32_t n) {
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p = (const uint64_t *)in;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 8) <= limbs; i += 8) {
+        const __m512i t1 = _mm512_loadu_si512((const void *)(p + i));
+        const __m512i t2 = _mm512_loadu_si512((const void *)(o + i));
+        _mm512_storeu_si512((void *)(o + i), gf2to192v_add_u512(t1, t2));
+    }
+
+    if (i < limbs) {
+        const __mmask8 m = (__mmask8)((1u << (limbs - i)) - 1u);
+        const __m512i t1 = _mm512_maskz_loadu_epi64(m, (const void *)(p + i));
+        const __m512i t2 = _mm512_maskz_loadu_epi64(m, (const void *)(o + i));
+        _mm512_mask_storeu_epi64((void *)(o + i), m, gf2to192v_add_u512(t1, t2));
+    }
+}
+
+/// out = in1 + in2
+/// \param out[out]
+/// \param in1[in]
+/// \param in2[in]
+/// \param n[in] number of elements NOT bytes
+static inline
+void gf2to192_vector_add_u512_v2(gf2to192 *out,
+                                 const gf2to192 *in1,
+                                 const gf2to192 *in2,
+                                 const uint32_t n) {
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p1 = (const uint64_t *)in1;
+    const uint64_t *p2 = (const uint64_t *)in2;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 8) <= limbs; i += 8) {
+        const __m512i t1 = _mm512_loadu_si512((const void *)(p1 + i));
+        const __m512i t2 = _mm512_loadu_si512((const void *)(p2 + i));
+        _mm512_storeu_si512((void *)(o + i), gf2to192v_add_u512(t1, t2));
+    }
+
+    if (i < limbs) {
+        const __mmask8 m = (__mmask8)((1u << (limbs - i)) - 1u);
+        const __m512i t1 = _mm512_maskz_loadu_epi64(m, (const void *)(p1 + i));
+        const __m512i t2 = _mm512_maskz_loadu_epi64(m, (const void *)(p2 + i));
+        _mm512_mask_storeu_epi64((void *)(o + i), m, gf2to192v_add_u512(t1, t2));
+    }
+}
+
+/// out += scalar * in
+/// \param out[in/out]
+/// \param scalar[in]
+/// \param in[in]
+/// \param n[in]: length of vectors (number of elements)
+static inline
+void gf2to192_vector_scalar_add_u512(gf2to192 *out,
+                                     const gf2to192 scalar,
+                                     const gf2to192 *in,
+                                     const uint32_t n) {
+    const __m512i s = _mm512_maskz_loadu_epi64(0x07, (const void *)scalar);
+    const __m512i ss = _mm512_broadcast_i64x4(_mm512_castsi512_si256(s));
+    uint32_t i = 0;
+    for (; (i + 2) <= n; i += 2) {
+        const __m512i t1 = gf2to192v_load_u512(in + i);
+        const __m512i t2 = gf2to192v_load_u512(out + i);
+        gf2to192v_store_u512(out + i, t2 ^ gf2to192v_mul_u512(ss, t1));
+    }
+
+    if (i < n) {
+        const __m512i t1 = gf2to192v_load_mask_u512(in + i, 0x07);
+        const __m512i t2 = gf2to192v_load_mask_u512(out + i, 0x07);
+        gf2to192v_store_mask_u512(out + i, t2 ^ gf2to192v_mul_u512(ss, t1), 0x07);
+    }
+}
+
+/// out = in1 + a*in2
+/// \param out[out]:
+/// \param in1[in]:
+/// \param a[in]:
+/// \param in2[in]:
+/// \param n[in]: length of the vectors (number of elements)
+static inline
+void gf2to192_vector_scalar_add_u512_v2(gf2to192 *out,
+                                        const gf2to192 *in1,
+                                        const gf2to192 a,
+                                        const gf2to192 *in2,
+                                        const uint32_t n) {
+    const __m512i s = _mm512_maskz_loadu_epi64(0x07, (const void *)a);
+    const __m512i ss = _mm512_broadcast_i64x4(_mm512_castsi512_si256(s));
+    uint32_t i = 0;
+    for (; (i + 2) <= n; i += 2) {
+        const __m512i t1 = gf2to192v_load_u512(in1 + i);
+        const __m512i t2 = gf2to192v_load_u512(in2 + i);
+        gf2to192v_store_u512(out + i, t1 ^ gf2to192v_mul_u512(ss, t2));
+    }
+
+    if (i < n) {
+        const __m512i t1 = gf2to192v_load_mask_u512(in1 + i, 0x07);
+        const __m512i t2 = gf2to192v_load_mask_u512(in2 + i, 0x07);
+        gf2to192v_store_mask_u512(out + i, t1 ^ gf2to192v_mul_u512(ss, t2), 0x07);
+    }
+}
+
+/// \param r[out]: = sum(a[i] * b[i])
+/// \param a[in]: first input vector
+/// \param b[in]: second input vector
+/// \param n[in]: length of the vector (number of elements)
+static inline
+void gf2to192_vector_mul_acc_u512(gf2to192 r,
+                                  const gf2to192 *a,
+                                  const gf2to192 *b,
+                                  const uint32_t n) {
+    __m512i acc = _mm512_setzero_si512();
+    uint32_t i = 0;
+    for (; (i + 2) <= n; i += 2) {
+        const __m512i t1 = gf2to192v_load_u512(a + i);
+        const __m512i t2 = gf2to192v_load_u512(b + i);
+        acc ^= gf2to192v_mul_u512(t1, t2);
+    }
+
+    if (i < n) {
+        const __m512i t1 = gf2to192v_load_mask_u512(a + i, 0x07);
+        const __m512i t2 = gf2to192v_load_mask_u512(b + i, 0x07);
+        acc ^= gf2to192v_mul_u512(t1, t2);
+    }
+
+    uint64_t tmp[8];
+    _mm512_storeu_si512((void *)tmp, acc);
+    for (uint32_t t = 0; t < 3; t++) {
+        r[t] = tmp[t] ^ tmp[4 + t];
+    }
+}
+#endif // USE_AVX512
+
+#ifdef USE_NEON
+
+/// out += in
+/// \param out[in/out]: vector of length n
+/// \param in[in]: vector of length n
+/// \param n[in]: size of the vector, number of elements
+static inline
+void gf2to192_vector_add_u128(gf2to192 *out,
+                              const gf2to192 *in,
+                              const uint32_t n) {
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p = (const uint64_t *)in;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 2) <= limbs; i += 2) {
+        vst1q_u64(o + i, veorq_u64(vld1q_u64(o + i), vld1q_u64(p + i)));
+    }
+
+    for (; i < limbs; i++) {
+        o[i] ^= p[i];
+    }
+}
+
+/// out = in1 + in2
+/// \param out[out]
+/// \param in1[in]
+/// \param in2[in]
+/// \param n[in] number of elements NOT bytes
+static inline
+void gf2to192_vector_add_u128_v2(gf2to192 *out,
+                                 const gf2to192 *in1,
+                                 const gf2to192 *in2,
+                                 const uint32_t n) {
+    uint64_t *o = (uint64_t *)out;
+    const uint64_t *p1 = (const uint64_t *)in1;
+    const uint64_t *p2 = (const uint64_t *)in2;
+    const uint32_t limbs = 3 * n;
+    uint32_t i = 0;
+    for (; (i + 2) <= limbs; i += 2) {
+        vst1q_u64(o + i, veorq_u64(vld1q_u64(p1 + i), vld1q_u64(p2 + i)));
+    }
+
+    for (; i < limbs; i++) {
+        o[i] = p1[i] ^ p2[i];
+    }
+}
+
+/// out += scalar * in
+/// \param out[in/out]
+/// \param scalar[in]
+/// \param in[in]
+/// \param n[in]: length of vectors (number of elements)
+static inline
+void gf2to192_vector_scalar_add_u128(gf2to192 *out,
+                                     const gf2to192 scalar,
+                                     const gf2to192 *in,
+                                     const uint32_t n) {
+    const uint64x2x2_t s = gf2to192v_load_u128(scalar);
+    for (uint32_t i = 0; i < n; i++) {
+        const uint64x2x2_t t1 = gf2to192v_load_u128(in[i]);
+        const uint64x2x2_t t2 = gf2to192v_load_u128(out[i]);
+        gf2to192v_store_u128(out[i], gf2to192v_add_u128(t2, gf2to192v_mul_u128(s, t1)));
+    }
+}
+
+/// out = in1 + a*in2
+/// \param out[out]:
+/// \param in1[in]:
+/// \param a[in]:
+/// \param in2[in]:
+/// \param n[in]: length of the vectors (number of elements)
+static inline
+void gf2to192_vector_scalar_add_u128_v2(gf2to192 *out,
+                                        const gf2to192 *in1,
+                                        const gf2to192 a,
+                                        const gf2to192 *in2,
+                                        const uint32_t n) {
+    const uint64x2x2_t s = gf2to192v_load_u128(a);
+    for (uint32_t i = 0; i < n; i++) {
+        const uint64x2x2_t t1 = gf2to192v_load_u128(in1[i]);
+        const uint64x2x2_t t2 = gf2to192v_load_u128(in2[i]);
+        gf2to192v_store_u128(out[i], gf2to192v_add_u128(t1, gf2to192v_mul_u128(s, t2)));
+    }
+}
+
+/// \param r[out]: = sum(a[i] * b[i])
+/// \param a[in]: first input vector
+/// \param b[in]: second input vector
+/// \param n[in]: length of the vector (number of elements)
+static inline
+void gf2to192_vector_mul_acc_u128(gf2to192 r,
+                                  const gf2to192 *a,
+                                  const gf2to192 *b,
+                                  const uint32_t n) {
+    uint64x2x2_t acc;
+    acc.val[0] = vdupq_n_u64(0);
+    acc.val[1] = vdupq_n_u64(0);
+    for (uint32_t i = 0; i < n; i++) {
+        const uint64x2x2_t t1 = gf2to192v_load_u128(a[i]);
+        const uint64x2x2_t t2 = gf2to192v_load_u128(b[i]);
+        acc = gf2to192v_add_u128(acc, gf2to192v_mul_u128(t1, t2));
+    }
+    gf2to192v_store_u128(r, acc);
+}
+#endif // USE_NEON

@@ -1,19 +1,55 @@
-#pragma once 
+#pragma once
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "arith.h"
 #include "../16/vector.h"
 #include "../2/vector.h"
 
+/// unaligned load of 4 bytes
+static inline uint32_t gf256_load_u32(const uint8_t *in) {
+    uint32_t r;
+    memcpy(&r, in, sizeof(r));
+    return r;
+}
+
+/// unaligned load of 8 bytes
+static inline uint64_t gf256_load_u64(const uint8_t *in) {
+    uint64_t r;
+    memcpy(&r, in, sizeof(r));
+    return r;
+}
+
+/// unaligned store of 8 bytes
+static inline void gf256_store_u64(uint8_t *out, const uint64_t a) {
+    memcpy(out, &a, sizeof(a));
+}
+
 /// \param n size of the vector
-/// \return vector(n)
+/// \return vector(n), initialized to zero
 static inline gf256* gf256_vector_alloc(const uint32_t n) {
-    return (gf256 *)malloc(n*sizeof(gf256));
+    return (gf256 *)calloc(n, sizeof(gf256));
+}
+
+/// \return v[i]
+static inline gf256 gf256_vector_get(const gf256 *v,
+                                     const uint32_t i) {
+    return v[i];
+}
+
+/// v[i] = a
+static inline void gf256_vector_set(gf256 *v,
+                                    const uint32_t i,
+                                    const gf256 a) {
+    v[i] = a;
 }
 
 /// \param v vector to print
 /// \param n size of the vector
-static inline void gf256_vector_print(gf256 *v,
-                                       const uint32_t n) {
+static inline void gf256_vector_print(const gf256 *v,
+                                      const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
         printf("%04d ", v[i]);
     }
@@ -32,11 +68,11 @@ static inline void gf256_vector_zero(gf256 *v,
 static inline void gf256_vector_random(gf256 *v,
                                      const uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
-        v[i] = rand() & 0x3FF;
+        v[i] = rand() & 0xFF;
     }
 }
 
-/// \param v1 = v2 
+/// \param v1 = v2
 /// \param v2
 /// \param n size of the two vectors
 static inline void gf256_vector_copy(gf256 *__restrict__ v1,
@@ -147,6 +183,21 @@ static inline void gf256_vector_scalar_add(gf256 *out,
     }
 }
 
+/// \param out = in1 + c*in2
+/// \param in1
+/// \param c
+/// \param in2
+/// \param n
+static inline void gf256_vector_scalar_add_v2(gf256 *out,
+                                              const gf256 *in1,
+                                              const gf256 c,
+                                              const gf256 *in2,
+                                              const uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        out[i] = in1[i] ^ gf256_mul(c, in2[i]);
+    }
+}
+
 /// \param out += c*in
 /// \param c
 /// \param in
@@ -248,7 +299,7 @@ static inline __m256i gf256v_expand_gf2_x32_u256(const uint8_t *in) {
 
 /// \param in 2 bytes
 /// \return
-static inline __m128i gf256_expand_gf2_x16_u256(const uint8_t *in) {
+static inline __m128i gf256v_expand_gf2_x16_u128(const uint8_t *in) {
     const uint32_t t11 = *(in + 0);
     const uint32_t t12 = *(in + 1);
     const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
@@ -258,24 +309,53 @@ static inline __m128i gf256_expand_gf2_x16_u256(const uint8_t *in) {
 
 /// \param in 1 byte
 /// \return
-static inline uint64_t gf2to12v_expand_gf2_x8_u256(const uint8_t *in) {
+static inline uint64_t gf256v_expand_gf2_x8_u64(const uint8_t *in) {
     const uint32_t t11 = *(in + 0);
     return _pdep_u64(t11, 0x0101010101010101);
 }
 
+/// \param a[in]: [a_0, ..., a_31]
+/// \return a_0 + ... + a_31
+static inline gf256 gf256v_hadd_u256(const __m256i a) {
+    const __m128i t1 = _mm256_castsi256_si128(a) ^ _mm256_extracti128_si256(a, 1);
+    const __m128i t2 = t1 ^ _mm_bsrli_si128(t1, 8);
+    uint64_t t = (uint64_t)_mm_cvtsi128_si64(t2);
+    t ^= t >> 32;
+    t ^= t >> 16;
+    t ^= t >>  8;
+    return (gf256)t;
+}
+
+/// \param out += in
+/// \param in
+/// \param n number of elements
+static inline void gf256_vector_add_u256(gf256 *out,
+                                         const gf256 *in,
+                                         const uint32_t n) {
+    uint32_t i = 0;
+    for (; (i+32) <= n; i += 32) {
+        const __m256i a = _mm256_loadu_si256((const __m256i *)(in + i));
+        const __m256i b = _mm256_loadu_si256((const __m256i *)(out + i));
+        _mm256_storeu_si256((__m256i *)(out + i), a ^ b);
+    }
+
+    for (; i < n; i++) {
+        out[i] ^= in[i];
+    }
+}
 
 /// out = in1 ^ in2
-static inline void gf256_vector_add_u256(gf256 *out,
-                                         const gf256 *in1,
-                                         const gf256 *in2,
-                                         const size_t bytes) {
-    size_t i = bytes;
+static inline void gf256_vector_add_u256_v2(gf256 *out,
+                                            const gf256 *in1,
+                                            const gf256 *in2,
+                                            const uint32_t n) {
+    uint32_t i = n;
 
     // avx2 code
     while (i >= 32u) {
         _mm256_storeu_si256((__m256i *)out,
-                            _mm256_loadu_si256((__m256i *)in1) ^
-                            _mm256_loadu_si256((__m256i *)in2));
+                            _mm256_loadu_si256((const __m256i *)in1) ^
+                            _mm256_loadu_si256((const __m256i *)in2));
         i -= 32u;
         in1 += 32u;
         in2 += 32u;
@@ -285,8 +365,8 @@ static inline void gf256_vector_add_u256(gf256 *out,
     // sse code
     while(i >= 16u) {
         _mm_storeu_si128((__m128i *)out,
-                         _mm_loadu_si128((__m128i *)in1) ^
-                         _mm_loadu_si128((__m128i *)in2));
+                         _mm_loadu_si128((const __m128i *)in1) ^
+                         _mm_loadu_si128((const __m128i *)in2));
         in1 += 16u;
         in2 += 16u;
         out += 16u;
@@ -330,9 +410,9 @@ static inline void gf256_vector_add_2_gf2_u256(gf256 *out,
 
     while (i >= 8u) {
         const uint32_t t1 = *(in2 + 0);
-        const uint64_t m = *(uint64_t *)in1;
+        const uint64_t m = gf256_load_u64(in1);
         const uint64_t t2 = _pdep_u64(t1, 0x0101010101010101);
-        *(uint64_t *)out = t2 ^ m;
+        gf256_store_u64(out, t2 ^ m);
 
         in2 += 1u;
         in1 += 8u;
@@ -346,10 +426,10 @@ static inline void gf256_vector_add_2_gf2_u256(gf256 *out,
         const uint32_t t1 = (*in2) & mask;
 
         for (uint64_t j = 0; j < i; ++j) { tmp[j] = in1[j]; }
-        uint64_t m = *(uint64_t *)tmp;
+        uint64_t m = gf256_load_u64(tmp);
 
         const uint64_t t2 = _pdep_u64(t1, 0x0101010101010101);
-        *(uint64_t *)tmp = t2 ^ m;
+        gf256_store_u64(tmp, t2 ^ m);
         for (uint32_t j = 0; j < i; j++) { out[j] = tmp[j]; }
     }
 }
@@ -377,14 +457,14 @@ static inline void gf256_vector_add_2_gf16_u256(gf256 *__restrict__ out,
     }
 
     while (i >= 8u) {
-        const uint32_t t1 = *(uint32_t *)(in2);
+        const uint32_t t1 = gf256_load_u32(in2);
         const uint64_t t2 = _pdep_u64(t1, 0x0F0F0F0F0F0F0F0F);
 
-        const uint64_t m = *(uint64_t *)in1;
-        const __m128i t3 = _mm_setr_epi64((__m64)t2, (__m64)0ull);
+        const uint64_t m = gf256_load_u64(in1);
+        const __m128i t3 = _mm_set_epi64x(0, (long long)t2);
         const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
         const uint64_t t5 = _mm_extract_epi64(t4, 0);
-        *(uint64_t *)out = t5 ^ m;
+        gf256_store_u64(out, t5 ^ m);
 
         in2 += 4u;
         in1 += 8u;
@@ -393,30 +473,30 @@ static inline void gf256_vector_add_2_gf16_u256(gf256 *__restrict__ out,
     }
 
     if (i) {
-        uint8_t tmp[8];
+        uint8_t tmp[8] = {0};
         for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = in2[j]; }
-        const uint32_t t1 = *(uint32_t *)tmp;
+        const uint32_t t1 = gf256_load_u32(tmp);
 
         for (uint64_t j = 0; j < i; ++j) { tmp[j] = in1[j]; }
-        uint64_t m = *(uint64_t *)tmp;
+        uint64_t m = gf256_load_u64(tmp);
 
         const uint64_t t2 = _pdep_u64(t1, 0x0F0F0F0F0F0F0F0F);
-        const __m128i t3 = _mm_setr_epi64((__m64)t2, (__m64)0ull);
+        const __m128i t3 = _mm_set_epi64x(0, (long long)t2);
         const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
         const uint64_t t5 = _mm_extract_epi64(t4, 0);
 
-        *(uint64_t *)tmp = t5 ^ m;
+        gf256_store_u64(tmp, t5 ^ m);
         for (uint32_t j = 0; j < i; j++) { out[j] = tmp[j]; }
     }
 }
 
-/// out[i] = in1[i] + scalar*in2[i] for all i = 0...bytes-1
-static inline void gf256_vector_add_scalar_3_u256(gf256 *out,
-                                                  const gf256 *in1,
-                                                  const gf256 scalar,
-                                                  const gf256 *in2,
-                                                  const size_t bytes) {
-    size_t i = bytes;
+/// out[i] = in1[i] + scalar*in2[i] for all i = 0...n-1
+static inline void gf256_vector_scalar_add_u256_v2(gf256 *out,
+                                                   const gf256 *in1,
+                                                   const gf256 scalar,
+                                                   const gf256 *in2,
+                                                   const uint32_t n) {
+    uint32_t i = n;
     const __m256i tab = gf256v_generate_multab_16_single_element_u256(scalar);
     const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
     const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
@@ -428,9 +508,9 @@ static inline void gf256_vector_add_scalar_3_u256(gf256 *out,
 
     // avx2 code
     while (i >= 32u) {
-        const __m256i a = _mm256_loadu_si256((__m256i *)in2);
+        const __m256i a = _mm256_loadu_si256((const __m256i *)in2);
         const __m256i tmp = gf256_linear_transform_8x8_256b(ml, mh, a, mask);
-        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)in1) ^ tmp);
+        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((const __m256i *)in1) ^ tmp);
         i -= 32u;
         in1 += 32u;
         in2 += 32u;
@@ -439,10 +519,10 @@ static inline void gf256_vector_add_scalar_3_u256(gf256 *out,
 
     // sse code
     while(i >= 16u) {
-        const __m128i a = _mm_loadu_si128((__m128i *)in2);
+        const __m128i a = _mm_loadu_si128((const __m128i *)in2);
         const __m128i tmp = gf256_linear_transform_8x8_128b(ml128, mh128, a, mask128);
 
-        _mm_storeu_si128((__m128i *)out, _mm_loadu_si128((__m128i *)in1) ^ tmp);
+        _mm_storeu_si128((__m128i *)out, _mm_loadu_si128((const __m128i *)in1) ^ tmp);
         in1 += 16u;
         in2 += 16u;
         out += 16u;
@@ -450,7 +530,7 @@ static inline void gf256_vector_add_scalar_3_u256(gf256 *out,
     }
 
     if (i) {
-        uint8_t tmp[16] __attribute__((aligned(32)));
+        uint8_t tmp[16] __attribute__((aligned(32))) = {0};
         for (uint32_t k = 0; k < i; k++) { tmp[k] = in2[k]; }
         const __m128i a = _mm_load_si128((const __m128i *) tmp);
         for (uint32_t k = 0; k < i; k++) { tmp[k] = in1[k]; }
@@ -463,55 +543,40 @@ static inline void gf256_vector_add_scalar_3_u256(gf256 *out,
     }
 }
 
-/// out[i] += scalar*in2[i] for all i = 0...bytes-1
-static inline void gf256_vector_add_scalar_2_u256(gf256 *out,
-                                                  const gf256 scalar,
-                                                  const gf256 *in2,
-                                                  const size_t bytes) {
-    size_t i = bytes;
-    const __m256i tab = gf256v_generate_multab_16_single_element_u256(scalar);
-    const __m256i ml = _mm256_permute2x128_si256(tab, tab, 0);
-    const __m256i mh = _mm256_permute2x128_si256(tab, tab, 0x11);
-    const __m256i mask = _mm256_set1_epi8(0xf);
+/// out[i] += scalar*in[i] for all i = 0...n-1
+static inline void gf256_vector_scalar_add_u256(gf256 *out,
+                                                const gf256 scalar,
+                                                const gf256 *in,
+                                                const uint32_t n) {
+    gf256_vector_scalar_add_u256_v2(out, out, scalar, in, n);
+}
 
-    const __m128i ml128 = _mm256_extracti128_si256(ml, 0);
-    const __m128i mh128 = _mm256_extracti128_si256(mh, 0);
-    const __m128i mask128 = _mm_set1_epi8(0xF);
-
-    // avx2 code
-    while (i >= 32u) {
-        const __m256i a = _mm256_loadu_si256((__m256i *)in2);
-        const __m256i tmp = gf256_linear_transform_8x8_256b(ml, mh, a, mask);
-        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)out) ^ tmp);
-        i -= 32u;
-        in2 += 32u;
-        out += 32u;
+/// \param a[in]: vector of length n
+/// \param b[in]: vector of length n
+/// \param n[in]: number of elements
+/// \return sum(a[i] * b[i])
+static inline gf256 gf256_vector_mul_acc_u256(const gf256 *a,
+                                              const gf256 *b,
+                                              const uint32_t n) {
+    __m256i acc = _mm256_setzero_si256();
+    uint32_t i = 0;
+    for (; (i+32) <= n; i += 32) {
+        const __m256i t1 = _mm256_loadu_si256((const __m256i *)(a + i));
+        const __m256i t2 = _mm256_loadu_si256((const __m256i *)(b + i));
+        acc ^= gf256v_mul_u256(t1, t2);
     }
 
-    // sse code
-    while(i >= 16u) {
-        const __m128i a = _mm_loadu_si128((__m128i *)in2);
-        const __m128i tmp = gf256_linear_transform_8x8_128b(ml128, mh128, a, mask128);
-
-        _mm_storeu_si128((__m128i *)out, _mm_loadu_si128((__m128i *)out) ^ tmp);
-        in2 += 16u;
-        out += 16u;
-        i -= 16;
+    if (i < n) {
+        uint8_t tmp1[32] __attribute__((aligned(32))) = {0};
+        uint8_t tmp2[32] __attribute__((aligned(32))) = {0};
+        for (uint32_t k = 0; k < (n - i); k++) { tmp1[k] = a[i + k]; }
+        for (uint32_t k = 0; k < (n - i); k++) { tmp2[k] = b[i + k]; }
+        const __m256i t1 = _mm256_load_si256((const __m256i *)tmp1);
+        const __m256i t2 = _mm256_load_si256((const __m256i *)tmp2);
+        acc ^= gf256v_mul_u256(t1, t2);
     }
 
-
-    if (i) {
-        uint8_t tmp[16] __attribute__((aligned(32)));
-        for (uint32_t k = 0; k < i; k++) { tmp[k] = in2[k]; }
-        const __m128i a = _mm_load_si128((const __m128i *) tmp);
-        for (uint32_t k = 0; k < i; k++) { tmp[k] = out[k]; }
-        const __m128i b = _mm_load_si128((const __m128i *) tmp);
-        const __m128i c = gf256_linear_transform_8x8_128b(ml128, mh128, a, mask128);
-        const __m128i d = c ^ b;
-
-        _mm_store_si128((__m128i *) tmp, d);
-        for (uint32_t k = 0; k < i; k++) { out[k] = tmp[k]; }
-    }
+    return gf256v_hadd_u256(acc);
 }
 
 
@@ -546,7 +611,7 @@ static inline void gf256_vector_scalar_gf2_u256(gf256 *out,
     }
 
     if (i) {
-        uint64_t tmp[4] __attribute__((aligned(32)));
+        uint64_t tmp[4] __attribute__((aligned(32))) = {0};
         uint8_t *tmp2 = (uint8_t *)tmp;
         for (uint32_t j = 0; j < (i+7)/8; ++j) {
             tmp[j] = _pdep_u64(in2[j], 0x8080808080808080);
@@ -580,7 +645,7 @@ static inline void gf256_vector_add_scalar_gf2_u256(gf256 *out,
         const __m256i t1 = _mm256_setr_epi64x(t21, t22, t23, t24);
         const __m256i t2 = _mm256_blendv_epi8(zero, s, t1);
 
-        const __m256i m1 = _mm256_loadu_si256((__m256i *)out);
+        const __m256i m1 = _mm256_loadu_si256((const __m256i *)out);
         _mm256_storeu_si256((__m256i *)out, t2^m1);
 
         in2 += 4u;
@@ -589,7 +654,7 @@ static inline void gf256_vector_add_scalar_gf2_u256(gf256 *out,
     }
 
     if (i) {
-        uint64_t tmp[4] __attribute__((aligned(32)));
+        uint64_t tmp[4] __attribute__((aligned(32))) = {0};
         uint8_t *tmp2 = (uint8_t *)tmp;
         for (uint32_t j = 0; j < (i+7)/8; ++j) {
             tmp[j] = _pdep_u64(in2[j], 0x8080808080808080);
@@ -624,7 +689,7 @@ static inline void gf256_vector_scalar_gf16_u256(gf256 *out,
     }
 
     if (i) {
-        uint8_t tmp[32] __attribute__((aligned(32)));
+        uint8_t tmp[32] __attribute__((aligned(32))) = {0};
         for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = in2[j]; }
 
         const __m256i a = gf256_vector_extend_gf16_x32(tmp);
@@ -642,27 +707,11 @@ static inline void gf256_vector_set_to_gf16_u256(gf256 *out,
     uint32_t i = n;
     const gf16 *in2 = in;
 
-    // const __m256i perm256 = _mm256_load_si256((const __m256i *)gf256_expand_tab);
     const __m128i perm128 = _mm_load_si128((const __m128i *)gf256_expand_tab);
     const __m128i mask  = _mm_set1_epi8(0x0F);
 
     while (i >= 32u) {
-        // slower
-        // const uint32_t t11 = *(uint32_t *)(in +  0);
-        // const uint32_t t12 = *(uint32_t *)(in +  4);
-        // const uint32_t t13 = *(uint32_t *)(in +  8);
-        // const uint32_t t14 = *(uint32_t *)(in + 12);
-
-        // const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-        // const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
-        // const uint64_t t23 = _pdep_u64(t13, 0x0F0F0F0F0F0F0F0F);
-        // const uint64_t t24 = _pdep_u64(t14, 0x0F0F0F0F0F0F0F0F);
-
-        // const __m256i t3 = _mm256_setr_epi64x(t21, t22, t23, t24);
-        // const __m256i t4 = _mm256_shuffle_epi8(perm256, t3);
-
-        // faster
-        const __m128i load = _mm_loadu_si128((__m128i *)in);
+        const __m128i load = _mm_loadu_si128((const __m128i *)in);
         const __m128i ll = _mm_shuffle_epi8(perm128, load & mask);
         const __m128i lh = _mm_shuffle_epi8(perm128, _mm_srli_epi16(load, 4) & mask);
         const __m256i tl = _mm256_setr_m128i(ll, _mm_bsrli_si128(ll, 8));
@@ -676,13 +725,13 @@ static inline void gf256_vector_set_to_gf16_u256(gf256 *out,
     }
 
     while (i >= 16u) {
-        const uint32_t t11 = *(uint32_t *)(in +  0);
-        const uint32_t t12 = *(uint32_t *)(in +  4);
+        const uint32_t t11 = gf256_load_u32(in + 0);
+        const uint32_t t12 = gf256_load_u32(in + 4);
 
-        const __m64 t21 = (__m64)_pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
-        const __m64 t22 = (__m64)_pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t21 = _pdep_u64(t11, 0x0F0F0F0F0F0F0F0F);
+        const uint64_t t22 = _pdep_u64(t12, 0x0F0F0F0F0F0F0F0F);
 
-        const __m128i t3 = _mm_setr_epi64(t21, t22);
+        const __m128i t3 = _mm_set_epi64x((long long)t22, (long long)t21);
         const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
         _mm_storeu_si128((__m128i *)out, t4);
         in  += 8u;
@@ -691,13 +740,13 @@ static inline void gf256_vector_set_to_gf16_u256(gf256 *out,
     }
 
     while (i >= 8) {
-        const uint32_t t1 = *(uint32_t *)(in +  0);
+        const uint32_t t1 = gf256_load_u32(in);
         const uint64_t t2 = _pdep_u64(t1, 0x0F0F0F0F0F0F0F0F);
 
-        const __m128i t3 = _mm_setr_epi64((__m64)t2, (__m64)0ull);
+        const __m128i t3 = _mm_set_epi64x(0, (long long)t2);
         const __m128i t4 = _mm_shuffle_epi8(perm128, t3);
         const uint64_t t5 = _mm_extract_epi64(t4, 0);
-        *(uint64_t *)out = t5;
+        gf256_store_u64(out, t5);
         in  += 4u;
         out += 8u;
         i   -= 8u;
@@ -721,7 +770,7 @@ static inline void gf256_vector_set_to_gf16_u256_v2(gf256 *out,
     const __m128i mask  = _mm_set1_epi8(0x0F);
 
     while (i >= 32u) {
-        const __m128i load = _mm_loadu_si128((__m128i *)in);
+        const __m128i load = _mm_loadu_si128((const __m128i *)in);
         const __m128i ll = _mm_shuffle_epi8(perm128, load & mask);
         const __m128i lh = _mm_shuffle_epi8(perm128, _mm_srli_epi16(load, 4) & mask);
         const __m256i tl = _mm256_setr_m128i(ll, _mm_bsrli_si128(ll, 8));
@@ -735,7 +784,7 @@ static inline void gf256_vector_set_to_gf16_u256_v2(gf256 *out,
     }
 
     if (i) {
-        uint8_t tmp[32] __attribute__((aligned(32)));
+        uint8_t tmp[32] __attribute__((aligned(32))) = {0};
         for (uint32_t j = 0; j < (i+1)/2; ++j) { tmp[j] = in[j]; }
         const __m128i load = _mm_load_si128((const __m128i *)tmp);
         const __m128i ll = _mm_shuffle_epi8(perm128, load & mask);
@@ -775,7 +824,7 @@ static inline void gf256_vector_set_to_gf2_u256(gf256 *out,
     while (i >= 8u) {
         const uint32_t t1 = *(in + 0);
         const uint64_t t2 = _pdep_u64(t1, 0x0101010101010101);
-        *(uint64_t *)out = t2;
+        gf256_store_u64(out, t2);
 
         in  += 1u;
         out += 8u;
@@ -787,7 +836,7 @@ static inline void gf256_vector_set_to_gf2_u256(gf256 *out,
         const uint8_t mask = (1u << i) - 1u;
         const uint32_t t1 = (*in) & mask;
         const uint64_t t2 = _pdep_u64(t1, 0x0101010101010101);
-        *(uint64_t *)tmp = t2;
+        gf256_store_u64(tmp, t2);
         for (uint32_t j = 0; j < i; j++) {
             out[j] = tmp[j];
         }
@@ -795,92 +844,177 @@ static inline void gf256_vector_set_to_gf2_u256(gf256 *out,
 }
 
 #elif defined(USE_NEON)
-// TODO
+
+/// \param out += in
+/// \param in
+/// \param n number of elements
+static inline void gf256_vector_add_u128(gf256 *out,
+                                         const gf256 *in,
+                                         const uint32_t n) {
+    uint32_t i = 0;
+    for (; (i+16) <= n; i += 16) {
+        vst1q_u8(out + i, veorq_u8(vld1q_u8(out + i), vld1q_u8(in + i)));
+    }
+
+    for (; i < n; i++) {
+        out[i] ^= in[i];
+    }
+}
+
+/// \param out = in1 + in2
+/// \param in1
+/// \param in2
+/// \param n number of elements
+static inline void gf256_vector_add_u128_v2(gf256 *out,
+                                            const gf256 *in1,
+                                            const gf256 *in2,
+                                            const uint32_t n) {
+    uint32_t i = 0;
+    for (; (i+16) <= n; i += 16) {
+        vst1q_u8(out + i, veorq_u8(vld1q_u8(in1 + i), vld1q_u8(in2 + i)));
+    }
+
+    for (; i < n; i++) {
+        out[i] = in1[i] ^ in2[i];
+    }
+}
+
+/// \param out = in1 + c*in2
+/// \param in1
+/// \param c
+/// \param in2
+/// \param n number of elements
+static inline void gf256_vector_scalar_add_u128_v2(gf256 *out,
+                                                   const gf256 *in1,
+                                                   const gf256 c,
+                                                   const gf256 *in2,
+                                                   const uint32_t n) {
+    const uint8x16_t s = vdupq_n_u8(c);
+    uint32_t i = 0;
+    for (; (i+16) <= n; i += 16) {
+        const uint8x16_t t = gf256v_mul_u128(s, vld1q_u8(in2 + i));
+        vst1q_u8(out + i, veorq_u8(vld1q_u8(in1 + i), t));
+    }
+
+    for (; i < n; i++) {
+        out[i] = in1[i] ^ gf256_mul(c, in2[i]);
+    }
+}
+
+/// \param out += c*in
+/// \param c
+/// \param in
+/// \param n number of elements
+static inline void gf256_vector_scalar_add_u128(gf256 *out,
+                                                const gf256 c,
+                                                const gf256 *in,
+                                                const uint32_t n) {
+    gf256_vector_scalar_add_u128_v2(out, out, c, in, n);
+}
+
+/// \param a[in]: vector of length n
+/// \param b[in]: vector of length n
+/// \param n[in]: number of elements
+/// \return sum(a[i] * b[i])
+static inline gf256 gf256_vector_mul_acc_u128(const gf256 *a,
+                                              const gf256 *b,
+                                              const uint32_t n) {
+    uint8x16_t acc = vdupq_n_u8(0);
+    uint32_t i = 0;
+    for (; (i+16) <= n; i += 16) {
+        acc = veorq_u8(acc, gf256v_mul_u128(vld1q_u8(a + i), vld1q_u8(b + i)));
+    }
+
+    const uint64x2_t t1 = vreinterpretq_u64_u8(acc);
+    uint64_t t = vgetq_lane_u64(t1, 0) ^ vgetq_lane_u64(t1, 1);
+    t ^= t >> 32;
+    t ^= t >> 16;
+    t ^= t >>  8;
+    gf256 r = (gf256)t;
+
+    for (; i < n; i++) {
+        r ^= gf256_mul(a[i], b[i]);
+    }
+    return r;
+}
 #endif // end avx/neon
 
 
 #ifdef USE_AVX512
 
-/// \return a * b
-static inline __m512i gf256v_mul_u512(const __m512i a,
-                                      const __m512i b) {
-    return _mm512_gf2p8mul_epi8(a, b);
+/// \param out += in
+/// \param in
+/// \param n number of elements
+static inline void gf256_vector_add_u512(gf256 *out,
+                                         const gf256 *in,
+                                         const uint32_t n) {
+    uint32_t i = 0;
+    for (; (i+64) <= n; i += 64) {
+        const __m512i a = _mm512_loadu_si512((const void *)(in + i));
+        const __m512i b = _mm512_loadu_si512((const void *)(out + i));
+        _mm512_storeu_si512((void *)(out + i), gf256v_add_u512(a, b));
+    }
+
+    gf256_vector_add_u256(out + i, in + i, n - i);
 }
 
-/// out = in1 ^ in2
-static inline void gf256v_vector_add_u512(gf256 *out,
-                                          const gf256 *in1,
-                                          const gf256 *in2,
-                                          const size_t bytes) {
-    size_t i = bytes;
-    // avx512 code
-    while (i >= 64u) {
-        _mm512_storeu_si512((__m512i *)out,
-                            _mm512_loadu_si512((__m512i *)in1) ^
-                            _mm512_loadu_si512((__m512i *)in2));
-        i   -= 64u;
-        in1 += 64u;
-        in2 += 64u;
-        out += 64u;
+/// out = in1 + in2
+/// \param n number of elements
+static inline void gf256_vector_add_u512_v2(gf256 *out,
+                                            const gf256 *in1,
+                                            const gf256 *in2,
+                                            const uint32_t n) {
+    uint32_t i = 0;
+    for (; (i+64) <= n; i += 64) {
+        const __m512i a = _mm512_loadu_si512((const void *)(in1 + i));
+        const __m512i b = _mm512_loadu_si512((const void *)(in2 + i));
+        _mm512_storeu_si512((void *)(out + i), gf256v_add_u512(a, b));
     }
 
-    // avx2 code
-    while (i >= 32u) {
-        _mm256_storeu_si256((__m256i *)out,
-                            _mm256_loadu_si256((__m256i *)in1) ^
-                            _mm256_loadu_si256((__m256i *)in2));
-        i -= 32u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        _mm_storeu_si128((__m128i *)out,
-                         _mm_loadu_si128((__m128i *)in1) ^
-                         _mm_loadu_si128((__m128i *)in2));
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-        i -= 16;
-    }
-
-    for(uint32_t j = 0; j<i; j++) {
-        out[j] = in1[j] ^ in2[j];
-    }
+    gf256_vector_add_u256_v2(out + i, in1 + i, in2 + i, n - i);
 }
 
-/// out = in1 ^ scalar* in2
-static inline void gf256_vector_add_scalar_u512(gf256 *out,
-                                                const gf256 *in1,
+/// out = in1 + scalar*in2
+/// \param n number of elements
+static inline void gf256_vector_scalar_add_u512_v2(gf256 *out,
+                                                   const gf256 *in1,
+                                                   const gf256 scalar,
+                                                   const gf256 *in2,
+                                                   const uint32_t n) {
+    const __m512i s = _mm512_set1_epi8((char)scalar);
+    uint32_t i = 0;
+    for (; (i+64) <= n; i += 64) {
+        const __m512i a = _mm512_loadu_si512((const void *)(in1 + i));
+        const __m512i b = _mm512_loadu_si512((const void *)(in2 + i));
+        _mm512_storeu_si512((void *)(out + i), a ^ gf256v_mul_u512(b, s));
+    }
+
+    gf256_vector_scalar_add_u256_v2(out + i, in1 + i, scalar, in2 + i, n - i);
+}
+
+/// out += scalar*in
+/// \param n number of elements
+static inline void gf256_vector_scalar_add_u512(gf256 *out,
                                                 const gf256 scalar,
-                                                const gf256 *in2,
-                                                const size_t bytes) {
-    size_t i = bytes;
-    const __m512i s = _mm512_set1_epi8(scalar);
+                                                const gf256 *in,
+                                                const uint32_t n) {
+    gf256_vector_scalar_add_u512_v2(out, out, scalar, in, n);
+}
 
-    // avx512 code
-    while (i >= 64u) {
-        const __m512i tmp = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)in2), s);
-        _mm512_storeu_si512((__m512i *)out, _mm512_loadu_si512((__m512i *)in1) ^ tmp);
-        i   -= 64u;
-        in1 += 64u;
-        in2 += 64u;
-        out += 64u;
+/// \return sum(a[i] * b[i])
+static inline gf256 gf256_vector_mul_acc_u512(const gf256 *a,
+                                              const gf256 *b,
+                                              const uint32_t n) {
+    __m512i acc = _mm512_setzero_si512();
+    uint32_t i = 0;
+    for (; (i+64) <= n; i += 64) {
+        const __m512i t1 = _mm512_loadu_si512((const void *)(a + i));
+        const __m512i t2 = _mm512_loadu_si512((const void *)(b + i));
+        acc ^= gf256v_mul_u512(t1, t2);
     }
 
-    uint8_t tmp[64];
-    for (uint32_t j = 0; j < i; ++j) {
-        tmp[j] = in2[j];
-    }
-
-    const __m512i t = gf256v_mul_u512(_mm512_loadu_si512((__m512i *)tmp), s);
-    _mm512_storeu_si512((__m512i *)out, t);
-
-    for (uint32_t j = 0; j < i; ++j) {
-        out[j] = in1[j] ^ tmp[j];
-    }
+    const __m256i t = _mm512_castsi512_si256(acc) ^ _mm512_extracti64x4_epi64(acc, 1);
+    return gf256v_hadd_u256(t) ^ gf256_vector_mul_acc_u256(a + i, b + i, n - i);
 }
 
 #endif

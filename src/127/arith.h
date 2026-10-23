@@ -8,7 +8,7 @@
 #define PRIME_LOG_CEIL 7
 
 // Select low 8-bit, skip the high 8-bit in 16 bit type
-const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
+static const uint8_t shuff_low_half[32] __attribute__((aligned(32), unused)) = {
         0x0, 0x2, 0x4, 0x6, 0x8, 0xa, 0xc, 0xe,
         0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
         0x0, 0x2, 0x4, 0x6, 0x8, 0xa, 0xc, 0xe,
@@ -18,7 +18,7 @@ const uint8_t shuff_low_half[32] __attribute__((aligned(32))) = {
 typedef uint8_t gf127;
 
 /// Addition in GF(127)
-/// \param a[in]: first addend 
+/// \param a[in]: first addend
 /// \param b[in]: second addend
 /// \return a+b % 127
 static inline
@@ -55,9 +55,25 @@ gf127 gf127_neg(const gf127 a) {
     return (PRIME - a) % PRIME;
 }
 
+/// Inversion in GF(127), computed as a^(127-2) (constant time)
+/// \param a[in]: value to invert
+/// \return a^-1 mod 127, and 0 if a == 0
+static inline
+gf127 gf127_inv(const gf127 a) {
+    const uint32_t e = PRIME - 2;
+    gf127 r = 1;
+    for (int i = 6; i >= 0; i--) {
+        r = gf127_mul(r, r);
+        const gf127 t = gf127_mul(r, a);
+        const gf127 m = -(gf127)((e >> i) & 1u);
+        r = (t & m) ^ (r & ~m);
+    }
+    return r;
+}
+
 /// Vectorized reduction of four GF(127) elements packed in a 32-bit value
 /// \param Z[in]: 32-bit value containing four elements to reduce
-inline static uint32_t gf127v_red_u32(uint32_t Z) {
+static inline uint32_t gf127v_red_u32(uint32_t Z) {
     const uint32_t mask = 0x7F7F7F7F;
     const uint32_t one = 0x01010101;
     Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
@@ -67,7 +83,7 @@ inline static uint32_t gf127v_red_u32(uint32_t Z) {
 
 /// Vectorized reduction of eight GF(127) elements packed in a 64-bit value
 /// \param Z[in]: 64-bit value containing eight elements to reduce
-inline static uint64_t gf127v_red_u64(uint64_t Z) {
+static inline uint64_t gf127v_red_u64(uint64_t Z) {
     const uint64_t mask = 0x7F7F7F7F7F7F7F7F;
     const uint64_t one  = 0x0101010101010101;
     Z = (Z & mask) + ((Z & ~mask) >> PRIME_LOG_CEIL);
@@ -79,7 +95,7 @@ inline static uint64_t gf127v_red_u64(uint64_t Z) {
 /// \param a[in]: first vector of four GF(127) elements
 /// \param b[in]: second vector of four GF(127) elements
 /// \return vector of a+b in each byte position
-inline static uint32_t gf127v_add_u32(const uint32_t a,
+static inline uint32_t gf127v_add_u32(const uint32_t a,
                                       const uint32_t b) {
     return gf127v_red_u32(a + b);
 }
@@ -88,7 +104,7 @@ inline static uint32_t gf127v_add_u32(const uint32_t a,
 /// \param a[in]: first vector of eight GF(127) elements
 /// \param b[in]: second vector of eight GF(127) elements
 /// \return vector of a+b in each byte position
-inline static uint64_t gf127v_add_u64(const uint64_t a,
+static inline uint64_t gf127v_add_u64(const uint64_t a,
                                       const uint64_t b) {
     return gf127v_red_u64(a + b);
 }
@@ -97,7 +113,7 @@ inline static uint64_t gf127v_add_u64(const uint64_t a,
 /// \param a[in]: vector of four GF(127) minuends
 /// \param b[in]: vector of four GF(127) subtrahends
 /// \return vector of a-b in each byte position
-inline static uint32_t gf127v_sub_u32(const uint32_t a,
+static inline uint32_t gf127v_sub_u32(const uint32_t a,
                                       const uint32_t b) {
     return gf127v_red_u32(a - b + 0x7F7F7F7F);
 }
@@ -106,7 +122,7 @@ inline static uint32_t gf127v_sub_u32(const uint32_t a,
 /// \param a[in]: vector of eight GF(127) minuends
 /// \param b[in]: vector of eight GF(127) subtrahends
 /// \return vector of a-b in each byte position
-inline static uint64_t gf127v_sub_u64(const uint64_t a,
+static inline uint64_t gf127v_sub_u64(const uint64_t a,
                                       const uint64_t b) {
     return gf127v_red_u64(a - b + 0x7F7F7F7F7F7F7F7F);
 }
@@ -115,7 +131,7 @@ inline static uint64_t gf127v_sub_u64(const uint64_t a,
 /// \param a[in]: vector of four GF(127) elements
 /// \param b[in]: scalar GF(127) element to multiply by
 /// \return vector of a*b in each byte position
-inline static uint32_t gf127v_scalar_u32(const uint32_t a,
+static inline uint32_t gf127v_scalar_u32(const uint32_t a,
                                          const uint8_t b) {
     const uint32_t mask1 = 0x00FF00FF;
     const uint32_t mask2 = 0xFF00FF00;
@@ -137,7 +153,7 @@ inline static uint32_t gf127v_scalar_u32(const uint32_t a,
 /// \param b[in]: vector of four GF(127) elements to be multiplied
 /// \param c[in]: scalar GF(127) element
 /// \return vector of a-b*c in each byte position
-inline static uint32_t gf127v_scalar_sub_u32(const uint32_t a,
+static inline uint32_t gf127v_scalar_sub_u32(const uint32_t a,
                                              const uint64_t b,
                                              const uint8_t c) {
     const uint32_t mask  = 0x7F7F7F7F;
@@ -171,13 +187,14 @@ inline static uint32_t gf127v_scalar_sub_u32(const uint32_t a,
 /// \param a[in]: vector of 32 elements to reduce
 /// \return vector of reduced elements
 /// NOTE: the final `min` instruction can be replaced with `blendv`
+static inline
 __m256i gf127v_red_u256(const __m256i a) {
     const __m256i c7f = _mm256_set1_epi8(127);
     const __m256i t1 = _mm256_sub_epi8(a, c7f);
     const __m256i t2 = _mm256_min_epu8(t1, a);
     return t2;
 }
-                                      
+
 /// AVX2 vectorized addition of 32 GF(127) elements in 256-bit registers
 /// \param a[in]: first vector of 32 GF(127) elements
 /// \param b[in]: second vector of 32 GF(127) elements
@@ -186,6 +203,7 @@ __m256i gf127v_red_u256(const __m256i a) {
 /// vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpminub ymm0, ymm1, ymm0
 /// sudo ./nanoBench.sh -asm_init "MOV RAX, R14; SUB RAX, 8; MOV [RAX], 129" -asm "vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpminub ymm0, ymm1, ymm0" -config configs/cfg_AlderLakeE_common.txt
 /// sudo ./nanoBench.sh -asm_init "MOV RAX, R14; SUB RAX, 8; MOV [RAX], rax" -asm "vpaddb  ymm0, ymm1, ymm0; vpaddb  ymm1, ymm0, ymmword ptr [rax]; vpblendvb ymm0, ymm1, ymm0, ymm1;" -config configs/cfg_AlderLakeE_common.txt
+static inline
 __m256i gf127v_add_u256(const __m256i a,
                         const __m256i b) {
     const __m256i c7f = _mm256_set1_epi8(127);
@@ -199,8 +217,9 @@ __m256i gf127v_add_u256(const __m256i a,
 /// \param a[in]: first vector of 32 GF(127) elements
 /// \param b[in]: second vector of 32 GF(127) elements
 /// \return vector of a+b in each byte position
+static inline
 __m256i gf127v_add_u256_v2(const __m256i a,
-                        const __m256i b) {
+                           const __m256i b) {
     const __m256i c7f = _mm256_set1_epi8(127);
     const __m256i t1 = _mm256_add_epi8(a, b);
     const __m256i t2 = _mm256_sub_epi8(t1, c7f);
@@ -208,11 +227,26 @@ __m256i gf127v_add_u256_v2(const __m256i a,
     return t3;
 }
 
-/// AVX2 vectorized multiplication of 32 GF(127) elements 
+/// AVX2 vectorized subtraction of 32 GF(127) elements in 256-bit registers
+/// \param a[in]: vector of 32 GF(127) minuends
+/// \param b[in]: vector of 32 GF(127) subtrahends
+/// \return vector of a-b in each byte position
+static inline
+__m256i gf127v_sub_u256(const __m256i a,
+                        const __m256i b) {
+    const __m256i c7f = _mm256_set1_epi8(127);
+    // a - b + 127 in [1, 253]
+    const __m256i t1 = _mm256_add_epi8(_mm256_sub_epi8(a, b), c7f);
+    const __m256i t2 = _mm256_sub_epi8(t1, c7f);
+    return _mm256_min_epu8(t2, t1);
+}
+
+/// AVX2 vectorized multiplication of 32 GF(127) elements
 /// \param a[in]: first vector of 32 GF(127) elements
 /// \param b[in]: second vector of 32 GF(127) elements
 /// \return vector of a*b in each byte position [a_0*b_0, a_1*b_1, ..., a_31*b_31]
 /// NOTE: assumes that each gf127 element is in a single uint8_t
+static inline
 __m256i gf127v_mul_u256(const __m256i a,
                         const __m256i b) {
     __m256i a_lo, b_lo, a_hi, b_hi;
@@ -283,6 +317,8 @@ static inline __m256i gf127v_mul_u256_v2(const __m256i a1, const __m256i a2,
 
 
 #ifdef USE_AVX512
+#include <immintrin.h>
+
 /// Precompute lookup table for AVX512 vectorized scalar multiplication
 /// \param ret[out]: output array to store precomputed table
 /// \param a[in]: scalar GF(127) element to create table for
@@ -295,7 +331,7 @@ static inline void gf127v_scalar_u512_compute_table(__m512i *ret,
     for (uint32_t i = 0; i < 2; i++) {
         gf127 table[64] = {0};
         for (uint32_t j = 0; j < 64-i; j++) {
-            table[j] = gf127_mul(a, i*64 + j); 
+            table[j] = gf127_mul(a, i*64 + j);
         }
 
         ret[i] = _mm512_loadu_si512((const __m512i *)table);
@@ -308,6 +344,7 @@ static inline void gf127v_scalar_u512_compute_table(__m512i *ret,
 /// \param table1[in]: first half of precomputed lookup table
 /// \param table2[in]: second half of precomputed lookup table
 /// \return vector of scalar products
+static inline
 __m512i gf127v_scalar_table_u512(const __m512i a,
                                  const __m512i table1,
                                  const __m512i table2) {
@@ -325,6 +362,7 @@ __m512i gf127v_scalar_table_u512(const __m512i a,
 /// \param a[in]: first vector of 64 GF(127) elements
 /// \param b[in]: second vector of 64 GF(127) elements
 /// \return vector of a+b in each byte position
+static inline
 __m512i gf127v_add_u512(const __m512i a,
                         const __m512i b) {
     const __m512i c7f = _mm512_set1_epi8(127);
@@ -334,17 +372,30 @@ __m512i gf127v_add_u512(const __m512i a,
     return t3;
 }
 
+/// AVX512 vectorized subtraction of 64 GF(127) elements
+/// \param a[in]: vector of 64 GF(127) minuends
+/// \param b[in]: vector of 64 GF(127) subtrahends
+/// \return vector of a-b in each byte position
+static inline
+__m512i gf127v_sub_u512(const __m512i a,
+                        const __m512i b) {
+    const __m512i c7f = _mm512_set1_epi8(127);
+    // a - b + 127 in [1, 253]
+    const __m512i t1 = _mm512_add_epi8(_mm512_sub_epi8(a, b), c7f);
+    const __m512i t2 = _mm512_sub_epi8(t1, c7f);
+    return _mm512_min_epu8(t2, t1);
+}
+
 /// AVX512 vectorized multiplication of 32 GF(127) elements in 16-bit limbs
 /// \param aa[in]: vector of 32 GF(127) elements, each aa[i] < 127 in 16-bit limb
 /// \param bb[in]: vector of 32 GF(127) elements, each bb[i] < 127 in 16-bit limb
-/// \return vector of aa[i] * bb[i] for all i in range(32)
-static inline __m256i gf127v_mul_u512(const __m512i aa,
-                                      const __m512i bb) {
-
-    __m512i c01, c7f, c516, tmp;
-    vset16_512(c01, 0x01);
-    vset16_512(c7f, 0x7F);
-    vset16_512(c516, 516);
+/// \return vector of aa[i] * bb[i] for all i in range(32), one element per byte
+static inline __m256i gf127v_mul_u16_u512(const __m512i aa,
+                                          const __m512i bb) {
+    const __m512i c01  = _mm512_set1_epi16(0x01);
+    const __m512i c7f  = _mm512_set1_epi16(0x7F);
+    const __m512i c516 = _mm512_set1_epi16(516);
+    __m512i tmp;
 
     __m512i acc = _mm512_mullo_epi16(aa, bb);
     tmp = _mm512_add_epi16(acc, c01);
@@ -353,6 +404,28 @@ static inline __m256i gf127v_mul_u512(const __m512i aa,
     acc = _mm512_sub_epi16(acc, tmp);
     const __m256i t = _mm512_cvtepi16_epi8(acc);
     return t;
+}
+
+/// AVX512 vectorized multiplication of 64 GF(127) elements, one per byte
+/// \param a[in]: first vector of 64 GF(127) elements
+/// \param b[in]: second vector of 64 GF(127) elements
+/// \return vector of a*b in each byte position
+static inline
+__m512i gf127v_mul_u512(const __m512i a,
+                        const __m512i b) {
+    const __m512i m  = _mm512_set1_epi16(0xFF);
+    const __m512i Q  = _mm512_set1_epi16(127);
+    // floor(2^16/127); the quotient estimate is at most one too small for c <= 126^2
+    const __m512i M  = _mm512_set1_epi16(516);
+
+    const __m512i cl = _mm512_mullo_epi16(_mm512_and_si512(a, m), _mm512_and_si512(b, m));
+    const __m512i ch = _mm512_mullo_epi16(_mm512_srli_epi16(a, 8), _mm512_srli_epi16(b, 8));
+
+    __m512i rl = _mm512_sub_epi16(cl, _mm512_mullo_epi16(_mm512_mulhi_epu16(cl, M), Q));
+    __m512i rh = _mm512_sub_epi16(ch, _mm512_mullo_epi16(_mm512_mulhi_epu16(ch, M), Q));
+    rl = _mm512_min_epu16(rl, _mm512_sub_epi16(rl, Q));
+    rh = _mm512_min_epu16(rh, _mm512_sub_epi16(rh, Q));
+    return _mm512_or_si512(rl, _mm512_slli_epi16(rh, 8));
 }
 #endif
 
@@ -366,7 +439,7 @@ static inline __m256i gf127v_mul_u512(const __m512i aa,
 /// \param b[in]: vector of 8 GF(127) elements to be multiplied
 /// \param c[in]: scalar GF(127) element
 /// \return vector of a-b*c in each byte position
-inline static uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
+static inline uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
                                               const uint8x8_t b,
                                               const uint8_t c) {
     const uint8x8_t c1  = vdup_n_u8(c);
@@ -379,38 +452,54 @@ inline static uint8x8_t gf127v_scalar_sub_u64(const uint8x8_t a,
     const uint8x8_t t4  = vmovn_u16(t3);
     const uint8x8_t t5  = vsub_u8(a, t4);
     const uint8x8_t t6  = vadd_u8(t5, q);
-    const uint8x8_t mask2 = vshr_n_s8(t5, 7);
+    const uint8x8_t mask2 = vreinterpret_u8_s8(vshr_n_s8(vreinterpret_s8_u8(t5), 7));
     const uint8x8_t ret  = vbsl_u8(mask2, t6, t5);
     return ret;
+}
+
+/// NEON vectorized addition of 16 GF(127) elements
+/// \param a[in]: first vector of 16 GF(127) elements
+/// \param b[in]: second vector of 16 GF(127) elements
+/// \return vector of a+b in each byte position
+static inline
+uint8x16_t gf127v_add_u128(const uint8x16_t a,
+                           const uint8x16_t b) {
+    const uint8x16_t q = vdupq_n_u8(0x7f);
+    const uint8x16_t t = vaddq_u8(a, b);
+    return vminq_u8(t, vsubq_u8(t, q));
+}
+
+/// NEON vectorized subtraction of 16 GF(127) elements
+/// \param a[in]: vector of 16 GF(127) minuends
+/// \param b[in]: vector of 16 GF(127) subtrahends
+/// \return vector of a-b in each byte position
+static inline
+uint8x16_t gf127v_sub_u128(const uint8x16_t a,
+                           const uint8x16_t b) {
+    const uint8x16_t q = vdupq_n_u8(0x7f);
+    // a - b + 127 in [1, 253]
+    const uint8x16_t t = vaddq_u8(vsubq_u8(a, b), q);
+    return vminq_u8(t, vsubq_u8(t, q));
 }
 
 /// NEON vectorized multiplication of 16 GF(127) elements
 /// \param a[in]: first vector of 16 GF(127) elements
 /// \param b[in]: second vector of 16 GF(127) elements
-/// \return vector of a*b in each byte position
+/// \return vector of a*b in each byte position [a_0*b_0, ..., a_15*b_15]
+static inline
 uint8x16_t gf127v_mul_u128(const uint8x16_t a,
                            const uint8x16_t b) {
-    const uint8x16_t q  = vdupq_n_u8(0x7f);
     const uint16x8_t q2 = vdupq_n_u16(0x007f);
 
-    const uint8x8_t la = vget_low_u8(a);
-    const uint8x8_t lb = vget_low_u8(b);
-    const uint8x8_t ha = vget_high_u8(a);
-    const uint8x8_t hb = vget_high_u8(b);
+    const uint16x8_t lc = vmull_u8(vget_low_u8(a), vget_low_u8(b));
+    const uint16x8_t hc = vmull_high_u8(a, b);
 
-    const uint16x8_t lc = vmull_u8(la, lb);
-    const uint16x8_t hc = vmull_u8(ha, hb);
-
-    const uint16x8_t lt1 = vshrq_n_u16(lc, 7);
-    const uint16x8_t ht1 = vshrq_n_u16(hc, 7);
-    const uint16x8_t lt2 = vaddq_u16(lt1, vandq_u16(lc, q2));
-    const uint16x8_t ht2 = vaddq_u16(ht1, vandq_u16(hc, q2));
-    const uint8x16_t c   = veorq_u16(lt2, vshlq_n_u16(ht2, 8));
-
-    const uint8x16_t t   = vsubq_u8(c, q);
-    const uint8x16_t m   = vshrq_n_s8(c, 7);
-    const uint8x16_t r   = vbslq_u8(m, t, c);
-    return r;
+    // 128 = 1 mod 127; c <= 126^2 => t <= 124 + 127 = 251
+    const uint16x8_t lt1 = vaddq_u16(vshrq_n_u16(lc, 7), vandq_u16(lc, q2));
+    const uint16x8_t ht1 = vaddq_u16(vshrq_n_u16(hc, 7), vandq_u16(hc, q2));
+    const uint16x8_t lt2 = vminq_u16(lt1, vsubq_u16(lt1, q2));
+    const uint16x8_t ht2 = vminq_u16(ht1, vsubq_u16(ht1, q2));
+    return vcombine_u8(vmovn_u16(lt2), vmovn_u16(ht2));
 }
 #endif
 

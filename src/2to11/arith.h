@@ -8,13 +8,26 @@ typedef uint16_t gf2to11;
 // 0b100000000101
 #define MODULUS 0x805
 
-gf2to11 gf2to11_add(const gf2to11 a,
-                    const gf2to11 b) {
+/// \return a+b
+static inline gf2to11 gf2to11_add(const gf2to11 a,
+                                  const gf2to11 b) {
 	return a ^ b;
 }
 
-gf2to11 gf2to11_mul(const gf2to11 a,
-                    const gf2to11 b) {
+/// \return a-b (same as addition in characteristic 2)
+static inline gf2to11 gf2to11_sub(const gf2to11 a,
+                                  const gf2to11 b) {
+	return a ^ b;
+}
+
+/// \return -a (= a in characteristic 2)
+static inline gf2to11 gf2to11_neg(const gf2to11 a) {
+	return a;
+}
+
+/// \return a*b
+static inline gf2to11 gf2to11_mul(const gf2to11 a,
+                                  const gf2to11 b) {
     gf2to11 result = -(a & 1) & b;
     gf2to11 tmp = b;
     for(int i=1 ; i<11 ; i++) {
@@ -25,8 +38,8 @@ gf2to11 gf2to11_mul(const gf2to11 a,
 }
 
 /// \return a*b
-gf2to11 gf2to11_mul_v2(const gf2to11 a,
-                       const gf2to11 b) {
+static inline gf2to11 gf2to11_mul_v2(const gf2to11 a,
+                                     const gf2to11 b) {
     gf2to11 r;
     r = (-(b>>10u     ) & a);
     r = (-(b>>9u  & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
@@ -41,7 +54,8 @@ gf2to11 gf2to11_mul_v2(const gf2to11 a,
     return (-(b   & 1u) & a) ^ (-(r>>10) & MODULUS) ^ (r+r);
 }
 
-/// \return a^-1
+/// constant time inversion: a^(2^11 - 2)
+/// \return a^-1, 0 if a == 0
 static inline gf2to11 gf2to11_inv(const gf2to11 a) {
     gf2to11 result = a;
     for(int i=0 ; i<9 ; i++) {
@@ -72,7 +86,7 @@ gf2to11 gf2to11_mul_gf2(const gf2to11 a,
 /// \param in[in]: 2bytes which will be extended to a avx2 register
 ///     = [in0, ..., in_15], where in_i is just a single bit
 /// \return [in_0, ..., in_15], extened to 16bit limbs
-static inline __m256i mirath_ff_mu_expand_ff_x16_u256(const uint8_t *in) {
+static inline __m256i gf2to11v_expand_gf2_x16_u256(const uint8_t *in) {
     const uint8_t t11 = *(in + 0);
     const uint8_t t12 = *(in + 1);
 
@@ -86,7 +100,7 @@ static inline __m256i mirath_ff_mu_expand_ff_x16_u256(const uint8_t *in) {
 /// \param in[in]: bytes which will be extended to a sse register
 ///     = [in0, ..., in_7], where in_i is just a single bit
 /// \return [in_0, ..., in_7], extened to 16bit limbs
-static inline __m128i mirath_ff_mu_expand_ff_x8_u256(const uint8_t *in) {
+static inline __m128i gf2to11v_expand_gf2_x8_u256(const uint8_t *in) {
     const uint32_t t11 = *in;
     const uint64_t t21 = _pdep_u64(t11, 0x0101010101010101);
     const __m128i t1 = _mm_set_epi64x(0, t21);
@@ -99,10 +113,24 @@ static inline __m128i mirath_ff_mu_expand_ff_x8_u256(const uint8_t *in) {
 /// \return
 static inline uint16_t gf2to11_hadd_u256(const __m256i in) {
     __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 2));
-    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 4));
     ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
     ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
     return _mm256_extract_epi16(ret, 0);
+}
+
+/// vectorized addition of 16 elements
+/// \return a + b
+static inline __m256i gf2to11v_add_u256(const __m256i a,
+                                        const __m256i b) {
+    return _mm256_xor_si256(a, b);
+}
+
+/// vectorized subtraction of 16 elements
+/// \return a - b
+static inline __m256i gf2to11v_sub_u256(const __m256i a,
+                                        const __m256i b) {
+    return _mm256_xor_si256(a, b);
 }
 
 static inline __m256i gf2to11v_mul_u256(const __m256i a,
@@ -180,61 +208,61 @@ static inline __m256i gf2to11v_mul_u256_v2(const __m256i a,
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 14)) ^ (_mm256_slli_epi16(a, 6) & m2));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 2;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 13)) ^ (_mm256_slli_epi16(a, 5) & m2));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 3;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 12)) ^ (_mm256_slli_epi16(a, 4) & m2));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 4;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 11)) ^ (_mm256_slli_epi16(a, 3)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 5;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 10)) ^ (_mm256_slli_epi16(a, 2)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 6;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 9)) ^ (_mm256_slli_epi16(a, 1)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 7;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 8)) ^ (a & m2));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 8;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 7) & m1) ^ (_mm256_srli_epi16(a, 1)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 9;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 6) & m1) ^ (_mm256_srli_epi16(a, 2)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     // i = 10;
     mm = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(t, 5) & m1) ^ (_mm256_srli_epi16(t, 3)));
     mt = _mm256_blendv_epi8(zero, one, (_mm256_slli_epi16(a, 5) & m1) ^ (_mm256_srli_epi16(a, 3)));
     t  = _mm256_slli_epi16(t, 1) ^ (mm & mod);
     r ^= (mt & t);
-    
+
     return r;
 }
 
@@ -257,36 +285,82 @@ static inline __m128i gf2to11v_mul_gf2_u128(const __m128i a,
     const __m128i t1 = _mm_sign_epi16(b, m1);
     return a & t1;
 }
+
+#ifdef USE_AVX512
+
+/// vectorized addition of 32 elements
+/// \return a + b
+static inline __m512i gf2to11v_add_u512(const __m512i a,
+                                        const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// vectorized subtraction of 32 elements
+/// \return a - b
+static inline __m512i gf2to11v_sub_u512(const __m512i a,
+                                        const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// vectorized multiplication of 32 elements (needs AVX512BW)
+/// \return a * b
+static inline __m512i gf2to11v_mul_u512(const __m512i a,
+                                        const __m512i b) {
+    const __m512i mod = _mm512_set1_epi16((short)MODULUS);
+    const __m512i hb  = _mm512_set1_epi16(1u << 10u);
+
+    __m512i r = _mm512_maskz_mov_epi16(_mm512_test_epi16_mask(a, _mm512_set1_epi16(1)), b);
+    __m512i t = b;
+    for (uint32_t i = 1; i < 11; i++) {
+        // t = t*x mod MODULUS
+        const __mmask32 mt = _mm512_test_epi16_mask(t, hb);
+        t = _mm512_xor_si512(_mm512_slli_epi16(t, 1), _mm512_maskz_mov_epi16(mt, mod));
+
+        // r += a_i * t
+        const __mmask32 ma = _mm512_test_epi16_mask(a, _mm512_set1_epi16((short)(1u << i)));
+        r = _mm512_xor_si512(r, _mm512_maskz_mov_epi16(ma, t));
+    }
+
+    return r;
+}
+
+/// horizontal xor over the 32 16-bit limbs
+/// \return in[0] ^ ... ^ in[31]
+static inline uint16_t gf2to11_hadd_u512(const __m512i in) {
+    const __m256i t = _mm256_xor_si256(_mm512_castsi512_si256(in),
+                                       _mm512_extracti64x4_epi64(in, 1));
+    return gf2to11_hadd_u256(t);
+}
+#endif // USE_AVX512
+
 #elif defined(USE_NEON)
 
 #include <arm_neon.h>
+#include "../helper.h"
 
-/// TODO doc
-/// \param in
+/// expands 1 byte (8 bits) into 8 16-bit limbs (0 or 1)
+/// \param in: reads exactly 1 byte
 /// \return
 static inline
-uint16x8_t gf2to11v_expand_ff_x8_u128(const uint8_t *in) {
-    const uint8_t t = *in;
+uint16x8_t gf2to11v_expand_gf2_x8_u128(const uint8_t *in) {
     const uint8x8_t m = vdup_n_u8(0x01);
-    const uint8x8_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
-    const uint8x8_t t1 = vdup_n_u8(t);
+    const int8x8_t shift = {0, -1, -2, -3, -4, -5, -6, -7};
+    const uint8x8_t t1 = vdup_n_u8(*in);
     const uint8x8_t t2 = vshl_u8(t1, shift);
-    const uint8x8_t t3 = t2 & m;
-    uint16x8_t result = vmovl_u8(t3);
-    return result;
+    const uint8x8_t t3 = vand_u8(t2, m);
+    return vmovl_u8(t3);
 }
 
-/// TODO doc
-/// \param in
+/// expands 2 bytes (16 bits) into 16 16-bit limbs (0 or 1)
+/// \param in: reads exactly 2 bytes
 /// \return
 static inline
-uint16x8x2_t gf2to11v_expand_ff_x16_u256(const uint8_t *in) {
-    const uint16_t t = *((uint16_t *)in);
+uint16x8x2_t gf2to11v_expand_gf2_x16_u256(const uint8_t *in) {
     const uint8x16_t m = vdupq_n_u8(0x01);
-    const uint8x16_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7, (uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
-    const uint16x8_t t1 = vdupq_n_u16(t);
+    const int8x16_t shift = {0, -1, -2, -3, -4, -5, -6, -7, 0, -1, -2, -3, -4, -5, -6, -7};
+    const uint8x16_t t1 = vcombine_u8(vdup_n_u8(in[0]), vdup_n_u8(in[1]));
     const uint8x16_t t2 = vshlq_u8(t1, shift);
-    const uint8x16_t t3 = t2 & m;
+    const uint8x16_t t3 = vandq_u8(t2, m);
 
     const uint16x8_t l = vmovl_u8(vget_low_u8(t3));
     const uint16x8_t h = vmovl_u8(vget_high_u8(t3));
@@ -294,10 +368,24 @@ uint16x8x2_t gf2to11v_expand_ff_x16_u256(const uint8_t *in) {
     return r;
 }
 
-/// TODO doc
+/// vectorized addition of 8 elements
+/// \return a + b
+static inline uint16x8_t gf2to11v_add_u128(const uint16x8_t a,
+                                           const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// vectorized subtraction of 8 elements
+/// \return a - b
+static inline uint16x8_t gf2to11v_sub_u128(const uint16x8_t a,
+                                           const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// vectorized multiplication of 8 elements
 /// \param a
 /// \param b
-/// \return
+/// \return a*b
 static inline uint16x8_t gf2to11v_mul_u128(const uint16x8_t a,
                                            const uint16x8_t b) {
     uint16x8_t m = vdupq_n_u16(MODULUS), r;
@@ -317,10 +405,10 @@ static inline uint16x8_t gf2to11v_mul_u128(const uint16x8_t a,
     return r;
 }
 
-/// TODO doc
+/// two register variant of `gf2to11v_mul_u128`
 /// \param a
 /// \param b
-/// \return
+/// \return a*b
 static inline uint16x8x2_t gf2to11v_mul_u256(const uint16x8x2_t a,
                                              const uint16x8x2_t b) {
     uint16x8x2_t r;
@@ -350,7 +438,6 @@ static inline uint16x8_t gf2to11v_mul_gf2_u128(const uint16x8_t a,
     return vandq_u16(a, t1);
 }
 
-/// TODO test
 /// horizontal xor, but not withing a single limb, but over the 16 -16bit limbs
 /// \param in
 /// \return
@@ -360,6 +447,15 @@ static inline uint16_t gf2to11_hadd_u256(uint16x8x2_t in) {
     ret = veorq_u16(ret, vextq_u16(ret, vdupq_n_u16(0), 2));
     ret = veorq_u16(ret, vextq_u16(ret, vdupq_n_u16(0), 4));
     return vgetq_lane_u16(ret, 0);
+}
+
+/// horizontal xor over the 8 16-bit limbs
+/// \return in[0] ^ ... ^ in[7]
+static inline uint16_t gf2to11_hadd_u128(uint16x8_t in) {
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 4));
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 2));
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 1));
+    return vgetq_lane_u16(in, 0);
 }
 
 #endif

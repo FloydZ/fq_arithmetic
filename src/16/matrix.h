@@ -8,28 +8,33 @@
 #define gf16_matrix_bytes_per_column(n_rows) ((n_rows >> 1u) + (n_rows & 1u))
 #define gf16_matrix_bytes_size(n_rows, n_cols) ((gf16_matrix_bytes_per_column(n_rows)) * (n_cols))
 
-/// TODO doc
+/// loads min(bytes, 4) bytes starting at the i-th row (i must be even) of the j-th column
 /// \param m
 /// \param nrows
 /// \param i
 /// \param j
 /// \param bytes
+static inline
 uint32_t gf16_matrix_load4(const ff_t *m,
                            const uint32_t nrows,
                            const uint32_t i,
                            const uint32_t j,
                            const uint32_t bytes) {
-    uint8_t tmp[4];
+    uint8_t tmp[4] = {0};
     const uint32_t pos = gf16_matrix_bytes_per_column(nrows) * j + i/2;
     for (uint32_t k = 0; k < MIN(bytes, 4); k++) {
         tmp[k] = m[pos + k];
     }
 
-    return *((uint32_t*)tmp);
+    uint32_t ret;
+    memcpy(&ret, tmp, 4);
+    return ret;
 }
 
 /// \param n_rows
 /// \param n_cols
+/// \return zero initialized matrix
+static inline
 ff_t* gf16_matrix_alloc(const uint32_t n_rows,
                         const uint32_t n_cols) {
     return (ff_t*)calloc(1, gf16_matrix_bytes_size(n_rows, n_cols));
@@ -40,6 +45,7 @@ ff_t* gf16_matrix_alloc(const uint32_t n_rows,
 /// \param i
 /// \param j
 /// \return m[i, j]
+static inline
 ff_t gf16_matrix_get(const ff_t *matrix,
                       const uint32_t n_rows,
                       const uint32_t i,
@@ -53,32 +59,34 @@ ff_t gf16_matrix_get(const ff_t *matrix,
     }
 }
 
-/// TODO doc
+/// m[i, j] = scalar
 /// \param matrix
 /// \param n_rows
 /// \param i
 /// \param j
 /// \param scalar
+static inline
 void gf16_matrix_set(ff_t *matrix,
-                           const uint32_t n_rows,
-                           const uint32_t i,
-                           const uint32_t j,
-                           const ff_t scalar) {
+                     const uint32_t n_rows,
+                     const uint32_t i,
+                     const uint32_t j,
+                     const ff_t scalar) {
     const uint32_t nbytes_col = gf16_matrix_bytes_per_column(n_rows);
     const uint32_t target_byte_id = nbytes_col * j + (i >> 1);
     if (i & 1) // i is odd
     {
         matrix[target_byte_id] &= 0x0f;
-        matrix[target_byte_id] |= (scalar << 4);
+        matrix[target_byte_id] |= ((scalar & 0xf) << 4);
     }
     else {
         matrix[target_byte_id] &= 0xf0;
-        matrix[target_byte_id] |= scalar;
+        matrix[target_byte_id] |= (scalar & 0xf);
     }
 }
 
 
 // A[row1] -= a*A[row2]
+static inline
 void gf16_sub_row(uint8_t *A,
                   const uint32_t nrows,
                   const uint32_t ncols,
@@ -93,14 +101,18 @@ void gf16_sub_row(uint8_t *A,
     }
 }
 
+/// NOTE: assumes that A is stored row-major (= transposed col-major),
+///     each row consists of ceil(ncols/2) bytes.
 // A[row1] -= a*A[row2]
+static inline
 void gf16_sub_row_transpose(uint8_t *A,
                             const uint32_t nrows,
                             const uint32_t ncols,
                             const uint32_t row1,
                             const uint32_t row2,
                             const uint8_t a) {
-    const uint32_t bytes = ncols/2;
+    (void)nrows;
+    const uint32_t bytes = (ncols + 1)/2;
     uint32_t i = 0;
 #if defined(USE_AVX2)
     const __m256i multab_l = gf16v_tbl32_multab(a);
@@ -116,11 +128,9 @@ void gf16_sub_row_transpose(uint8_t *A,
     }
 
 #endif
+    const uint8_t aa = (a & 0xf) ^ ((a & 0xf) << 4);
     for (; i < bytes; i++) {
-        uint8_t d1 = gf16_matrix_get(A, ncols, i, row1);
-        uint8_t d2 = gf16_matrix_get(A, ncols, i, row2);
-        d1 ^= gf16_mul(a, d2);
-        gf16_matrix_set(A, ncols, i, row1, d1);
+        A[row1*bytes + i] ^= gf16v_mul(A[row2*bytes + i], aa);
     }
 }
 
@@ -128,7 +138,8 @@ void gf16_sub_row_transpose(uint8_t *A,
 /// \param A
 /// \param nrows
 /// \param ncols
-void gf16_matrix_print(uint8_t *A,
+static inline
+void gf16_matrix_print(const uint8_t *A,
                        const uint32_t nrows,
                        const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
@@ -144,9 +155,10 @@ void gf16_matrix_print(uint8_t *A,
 /// \param A
 /// \param nrows
 /// \param ncols
-void gf16_matrix_print_transposed(uint8_t *A,
-                       const uint32_t nrows,
-                       const uint32_t ncols) {
+static inline
+void gf16_matrix_print_transposed(const uint8_t *A,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for (uint32_t j = 0; j < ncols; j++) {
             printf("%2u ", gf16_matrix_get(A, nrows, j, i));
@@ -159,6 +171,7 @@ void gf16_matrix_print_transposed(uint8_t *A,
 /// \param C
 /// \param nrows
 /// \param ncols
+static inline
 void gf16_matrix_zero(uint8_t *C,
 				    const size_t nrows,
 				    const size_t ncols) {
@@ -168,6 +181,7 @@ void gf16_matrix_zero(uint8_t *C,
 /// \param C
 /// \param nrows
 /// \param ncols
+static inline
 void gf16_matrix_id(uint8_t *C,
 				    const size_t nrows,
 				    const size_t ncols) {
@@ -181,6 +195,7 @@ void gf16_matrix_id(uint8_t *C,
 /// \param C
 /// \param nrows
 /// \param ncols
+static inline
 void gf16_matrix_random(uint8_t *C,
 				        const size_t nrows,
 				        const size_t ncols) {
@@ -191,15 +206,20 @@ void gf16_matrix_random(uint8_t *C,
 	}
 }
 
+/// generates a random matrix of full rank (min(nrows, ncols)):
+/// starts with [I | R] (or [I ; R] if nrows > ncols) and applies random
+/// row operations, which do not change the rank.
 /// \param C
 /// \param nrows
 /// \param ncols
+static inline
 void gf16_matrix_rng_full_rank(uint8_t *C,
 				               const size_t nrows,
 				               const size_t ncols) {
 	for (uint32_t i = 0; i < nrows; i++) {
 		for (uint32_t j = 0; j < ncols; j++) {
-		    gf16_matrix_set(C, nrows, i, j, rand()&0xF);
+		    const ff_t v = (i < ncols && j < nrows) ? (i == j) : (rand()&0xF);
+		    gf16_matrix_set(C, nrows, i, j, v);
 		}
 	}
 
@@ -208,24 +228,25 @@ void gf16_matrix_rng_full_rank(uint8_t *C,
 	        if (i == j) { continue;}
 	        uint32_t r = rand();
 	        if (r&1) {
-	            gf16_sub_row(C, nrows, ncols, i ,j, 1);
+	            gf16_sub_row(C, nrows, ncols, i ,j, (r >> 1) & 0xF);
 	        }
 	    }
 	}
 }
 
-/// A, B, C are in row-majow form
-void matrix_mul(uint8_t *C,
-                uint8_t *A,
-                uint8_t *B,
-				const size_t nrows_A, 
-                const size_t ncols_A, 
-                const size_t ncols_B) {
+/// A, B, C are in row-majow form, one element per byte
+static inline
+void gf16_matrix_mul_rowmajor_u8(uint8_t *C,
+                                 const uint8_t *A,
+                                 const uint8_t *B,
+                                 const size_t nrows_A,
+                                 const size_t ncols_A,
+                                 const size_t ncols_B) {
 	for (uint32_t i = 0; i < nrows_A; i++) {
 		for (uint32_t j = 0; j < ncols_B; j++) {
 			ff_t t = 0;
 			for (uint32_t k = 0; k < ncols_A; k++) {
-				t = gf16_add(t, gf16_mul(A[i*ncols_A + k], B[ncols_A*k + j]));
+				t = gf16_add(t, gf16_mul(A[i*ncols_A + k], B[ncols_B*k + j]));
 			}
 
 			C[i*ncols_B + j] = t;
@@ -233,15 +254,15 @@ void matrix_mul(uint8_t *C,
 	}
 }
 
-/// column major
-/// \param result
-/// \param matrix1
-/// \param matrix2
+/// result = matrix1 * matrix2, column major
+/// \param result[out]: n_rows1 x n_cols2
+/// \param matrix1[in]: n_rows1 x n_cols1
+/// \param matrix2[in]: n_cols1 x n_cols2
 /// \param n_rows1
 /// \param n_cols1
 /// \param n_cols2
-static
-void gf16_matrix_product(ff_t *result,
+static inline
+void gf16_matrix_mul(ff_t *result,
                          const ff_t *matrix1,
                          const ff_t *matrix2,
                          const uint32_t n_rows1,
@@ -274,15 +295,16 @@ void gf16_matrix_product(ff_t *result,
     }
 }
 
-/// \param B[out]
-/// \param A[in]
+/// B = A^T
+/// \param B[out]: ncols x nrows
+/// \param A[in]: nrows x ncols
 /// \param nrows[in]
 /// \param ncols[in]
-static
-void gf16_matrix_tranpose(uint8_t *B,
-                          const uint8_t *const A,
-				          const size_t nrows,
-                          const size_t ncols) {
+static inline
+void gf16_matrix_transpose(uint8_t *B,
+                           const uint8_t *const A,
+				           const size_t nrows,
+                           const size_t ncols) {
 	for (uint32_t i = 0; i < nrows; i++) {
 		for (uint32_t j = 0; j < ncols; j++) {
             const ff_t a = gf16_matrix_get(A, nrows, i, j);
@@ -291,12 +313,89 @@ void gf16_matrix_tranpose(uint8_t *B,
 	}
 }
 
+/// \param out[out]: = in
+/// \param in[in]:
+/// \param nrows[in]
+/// \param ncols[in]
+static inline
+void gf16_matrix_copy(ff_t *out,
+                      const ff_t *in,
+                      const uint32_t nrows,
+                      const uint32_t ncols) {
+    memcpy(out, in, gf16_matrix_bytes_size(nrows, ncols));
+}
+
+/// matrix1 = matrix2 + matrix3
+/// \param matrix1[out]
+/// \param matrix2[in]
+/// \param matrix3[in]
+/// \param nrows[in]
+/// \param ncols[in]
+static inline
+void gf16_matrix_add(ff_t *matrix1,
+                     const ff_t *matrix2,
+                     const ff_t *matrix3,
+                     const uint32_t nrows,
+                     const uint32_t ncols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(nrows, ncols);
+    for (uint32_t i = 0; i < n_bytes; i++) {
+        matrix1[i] = matrix2[i] ^ matrix3[i];
+    }
+}
+
+/// matrix1 += scalar * matrix2
+/// \param matrix1[in/out]
+/// \param scalar[in]
+/// \param matrix2[in]
+/// \param nrows[in]
+/// \param ncols[in]
+static inline
+void gf16_matrix_add_scalar(ff_t *matrix1,
+                            const ff_t scalar,
+                            const ff_t *matrix2,
+                            const uint32_t nrows,
+                            const uint32_t ncols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(nrows, ncols);
+    const uint8_t s = (scalar & 0xf) ^ ((scalar & 0xf) << 4);
+    for (uint32_t i = 0; i < n_bytes; i++) {
+        matrix1[i] ^= gf16v_mul(matrix2[i], s);
+    }
+}
+
+/// result += matrix1 * matrix2, column major
+/// \param result[in/out]: n_rows1 x n_cols2
+/// \param matrix1[in]: n_rows1 x n_cols1
+/// \param matrix2[in]: n_cols1 x n_cols2
+/// \param n_rows1
+/// \param n_cols1
+/// \param n_cols2
+static inline
+void gf16_matrix_add_mul(ff_t *result,
+                         const ff_t *matrix1,
+                         const ff_t *matrix2,
+                         const uint32_t n_rows1,
+                         const uint32_t n_cols1,
+                         const uint32_t n_cols2) {
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            ff_t entry_i_j = gf16_matrix_get(result, n_rows1, i, j);
+            for (uint32_t k = 0; k < n_cols1; k++) {
+                const ff_t entry_i_k = gf16_matrix_get(matrix1, n_rows1, i, k);
+                const ff_t entry_k_j = gf16_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf16_mul(entry_i_k, entry_k_j);
+            }
+
+            gf16_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
+    }
+}
+
 /// TODO: add all of these functions to `cryptanalysislib`
 /// org source: https://github.com/PQCMayo/MAYO-C/blob/f2aab8ab3a0052272905bdfb57048c150938b8e5/src/mayo.c#L102
 /// NOTE: A is a col-major input matrix
 /// NOTE: B is a col-major output matrix
 /// NOTE: stride in bytes
-static void gf16_transpose_16x16(uint8_t *B,
+static inline void gf16_transpose_16x16(uint8_t *B,
                                  const uint8_t *A,
                                  const uint32_t stride){
     static const uint64_t even_nibbles = 0x0f0f0f0f0f0f0f0f;
@@ -346,7 +445,7 @@ static void gf16_transpose_16x16(uint8_t *B,
 }
 
 // TODO stride
-static void gf16_transpose_64x64(uint8_t *B,
+static inline void gf16_transpose_64x64(uint8_t *B,
                                  const uint8_t *const A,
                                  const uint32_t stride) {
     gf16_transpose_16x16(B,      A,      32);
@@ -369,7 +468,7 @@ static void gf16_transpose_64x64(uint8_t *B,
 
 #ifdef USE_AVX2
 // NOTE: stride in bytes
-static void gf16_transpose_32x32_avx2(uint8_t *B,
+static inline void gf16_transpose_32x32_avx2(uint8_t *B,
                                       const uint8_t *const A,
                                       const uint32_t stride) {
     __m128i M[32];
@@ -454,7 +553,7 @@ static void gf16_transpose_32x32_avx2(uint8_t *B,
 
 // TODO add to cryptanalysislib
 // NOTE: stride in bytes
-static void gf16_transpose_64x64_avx2(uint8_t *B,
+static inline void gf16_transpose_64x64_avx2(uint8_t *B,
                                       const uint8_t *const A,
                                       const uint32_t src_stride,
                                       const uint32_t dst_stride) {
@@ -547,7 +646,7 @@ static void gf16_transpose_64x64_avx2(uint8_t *B,
     }
 }
 
-#else
+#elif defined(USE_NEON)
 
 /// source original from: https://github.com/pqov/pqov-paper
 /// \param dest[out]
@@ -629,46 +728,50 @@ static inline  void byte_transpose_16x16_neon(uint8_t *dest,
 #endif
 
 /// B = A^T
-void gf16_matrix_tranpose_opt(uint8_t *B,
-                              const uint8_t *const A,
-				              const uint32_t nrows,
-				              const uint32_t ncols) {
-    const size_t bsize1 = 64u;
-    const size_t bsize2 = bsize1 >> 1u;
-    
-    // iterate over 64x64 block matrices
-    uint64_t rb = 0;
+/// uses the 64x64 AVX2 kernel for all full 64x64 blocks, and a generic
+/// element-wise approach for the remaining rows/columns.
+/// \param B[out]: ncols x nrows
+/// \param A[in]: nrows x ncols
+static inline
+void gf16_matrix_transpose_opt(uint8_t *B,
+                               const uint8_t *const A,
+                               const uint32_t nrows,
+                               const uint32_t ncols) {
+    const uint32_t bsize = 64u;
+    // number of rows/cols handled by the 64x64 kernel
+    uint32_t R = 0, C = 0;
 #ifdef USE_AVX2
-    for (; rb < nrows / bsize1; rb++) {
-        for (uint64_t cb = 0; cb < ncols / bsize1; cb++) {
-            const uint8_t *src_origin = A + (rb*nrows + cb) * bsize2;
-                  uint8_t *dst_origin = B + (cb*ncols + rb) * bsize2;
-            
-            gf16_transpose_64x64_avx2(dst_origin, src_origin, nrows/2, ncols/2);
+    R = (nrows / bsize) * bsize;
+    C = (ncols / bsize) * bsize;
+    const uint32_t src_stride = gf16_matrix_bytes_per_column(nrows);
+    const uint32_t dst_stride = gf16_matrix_bytes_per_column(ncols);
+    for (uint32_t r = 0; r < R; r += bsize) {
+        for (uint32_t c = 0; c < C; c += bsize) {
+            const uint8_t *src_origin = A + c*src_stride + r/2;
+                  uint8_t *dst_origin = B + r*dst_stride + c/2;
+            gf16_transpose_64x64_avx2(dst_origin, src_origin, src_stride, dst_stride);
         }
     }
 #endif
 
-    const uint32_t rem = ncols % bsize1;
-    if (rem) {
-        // solve the last columns
-        for (uint32_t i = rb; i < ncols; i++) {
-            for(uint32_t j = 0; j < nrows; j++) {
-                const ff_t a = gf16_matrix_get(A, nrows, i, j);
-                gf16_matrix_set(B, ncols, j, i, a);
-            }
+    // the last columns of A for all rows covered by the kernel
+    for (uint32_t i = 0; i < R; i++) {
+        for (uint32_t j = C; j < ncols; j++) {
+            const ff_t a = gf16_matrix_get(A, nrows, i, j);
+            gf16_matrix_set(B, ncols, j, i, a);
         }
+    }
 
-        // solve the last rows
-        for (uint32_t i = 0; i < nrows; i++) {
-            for(uint32_t j = rb; j < ncols; j++) {
-                const ff_t a = gf16_matrix_get(A, nrows, i, j);
-                gf16_matrix_set(B, ncols, j, i, a);
-            }
+    // the last rows of A
+    for (uint32_t i = R; i < nrows; i++) {
+        for (uint32_t j = 0; j < ncols; j++) {
+            const ff_t a = gf16_matrix_get(A, nrows, i, j);
+            gf16_matrix_set(B, ncols, j, i, a);
         }
     }
 }
 
+static inline
 void gf16_swap_cols(uint8_t *A,
                     const uint32_t nrows,
                     const uint32_t i,
@@ -681,8 +784,8 @@ void gf16_swap_cols(uint8_t *A,
     for (;k+32 <= bytes; k+=32) {
         const __m256i a = _mm256_loadu_si256((__m256i *)(A +i*bytes + k));
         const __m256i b = _mm256_loadu_si256((__m256i *)(A +j*bytes + k));
-        _mm256_store_si256((__m256i *)(A +j*bytes + k), a);
-        _mm256_store_si256((__m256i *)(A +i*bytes + k), b);
+        _mm256_storeu_si256((__m256i *)(A +j*bytes + k), a);
+        _mm256_storeu_si256((__m256i *)(A +i*bytes + k), b);
     }
 #endif
     for (; k < bytes; k++) {
@@ -692,6 +795,7 @@ void gf16_swap_cols(uint8_t *A,
     }
 }
 
+static inline
 void gf16_swap_rows(uint8_t *A,
                     const uint32_t nrows,
                     const uint32_t ncols,
@@ -706,15 +810,18 @@ void gf16_swap_rows(uint8_t *A,
     }
 }
 
-// assumes that A is transposed
+/// NOTE: assumes that A is stored row-major (= transposed col-major),
+///     each row consists of ceil(ncols/2) bytes.
+static inline
 void gf16_swap_rows_transpose(uint8_t *A,
                                const uint32_t nrows,
                                const uint32_t ncols,
                                const uint32_t i,
                                const uint32_t j) {
+    (void)nrows;
     if (i == j) { return; }
 
-    const uint32_t bytes = ncols/2;
+    const uint32_t bytes = (ncols + 1)/2;
     uint32_t k = 0;
 #if defined(USE_AVX2)
     for (;k+32 <= bytes; k+=32) {
@@ -731,6 +838,7 @@ void gf16_swap_rows_transpose(uint8_t *A,
 
 /// NOTE: assumes that A is col-major
 /// A[row] *= c;
+static inline
 void gf16_solve_row(uint8_t *A,
                     const uint32_t nrows,
                     const uint32_t ncols,
@@ -744,15 +852,17 @@ void gf16_solve_row(uint8_t *A,
 }
 
 
-/// NOTE: assumes that A is row-major
+/// NOTE: assumes that A is row-major, each row consists of ceil(ncols/2) bytes
 /// A[row] *= c;
+static inline
 void gf16_solve_row_transpose(uint8_t *A,
                               const uint32_t nrows,
                               const uint32_t ncols,
                               const uint32_t row,
                               const uint8_t c) {
+    (void)nrows;
     if (c == 1) { return; }
-    const uint32_t bytes = ncols/2;
+    const uint32_t bytes = (ncols + 1)/2;
     uint32_t i = 0;
 #if defined(USE_AVX2)
     const __m256i multab_l = gf16v_tbl32_multab(c);
@@ -765,10 +875,9 @@ void gf16_solve_row_transpose(uint8_t *A,
         _mm256_storeu_si256((__m256i *)(A +row*bytes + i), d);
     }
 #endif
+    const uint8_t cc = (c & 0xf) ^ ((c & 0xf) << 4);
     for (; i < bytes; i++) {
-        uint8_t d = gf16_matrix_get(A, nrows, row, i);
-        d = gf16_mul(c, d);
-        gf16_matrix_set(A, nrows, row, i, d);
+        A[row*bytes + i] = gf16v_mul(A[row*bytes + i], cc);
     }
 }
 
@@ -791,6 +900,11 @@ uint32_t gf16_solve(uint8_t *A,
         if (i == nrows) {return 1;}
         const uint8_t c = gf16_inv(gf16_matrix_get(A, nrows, i, row));
         gf16_swap_rows(A, nrows, ncols, i, row);
+        if (i != row) {
+            const gf16 t1 = gf16_vector_get(b, i);
+            gf16_vector_set(b, i, gf16_vector_get(b, row));
+            gf16_vector_set(b, row, t1);
+        }
         /// solve current pivot row
         gf16_solve_row(A, nrows, ncols, row, c);
         gf16_vector_set(b, row, gf16_mul(gf16_vector_get(b, row), c));
@@ -812,59 +926,60 @@ uint32_t gf16_solve(uint8_t *A,
     return 0;
 }
 
-/// TODO not finished, the `gf16_swap_rows is not fully correct`
-/// \param B
-/// \param A tmp matrix, must be size of transposed of B
-/// \param b
+/// solves Bx=b via Gauss-Jordan elimination on the transposed (= row-major)
+/// matrix. On return B is in reduced row echelon form.
+/// \param B[in/out]: nrows x ncols matrix, col-major
+/// \param A[tmp]: tmp matrix, must be size of transposed of B
+/// \param b[in/out]: vector of nrows elements
 /// \param nrows
 /// \param ncols
-/// \return
+/// \return number of pivot rows found (= nrows, if B has full row rank and
+///     the left nrows x nrows submatrix is invertible)
+static inline
 uint32_t gf16_solve_transpose(uint8_t *B,
                               uint8_t *A,
                               uint8_t *b,
                               const uint32_t nrows,
                               const uint32_t ncols) {
-    gf16_matrix_tranpose_opt(A, B, nrows, ncols);
+    // A is ncols x nrows col-major, i.e. B in row-major form:
+    // A(c, r) = B(r, c), row r of B starts at byte r*ceil(ncols/2) of A.
+    gf16_matrix_transpose_opt(A, B, nrows, ncols);
 
     uint32_t row = 0;
-    for (; row < nrows; row++) {
-        // find pivot
+    for (; (row < nrows) && (row < ncols); row++) {
+        // find pivot: B(i, row) != 0 for i >= row
         uint32_t i = row;
         for (; i < nrows; i++) {
-            if (gf16_matrix_get(A, ncols, i, row)) {
+            if (gf16_matrix_get(A, ncols, row, i)) {
                 break;
             }
         }
 
         if (i == nrows) { break; }
 
-        const uint8_t c = gf16_inv(gf16_matrix_get(A, ncols, i, row));
+        const uint8_t c = gf16_inv(gf16_matrix_get(A, ncols, row, i));
         gf16_swap_rows_transpose(A, nrows, ncols, i, row);
+        if (i != row) {
+            const gf16 t1 = gf16_vector_get(b, i);
+            gf16_vector_set(b, i, gf16_vector_get(b, row));
+            gf16_vector_set(b, row, t1);
+        }
 
         /// solve current pivot row
-        // gf16_matrix_print_transposed(A, nrows, ncols);
         gf16_solve_row_transpose(A, nrows, ncols, row, c);
         const gf16 t = gf16_vector_get(b, row);
         gf16_vector_set(b, row, gf16_mul(t, c));
-        // gf16_matrix_print_transposed(A, nrows, ncols);
 
-        // solve remaining rows below
-        for (uint32_t j = row+1; j < nrows; j++) {
+        // eliminate all other rows
+        for (uint32_t j = 0; j < nrows; j++) {
+            if (j == row) { continue; }
             const uint8_t d = gf16_matrix_get(A, ncols, row, j);
-            gf16_sub_row_transpose(A, nrows, ncols, j, row, d);
-            gf16_vector_set(b, j, gf16_vector_get(b, j) ^ gf16_mul(gf16_vector_get(b, row), d));
-        }
-
-        // gf16_matrix_print_transposed(A, nrows, ncols);
-        // solve remaining rows above
-        for (uint32_t j = 0; j < row; j++) {
-            const uint8_t d = gf16_matrix_get(A, nrows, row, j);
             gf16_sub_row_transpose(A, nrows, ncols, j, row, d);
             gf16_vector_set(b, j, gf16_vector_get(b, j) ^ gf16_mul(gf16_vector_get(b, row), d));
         }
     }
 
-    gf16_matrix_tranpose_opt(B, A, ncols, nrows);
+    gf16_matrix_transpose_opt(B, A, ncols, nrows);
     return row;
 }
 
@@ -990,7 +1105,7 @@ static inline void row_echelon_form(unsigned char *A,
 
 /// src:
 /// c = a * b;
-static void gf16mat_prod_16x16_avx2(uint8_t * c,
+static inline void gf16mat_prod_16x16_avx2(uint8_t * c,
                                     const uint8_t * matA,
                                     const uint8_t * b ) {
     __m256i multabs[16];
@@ -1013,6 +1128,7 @@ static void gf16mat_prod_16x16_avx2(uint8_t * c,
 /// \param c out matrix
 /// \param a in matrix
 /// \param b in matrix
+static inline
 void gf16mat_prod_16x16_avx2_wrapper_v2(uint8_t *__restrict c,
                                         const uint8_t *__restrict__ a,
                                         unsigned int height_A,
@@ -1053,12 +1169,12 @@ void gf16mat_prod_16x16_avx2_wrapper_v2(uint8_t *__restrict c,
         const __m256i B2 = _mm256_blend_epi32(B21, B22, 0xaa);
 
 
-        acc = gf16v_mul_u256(Al1, B1);
-        tmp = gf16v_mul_u256(Al2, B2);
+        acc = gf16v_mul_lo_u256(Al1, B1);
+        tmp = gf16v_mul_lo_u256(Al2, B2);
         __m256i tmp1 = _mm256_xor_si256(acc, tmp);
 
-        acc = gf16v_mul_u256(Ah1, B1);
-        tmp = gf16v_mul_u256(Ah2, B2);
+        acc = gf16v_mul_lo_u256(Ah1, B1);
+        tmp = gf16v_mul_lo_u256(Ah2, B2);
         __m256i tmp2 = _mm256_xor_si256(acc, tmp);
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
@@ -1077,6 +1193,7 @@ void gf16mat_prod_16x16_avx2_wrapper_v2(uint8_t *__restrict c,
 /// \param column_A_bytes number of bytes i each column of A
 /// \param nr_cols_A  nr of cols in A
 /// \param b in vector or length <= 8 elements
+static inline
 void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
                                           const uint8_t *__restrict__ a,
                                           const unsigned int nr_cols_B,
@@ -1123,9 +1240,9 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16v_mul_u256(Al1, B1);
+        tmp1 = gf16v_mul_lo_u256(Al1, B1);
         if (column_A_bytes > 4)
-            tmp2 = gf16v_mul_u256(Ah1, B1);
+            tmp2 = gf16v_mul_lo_u256(Ah1, B1);
         else
             tmp2 = zero;
 
@@ -1155,6 +1272,7 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v2(uint8_t *__restrict c,
 /// \param column_A_bytes number of bytes i each column of A
 /// \param nr_cols_A  nr of cols in A
 /// \param b in vector or length <= 8 elements
+static inline
 void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
                                        const uint8_t *__restrict__ a,
                                        const unsigned int nr_cols_B,
@@ -1250,9 +1368,9 @@ void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16v_mul_u256(A1, B1);
-        tmp2 = gf16v_mul_u256(A2, B1);
-        tmp3 = gf16v_mul_u256(A3, B1);
+        tmp1 = gf16v_mul_lo_u256(A1, B1);
+        tmp2 = gf16v_mul_lo_u256(A2, B1);
+        tmp3 = gf16v_mul_lo_u256(A3, B1);
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
         __m256i tempk4 = _mm256_unpackhi_epi32(tmp1, tmp2);
@@ -1282,6 +1400,7 @@ void gf16mat_prod_gr8xle8_avx2_wrapper(uint8_t *__restrict c,
 /// \param column_A_bytes number of bytes i each column of A
 /// \param nr_cols_A  nr of cols in A
 /// \param b in vector or length <= 8 elements
+static inline
 void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
                                        const uint8_t *__restrict__ a,
                                        const unsigned int nr_cols_B,
@@ -1375,11 +1494,11 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
             B12 = _mm256_shuffle_epi8(B12, perm);
             const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-            tmp1 = gf16v_mul_u256(Al1, B1);
-            tmp2 = gf16v_mul_u256(Al2, B2);
+            tmp1 = gf16v_mul_lo_u256(Al1, B1);
+            tmp2 = gf16v_mul_lo_u256(Al2, B2);
             tmp1 = _mm256_xor_si256(tmp1, tmp2);
         } else {
-            tmp1 = gf16v_mul_u256(Al1, B1);
+            tmp1 = gf16v_mul_lo_u256(Al1, B1);
         }
 
         rdata = _mm256_extract_epi32(gf16_hadd_avx2_32(tmp1), 0);
@@ -1404,6 +1523,7 @@ void gf16mat_prod_le4xle4_avx2_wrapper(uint8_t *__restrict c,
 /// \param column_A_bytes number of bytes i each column of A
 /// \param nr_cols_A  nr of cols in A
 /// \param b in vector or length <= 8 elements
+static inline
 void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
                                           const uint8_t *__restrict__ a,
                                           const unsigned int nr_cols_B,
@@ -1467,8 +1587,8 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
         B12 = _mm256_shuffle_epi8(B12, perm);
         const __m256i B1 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
-        tmp1 = gf16v_mul_u256(A1, B1);
-        tmp2 = gf16v_mul_u256(A2, B1);
+        tmp1 = gf16v_mul_lo_u256(A1, B1);
+        tmp2 = gf16v_mul_lo_u256(A2, B1);
 
         if (nr_cols_A > 8) {
             b_data = *((uint32_t *)(b+(nr_bytes_B_col * i + 4)));
@@ -1482,8 +1602,8 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
             const __m256i B2 = _mm256_blend_epi32(B11, B12, 0xaa); // 0b10101010
 
 
-            tmp1 ^= gf16v_mul_u256(A3, B2);
-            tmp2 ^= gf16v_mul_u256(A4, B2);
+            tmp1 ^= gf16v_mul_lo_u256(A3, B2);
+            tmp2 ^= gf16v_mul_lo_u256(A4, B2);
         }
 
         __m256i tempk3 = _mm256_unpacklo_epi32(tmp1, tmp2);
@@ -1503,6 +1623,7 @@ void gf16mat_prod_le8xle8_avx2_wrapper_v3(uint8_t *__restrict c,
     }
 }
 
+static inline
 void gf16mat_prod_16x4xk(uint8_t *__restrict c,
                          const uint8_t *__restrict__ a,
                          const uint8_t *__restrict__ b, 
@@ -1523,7 +1644,7 @@ void gf16mat_prod_16x4xk(uint8_t *__restrict c,
         const __m256i t5 = _mm256_mul_epu32(t4, one);
         const __m256i t6 = t5^_mm256_slli_si256(t5, 4);
 
-        const __m256i c1 = gf16v_mul_full_u256(t6, A);
+        const __m256i c1 = gf16v_mul_u256(t6, A);
         const uint64_t c2 = gf16_hadd_u256_64(c1);
 
         c64[i] = c2;
@@ -1608,22 +1729,22 @@ void gf16mat_new_core_scatter(uint8_t *__restrict__ c,
         __m256i B = gf16mat_new_core_scatter_helper(b + i*cBb, mask_B_1, MIN(cBb, 4));
 
         // compute the multiplication:
-                       acc1 = gf16v_mul_u256(Al1, B);
-        if (cAb > 4) { acc2 = gf16v_mul_u256(Am1, B); }
-        if (cAb > 8) { acc3 = gf16v_mul_u256(Ah1, B); }
+                       acc1 = gf16v_mul_lo_u256(Al1, B);
+        if (cAb > 4) { acc2 = gf16v_mul_lo_u256(Am1, B); }
+        if (cAb > 8) { acc3 = gf16v_mul_lo_u256(Ah1, B); }
 
         if (nAc > 8) {
             B = gf16mat_new_core_scatter_helper(b + i*cBb + 4, mask_B_2, MIN(cBb-4, 4));
-                           acc1 ^= gf16v_mul_u256(Al2, B);
-            if (cAb > 4) { acc2 ^= gf16v_mul_u256(Am2, B); }
-            if (cAb > 8) { acc3 ^= gf16v_mul_u256(Ah2, B); }
+                           acc1 ^= gf16v_mul_lo_u256(Al2, B);
+            if (cAb > 4) { acc2 ^= gf16v_mul_lo_u256(Am2, B); }
+            if (cAb > 8) { acc3 ^= gf16v_mul_lo_u256(Ah2, B); }
         }
 
         if (nAc > 16) {
             B = gf16mat_new_core_scatter_helper(b + i*cBb + 8, mask_B_3, MIN(cBb-8, 4));
-                           acc1 ^= gf16v_mul_u256(Al3, B);
-            if (cAb > 4) { acc2 ^= gf16v_mul_u256(Am3, B); }
-            if (cAb > 8) { acc3 ^= gf16v_mul_u256(Ah3, B); }
+                           acc1 ^= gf16v_mul_lo_u256(Al3, B);
+            if (cAb > 4) { acc2 ^= gf16v_mul_lo_u256(Am3, B); }
+            if (cAb > 8) { acc3 ^= gf16v_mul_lo_u256(Ah3, B); }
         }
 
         /// NOTE: do not remove this mask. For whatever reason C is not zero extending this cast.
@@ -1639,7 +1760,7 @@ void gf16mat_new_core_scatter(uint8_t *__restrict__ c,
 
 // matrix1 += matrix2
 static inline
-void gf16_matrix_add_u256(ff_t *matrix1, 
+void gf16_matrix_add_inplace_u256(ff_t *matrix1, 
                           const ff_t *matrix2, 
 		                  const uint32_t n_rows, 
                           const uint32_t n_cols) {
@@ -1685,10 +1806,10 @@ void gf16_matrix_add_u256(ff_t *matrix1,
 
 // matrix1 += scalar *matrix2
 static inline
-void _matrix_add_multiple(ff_t *matrix1, const ff_t scalar, const ff_t *matrix2,
+void gf16_matrix_add_scalar_u256(ff_t *matrix1, const ff_t scalar, const ff_t *matrix2,
     const uint32_t n_rows, const uint32_t n_cols) {
     const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
-    gf16v_madd_avx2(matrix1, matrix2, scalar, n_bytes);
+    gf16v_madd_avx2(matrix1, matrix2, scalar & 0xF, n_bytes);
 }
 
 
@@ -1696,8 +1817,9 @@ void _matrix_add_multiple(ff_t *matrix1, const ff_t scalar, const ff_t *matrix2,
 // matrix1 of size n_rows1 * n_cols1
 // matrix2 of size n_cols1 * n_cols2
 // result  of size n_rows1 * n_cols2
+// NOTE: only for small matrices: n_rows1 <= 24, n_cols1 <= 24
 static inline
-void _matrix_add_product(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
+void gf16_matrix_add_mul_small_u256(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
     const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
     const uint32_t n_bytes_per_column1 = gf16_matrix_bytes_per_column(n_rows1);
     gf16mat_new_core_scatter(matrix1, matrix2, n_cols2, n_bytes_per_column1, 2*((n_cols1+1)>>1), matrix3);
@@ -1708,16 +1830,174 @@ void _matrix_add_product(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3
 // matrix1 of size n_rows1 * n_cols1
 // matrix2 of size n_cols1 * n_cols2
 // result  of size n_rows1 * n_cols2
+// NOTE: only for small matrices: n_rows1 <= 24, n_cols1 <= 24
 static inline
-void _matrix_product(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
+void gf16_matrix_mul_small_u256(ff_t *matrix1, const ff_t *matrix2, const ff_t *matrix3,
     const uint32_t n_rows1, const uint32_t n_cols1, const uint32_t n_cols2) {
     const uint32_t n_bytes_per_column1 = gf16_matrix_bytes_per_column(n_rows1);
-	
+
 	// first zero out the output matrix
-	gf16_matrix_add_u256(matrix1, matrix1, n_rows1, n_cols2);
+	gf16_matrix_zero(matrix1, n_rows1, n_cols2);
     gf16mat_new_core_scatter(matrix1, matrix2, n_cols2, n_bytes_per_column1, 2*((n_cols1+1)>>1), matrix3);
 }
 
+/// matrix1 = matrix2 + matrix3
+/// \param matrix1[out]
+/// \param matrix2[in]
+/// \param matrix3[in]
+/// \param n_rows[in]
+/// \param n_cols[in]
+static inline
+void gf16_matrix_add_u256(ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const ff_t *matrix3,
+                          const uint32_t n_rows,
+                          const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16_vector_add_u256_v2(matrix1, matrix2, matrix3, 2*n_bytes);
+}
+
+/// result += matrix1 * matrix2, computed column by column:
+///     result[:, j] += sum_k matrix2[k, j] * matrix1[:, k]
+/// \param result[in/out]: n_rows1 x n_cols2
+/// \param matrix1[in]: n_rows1 x n_cols1
+/// \param matrix2[in]: n_cols1 x n_cols2
+static inline
+void gf16_matrix_add_mul_u256(ff_t *result,
+                              const ff_t *matrix1,
+                              const ff_t *matrix2,
+                              const uint32_t n_rows1,
+                              const uint32_t n_cols1,
+                              const uint32_t n_cols2) {
+    const uint32_t bpc1 = gf16_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const ff_t b = gf16_matrix_get(matrix2, n_cols1, k, j);
+            gf16_vector_scalar_add_u256(result + j*bpc1, b, matrix1 + k*bpc1, n_rows1);
+        }
+    }
+}
+
+/// result = matrix1 * matrix2
+/// \param result[out]: n_rows1 x n_cols2
+/// \param matrix1[in]: n_rows1 x n_cols1
+/// \param matrix2[in]: n_cols1 x n_cols2
+static inline
+void gf16_matrix_mul_u256(ff_t *result,
+                          const ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const uint32_t n_rows1,
+                          const uint32_t n_cols1,
+                          const uint32_t n_cols2) {
+    gf16_matrix_zero(result, n_rows1, n_cols2);
+    gf16_matrix_add_mul_u256(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
 
 #endif // end: USE_AVX2
+
+#ifdef USE_NEON
+/// matrix1 = matrix2 + matrix3
+static inline
+void gf16_matrix_add_u128(ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const ff_t *matrix3,
+                          const uint32_t n_rows,
+                          const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16_vector_add_u128_v2(matrix1, matrix2, matrix3, 2*n_bytes);
+}
+
+/// matrix1 += scalar * matrix2
+static inline
+void gf16_matrix_add_scalar_u128(ff_t *matrix1,
+                                 const ff_t scalar,
+                                 const ff_t *matrix2,
+                                 const uint32_t n_rows,
+                                 const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16_vector_scalar_add_u128(matrix1, scalar, matrix2, 2*n_bytes);
+}
+
+/// result += matrix1 * matrix2
+static inline
+void gf16_matrix_add_mul_u128(ff_t *result,
+                              const ff_t *matrix1,
+                              const ff_t *matrix2,
+                              const uint32_t n_rows1,
+                              const uint32_t n_cols1,
+                              const uint32_t n_cols2) {
+    const uint32_t bpc1 = gf16_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const ff_t b = gf16_matrix_get(matrix2, n_cols1, k, j);
+            gf16_vector_scalar_add_u128(result + j*bpc1, b, matrix1 + k*bpc1, n_rows1);
+        }
+    }
+}
+
+/// result = matrix1 * matrix2
+static inline
+void gf16_matrix_mul_u128(ff_t *result,
+                          const ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const uint32_t n_rows1,
+                          const uint32_t n_cols1,
+                          const uint32_t n_cols2) {
+    gf16_matrix_zero(result, n_rows1, n_cols2);
+    gf16_matrix_add_mul_u128(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+#endif // end: USE_NEON
+
+#ifdef USE_AVX512
+/// matrix1 = matrix2 + matrix3
+static inline
+void gf16_matrix_add_u512(ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const ff_t *matrix3,
+                          const uint32_t n_rows,
+                          const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16_vector_add_u512_v2(matrix1, matrix2, matrix3, 2*n_bytes);
+}
+
+/// matrix1 += scalar * matrix2
+static inline
+void gf16_matrix_add_scalar_u512(ff_t *matrix1,
+                                 const ff_t scalar,
+                                 const ff_t *matrix2,
+                                 const uint32_t n_rows,
+                                 const uint32_t n_cols) {
+    const uint32_t n_bytes = gf16_matrix_bytes_size(n_rows, n_cols);
+    gf16_vector_scalar_add_u512(matrix1, scalar, matrix2, 2*n_bytes);
+}
+
+/// result += matrix1 * matrix2
+static inline
+void gf16_matrix_add_mul_u512(ff_t *result,
+                              const ff_t *matrix1,
+                              const ff_t *matrix2,
+                              const uint32_t n_rows1,
+                              const uint32_t n_cols1,
+                              const uint32_t n_cols2) {
+    const uint32_t bpc1 = gf16_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const ff_t b = gf16_matrix_get(matrix2, n_cols1, k, j);
+            gf16_vector_scalar_add_u512(result + j*bpc1, b, matrix1 + k*bpc1, n_rows1);
+        }
+    }
+}
+
+/// result = matrix1 * matrix2
+static inline
+void gf16_matrix_mul_u512(ff_t *result,
+                          const ff_t *matrix1,
+                          const ff_t *matrix2,
+                          const uint32_t n_rows1,
+                          const uint32_t n_cols1,
+                          const uint32_t n_cols2) {
+    gf16_matrix_zero(result, n_rows1, n_cols2);
+    gf16_matrix_add_mul_u512(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+#endif // end: USE_AVX512
 

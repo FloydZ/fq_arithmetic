@@ -61,12 +61,41 @@ static inline gf256to8 gf256to8_sub(const gf256to8 a,
     return a ^ b;
 }
 
+/// \return -a = a (characteristic 2)
+static inline gf256to8 gf256to8_neg(const gf256to8 a) {
+    return a;
+}
+
+/// inversion via the norm map into GF(256^4): for a = a_1*X + a_0
+///     N(a) = a_0*(a_0 + a_1) + (65536*256*32)*a_1^2, a^-1 = (a_1*X + a_0 + a_1) * N(a)^-1
+/// NOTE: inv(0) = 0
+/// \return a^-1
+static inline gf256to8 gf256to8_inv(const gf256to8 a) {
+    const gf256to4 a0 = (gf256to4)a, a1 = (gf256to4)(a >> 32u);
+    const gf256to4 s = a0 ^ a1;
+    const gf256to4 n = gf256to4_mul(a0, s) ^ gf256to4_mul(0x20000000, gf256to4_mul(a1, a1));
+    const gf256to4 ninv = gf256to4_inv(n);
+    return ((gf256to8)gf256to4_mul(a1, ninv) << 32u) | gf256to4_mul(s, ninv);
+}
+
 #ifdef USE_AVX2
 #include <immintrin.h>
 
-/// \param a
-/// \param b
-/// \return
+/// \return [a_0+b_0, ..., a_3+b_3]
+static inline __m256i gf256to8v_add_u256(const __m256i a,
+                                         const __m256i b) {
+    return a ^ b;
+}
+
+/// \return [a_0-b_0, ..., a_3-b_3]
+static inline __m256i gf256to8v_sub_u256(const __m256i a,
+                                         const __m256i b) {
+    return a ^ b;
+}
+
+/// \param a [a_0, ..., a_3]
+/// \param b [b_0, ..., b_3]
+/// \return [a_0*b_0, ..., a_3*b_3]
 static inline __m256i gf256to8v_mul_u256(const __m256i a,
                                          const __m256i b) {
     __m256i c;
@@ -85,7 +114,7 @@ static inline __m256i gf256to8v_mul_u256(const __m256i a,
     return c;
 }
 
-/// 3 gf(256) mul + 11 inst = 119 instr
+/// SSE version of `gf256to8v_mul_u256`
 /// \param a
 /// \param b
 /// \return
@@ -107,5 +136,79 @@ static inline __m128i gf256to8v_mul_u128(const __m128i a,
     return c;
 }
 #endif // USE_AVX2
+
+#ifdef USE_NEON
+/// \return [a_0+b_0, a_1+b_1]
+static inline uint64x2_t gf256to8v_add_u128(const uint64x2_t a,
+                                            const uint64x2_t b) {
+    return veorq_u64(a, b);
+}
+
+/// \return [a_0-b_0, a_1-b_1]
+static inline uint64x2_t gf256to8v_sub_u128(const uint64x2_t a,
+                                            const uint64x2_t b) {
+    return veorq_u64(a, b);
+}
+
+/// NEON version of `gf256to8v_mul_u256`
+/// \param a [a_0, a_1]
+/// \param b [b_0, b_1]
+/// \return [a_0*b_0, a_1*b_1]
+static inline uint64x2_t gf256to8v_mul_u128(const uint64x2_t a,
+                                            const uint64x2_t b) {
+    const uint64x2_t mask1 = vdupq_n_u64(0x00000000FFFFFFFFull);
+    const uint64x2_t mask2 = vdupq_n_u64(0xFFFFFFFF00000000ull);
+    const uint32x4_t mulm  = vdupq_n_u32(0x20000000);
+    const uint64x2_t ab = vreinterpretq_u64_u32(gf256to4v_mul_u128(vreinterpretq_u32_u64(a),
+                                                                   vreinterpretq_u32_u64(b)));
+    const uint64x2_t sa = veorq_u64(vshlq_n_u64(a, 32), a);
+    const uint64x2_t sb = veorq_u64(vshlq_n_u64(b, 32), b);
+
+    // compute the higher limb
+    const uint64x2_t h = vreinterpretq_u64_u32(gf256to4v_mul_u128(vreinterpretq_u32_u64(sa),
+                                                                  vreinterpretq_u32_u64(sb)));
+    uint64x2_t c = vandq_u64(veorq_u64(h, vshlq_n_u64(ab, 32)), mask2);
+
+    // compute the lower limb
+    const uint64x2_t l = vreinterpretq_u64_u32(gf256to4v_mul_u128(vreinterpretq_u32_u64(vshrq_n_u64(ab, 32)), mulm));
+    c = veorq_u64(c, vandq_u64(veorq_u64(ab, l), mask1));
+    return c;
+}
+#endif // USE_NEON
+
+#ifdef USE_AVX512
+/// \return [a_0+b_0, ..., a_7+b_7]
+static inline __m512i gf256to8v_add_u512(const __m512i a,
+                                         const __m512i b) {
+    return a ^ b;
+}
+
+/// \return [a_0-b_0, ..., a_7-b_7]
+static inline __m512i gf256to8v_sub_u512(const __m512i a,
+                                         const __m512i b) {
+    return a ^ b;
+}
+
+/// \param a [a_0, ..., a_7]
+/// \param b [b_0, ..., b_7]
+/// \return [a_0*b_0, ..., a_7*b_7]
+static inline __m512i gf256to8v_mul_u512(const __m512i a,
+                                         const __m512i b) {
+    __m512i c;
+    const __m512i mask1 = _mm512_set1_epi64(0x00000000FFFFFFFFll);
+    const __m512i mask2 = _mm512_set1_epi64((long long)0xFFFFFFFF00000000ull);
+    const __m512i mulm  = _mm512_set1_epi32(0x20000000);
+    const __m512i ab = gf256to4v_mul_u512(a, b);
+    const __m512i sa = _mm512_slli_epi64(a, 32u) ^ a;
+    const __m512i sb = _mm512_slli_epi64(b, 32u) ^ b;
+
+    // compute the higher
+    c = (gf256to4v_mul_u512(sa, sb) ^ _mm512_slli_epi64(ab, 32u)) & mask2;
+
+    // compute the lower limb:
+    c ^= (ab ^ gf256to4v_mul_u512(_mm512_srli_epi64(ab, 32u), mulm)) & mask1;
+    return c;
+}
+#endif // USE_AVX512
 
 #endif

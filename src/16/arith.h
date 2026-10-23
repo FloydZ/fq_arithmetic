@@ -18,7 +18,7 @@ typedef uint8_t gf16;
 /// Multiplication table for GF(16)
 /// Table entries represent the product of row and column indices
 /// Each index (0-15) represents a GF(16) element
-const uint8_t gf16_mult_table[256] = {
+static const uint8_t gf16_mult_table[256] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, 
     0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 
     0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e,0x03,0x01,0x07,0x05,0x0b,0x09,0x0f,0x0d, 
@@ -42,7 +42,7 @@ const uint8_t gf16_mult_table[256] = {
 /// NOTE: normally 16 elements would be sufficient, but for easy use in AVX2
 /// it's extended to 32 elements
 /// table[i] = i^{-1} mod GF(16), where i=0 maps to 0 (not a proper inverse)
-const uint8_t gf16_inverse_tab[32] __attribute__((aligned(32)))= {
+static const uint8_t gf16_inverse_tab[32] __attribute__((aligned(32)))= {
     0, 1, 9, 14, 13, 11, 7, 6, 15, 2, 12, 5, 10, 4, 3, 8,
     0, 1, 9, 14, 13, 11, 7, 6, 15, 2, 12, 5, 10, 4, 3, 8,
 };
@@ -71,6 +71,13 @@ static inline ff_t gf16_add(const ff_t a,
 static inline ff_t gf16_sub(const ff_t a,
                             const ff_t b) {
 	return a ^ b;
+}
+
+/// Negation in GF(16)
+/// \param a[in]: GF(16) element
+/// \return -a in GF(16), which is a itself since we're in characteristic 2
+static inline ff_t gf16_neg(const ff_t a) {
+	return a;
 }
 
 /// Squaring in GF(16)
@@ -141,8 +148,8 @@ ff_t gf16_mul_v2(const ff_t a,
 /// \param b[in]: second factor
 /// \return a*b in GF(16)
 /// \note This implementation is branchless and uses no lookup tables
-uint8_t gf16_mul_v3(const uint8_t a,
-                    const uint8_t b) {
+static inline uint8_t gf16_mul_v3(const uint8_t a,
+                                  const uint8_t b) {
     uint8_t r;
     r = (-(b>>3    ) & a);
     r = (-(b>>2 & 1) & a) ^ (-(r>>3) & MODULUS) ^ ((r+r) & 0x0F);
@@ -157,8 +164,8 @@ uint8_t gf16_mul_v3(const uint8_t a,
 /// \note Computes two multiplications at once - one for the lower 4 bits and one for upper 4 bits
 static inline ff_t gf16v_mul(const ff_t a,
                              const ff_t b) {
-    return gf16_mult_table[(a & 0xffff) * 16u + (b & 0xffff)] ^
-          (gf16_mult_table[(a >>     4) * 16u + (b >>    4u)] << 4u);
+    return gf16_mult_table[(a & 0xfu) * 16u + (b & 0xfu)] ^
+          (gf16_mult_table[(a >>  4u) * 16u + (b >>  4u)] << 4u);
 }
 
 /// Fused multiply-add operation in GF(16): a + b*c
@@ -187,7 +194,7 @@ static inline uint64_t gf16_sqrv_u64(const uint64_t a) {
 /// Multiplication base table for vectorized GF(16) operations
 /// M[i, j] = 16^i * j mod 16 for i = row, j = column
 /// Used to build the lookup tables for vectorized multiplications
-const uint8_t __gf16_mulbase[128] __attribute__((aligned(32))) = {
+static const uint8_t __gf16_mulbase[128] __attribute__((aligned(32))) = {
         0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f, 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, 0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
         0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x03,0x01,0x07,0x05,0x0b,0x09,0x0f,0x0d, 0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e, 0x03,0x01,0x07,0x05,0x0b,0x09,0x0f,0x0d,
         0x00,0x04,0x08,0x0c,0x03,0x07,0x0b,0x0f, 0x06,0x02,0x0e,0x0a,0x05,0x01,0x0d,0x09, 0x00,0x04,0x08,0x0c,0x03,0x07,0x0b,0x0f, 0x06,0x02,0x0e,0x0a,0x05,0x01,0x0d,0x09,
@@ -269,7 +276,7 @@ static inline __m256i gf16_mulvx_u256(const __m256i a) {
 /// \return 256-bit vector containing [a^31, a^30, ..., a^1] (32 consecutive powers)
 /// \note Used for various polynomial operations and algorithms
 static inline __m256i gf16_powers(const ff_t a) {
-	ff_t tmp[32];
+	ff_t tmp[32] __attribute__((aligned(32)));
 	tmp[0] = a;
 	for (uint32_t i = 1; i < 32; i++) {
 		tmp[i] = gf16_mul(a, tmp[i - 1]);
@@ -279,14 +286,14 @@ static inline __m256i gf16_powers(const ff_t a) {
 	return ret;
 }
 
-/// Vectorized multiplication of 32 GF(16) elements in 128-bit vectors
+/// Vectorized multiplication of 32 GF(16) elements in 128-bit vectors (SSE)
 /// \param a[in]: 128-bit vector containing 32 GF(16) elements (4 bits each)
-/// \param b[in]: 128-bit vector containing 32 GF(16) elements (4 bits each)
-/// \return 128-bit vector with element-wise products
-/// \note Assumes that in every byte of b, the two nibbles contain the same value
-/// \note Processes 32 GF(16) multiplications in parallel using SSE instructions
-static inline __m128i gf16v_mul_u128(const __m128i a,
-                                     const __m128i b) {
+/// \param b[in]: 128-bit vector, only the lower nibble of each byte is used
+///               (the upper nibble of each byte must be zero)
+/// \return both nibbles of byte i of a multiplied by the lower nibble of byte i of b
+/// \note NOT a full element-wise multiplication, see `gf16v_mul_u256` for that.
+static inline __m128i gf16v_mul_lo_u128(const __m128i a,
+                                        const __m128i b) {
     const __m128i mask_lvl2 = _mm_load_si128((__m128i const *) (__gf16_mulbase +   32));
     const __m128i mask_lvl3 = _mm_load_si128((__m128i const *) (__gf16_mulbase + 32*2));
     const __m128i mask_lvl4 = _mm_load_si128((__m128i const *) (__gf16_mulbase + 32*3));
@@ -332,14 +339,32 @@ static inline __m128i gf16v_mul_u128(const __m128i a,
     return tmp;
 }
 
-/// Vectorized multiplication of 64 GF(16) elements in 256-bit vectors
+/// Addition of 64 packed GF(16) elements
 /// \param a[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
 /// \param b[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
-/// \return 256-bit vector with element-wise products
-/// \note Assumes that in every byte of b, the two nibbles contain the same value
-/// \note Processes 64 GF(16) multiplications in parallel using AVX2 instructions
-static inline __m256i gf16v_mul_u256(const __m256i a,
+/// \return a + b
+static inline __m256i gf16v_add_u256(const __m256i a,
                                      const __m256i b) {
+    return _mm256_xor_si256(a, b);
+}
+
+/// Subtraction of 64 packed GF(16) elements
+/// \param a[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
+/// \param b[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
+/// \return a - b = a + b
+static inline __m256i gf16v_sub_u256(const __m256i a,
+                                     const __m256i b) {
+    return _mm256_xor_si256(a, b);
+}
+
+/// Vectorized multiplication of 64 GF(16) elements in 256-bit vectors
+/// \param a[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
+/// \param b[in]: 256-bit vector, only the lower nibble of each byte is used
+///               (the upper nibble of each byte must be zero)
+/// \return both nibbles of byte i of a multiplied by the lower nibble of byte i of b
+/// \note NOT a full element-wise multiplication, see `gf16v_mul_u256` for that.
+static inline __m256i gf16v_mul_lo_u256(const __m256i a,
+                                        const __m256i b) {
     const __m256i mask_lvl2 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*1));
     const __m256i mask_lvl3 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*2));
     const __m256i mask_lvl4 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*3));
@@ -385,14 +410,13 @@ static inline __m256i gf16v_mul_u256(const __m256i a,
     return tmp;
 }
 
-/// Full vectorized multiplication of 64 GF(16) elements with no restrictions
+/// Full (element-wise) vectorized multiplication of 64 packed GF(16) elements
 /// \param a[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
 /// \param _b[in]: 256-bit vector containing 64 GF(16) elements (4 bits each)
 /// \return 256-bit vector with element-wise products
-/// \note Unlike gf16v_mul_u256, this function handles different nibbles in each byte of b
-/// \note Processes 64 GF(16) multiplications in parallel using AVX2 instructions
-static inline __m256i gf16v_mul_full_u256(const __m256i a,
-                                          const __m256i _b) {
+/// \note Unlike gf16v_mul_lo_u256, this function handles different nibbles in each byte of b
+static inline __m256i gf16v_mul_u256(const __m256i a,
+                                     const __m256i _b) {
     const __m256i mask_lvl2 = _mm256_load_si256((__m256i const *) (__gf16_mulbase +   32));
     const __m256i mask_lvl3 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*2));
     const __m256i mask_lvl4 = _mm256_load_si256((__m256i const *) (__gf16_mulbase + 32*3));
@@ -448,7 +472,7 @@ static inline __m256i gf16v_mul_full_u256(const __m256i a,
 /// avx2:   [         multab_low       ]
 ///         <---        32          --->
 /// NOTE: if you have the choice use `mult_simd` its faster.
-void gf16v_generate_multab_16_avx2(__m256i *multabs,
+static inline void gf16v_generate_multab_16_avx2(__m256i *multabs,
 									__m128i a,
 									unsigned len ) {
     __m256i broadcast_x1 = _mm256_set_epi8( 0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16,  0,-16,0,-16, 0,-16,0,-16 );
@@ -479,7 +503,7 @@ void gf16v_generate_multab_16_avx2(__m256i *multabs,
 }
 
 ///  TODO use `mult_simd`
-void mat_simd_16x16(uint8_t *c, 
+static inline void mat_simd_16x16(uint8_t *c,
 					const uint8_t *matA,
 					const __m256i * multab_b){
     __m256i mask_f = _mm256_set1_epi8(0xf);
@@ -688,14 +712,29 @@ void gf16v_madd_avx2( uint8_t * accu_c, const uint8_t * a , uint8_t gf16_b, unsi
 
 #elif defined(USE_NEON)
 #include <arm_neon.h>
-const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
+static const unsigned char __gf16_reduce[16] __attribute__((aligned(16))) = {
         0x00,0x13,0x26,0x35,0x4c,0x5f,0x6a,0x79, 0x8b,0x98,0xad,0xbe,0xc7,0xd4,0xe1,0xf2
 };
 
-// NOTE: not a full multiplication (only the lower 4 bits in each limb are used in b)
+/// \return a + b for 32 packed GF(16) elements
 static inline
-uint8x16_t gf16v_mul_u128(const uint8x16_t a,
+uint8x16_t gf16v_add_u128(const uint8x16_t a,
                           const uint8x16_t b) {
+    return veorq_u8(a, b);
+}
+
+/// \return a - b = a + b for 32 packed GF(16) elements
+static inline
+uint8x16_t gf16v_sub_u128(const uint8x16_t a,
+                          const uint8x16_t b) {
+    return veorq_u8(a, b);
+}
+
+/// NOTE: not a full multiplication (only the lower 4 bits in each limb are used in b)
+/// \return both nibbles of byte i of a multiplied by the lower nibble of byte i of b
+static inline
+uint8x16_t gf16v_mul_lo_u128(const uint8x16_t a,
+                             const uint8x16_t b) {
     uint8x16_t mask_f = vdupq_n_u8( 0xf );
     uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
 
@@ -711,18 +750,20 @@ uint8x16_t gf16v_mul_u128(const uint8x16_t a,
     return vsliq_n_u8( rl , rh , 4 );
 }
 
+/// two register version of `gf16v_mul_lo_u128`
 static inline
-uint8x16x2_t gf16v_mul_u256(const uint8x16x2_t a,
-                            const uint8x16x2_t b) {
+uint8x16x2_t gf16v_mul_lo_u256(const uint8x16x2_t a,
+                               const uint8x16x2_t b) {
     uint8x16x2_t c;
-    c.val[0] = gf16v_mul_u128( a.val[0], b.val[0] );
-    c.val[0] = gf16v_mul_u128( a.val[0], b.val[0] );
+    c.val[0] = gf16v_mul_lo_u128(a.val[0], b.val[0]);
+    c.val[1] = gf16v_mul_lo_u128(a.val[1], b.val[1]);
     return c;
 }
 
+/// full element-wise multiplication of 32 packed GF(16) elements
 static inline
-uint8x16_t gf16v_mul_full_u128(const uint8x16_t a,
-                               const uint8x16_t b) {
+uint8x16_t gf16v_mul_u128(const uint8x16_t a,
+                          const uint8x16_t b) {
     const uint8x16_t mask_f = vdupq_n_u8( 0xf );
     const uint8x16_t tab_reduce = vld1q_u8(__gf16_reduce);
 
@@ -773,5 +814,66 @@ uint8x16_t gf16v_mul_u128_upper(uint8x16_t a,
 #else
 // any other architecture
 #endif
+
+#ifdef USE_AVX512
+#include <immintrin.h>
+
+/// Addition of 128 packed GF(16) elements
+static inline __m512i gf16v_add_u512(const __m512i a,
+                                     const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// Subtraction of 128 packed GF(16) elements
+static inline __m512i gf16v_sub_u512(const __m512i a,
+                                     const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// multiplies every packed GF(16) element (nibble) by x
+static inline __m512i gf16v_mulx_u512(const __m512i a) {
+    const __m512i m88 = _mm512_set1_epi8((char)0x88);
+    const __m512i mee = _mm512_set1_epi8((char)0xEE);
+    const __m512i h = _mm512_and_si512(a, m88);
+    const __m512i t = _mm512_and_si512(_mm512_slli_epi16(a, 1), mee);
+    // x^4 = x + 1: reinsert the overflowing bit at position 0 and 1 of each nibble
+    return _mm512_xor_si512(t, _mm512_xor_si512(_mm512_srli_epi16(h, 3),
+                                                _mm512_srli_epi16(h, 2)));
+}
+
+/// spreads bit 0 of each nibble of `e` (all other bits must be zero) to the full nibble
+static inline __m512i gf16v_spread_bit_u512(__m512i e) {
+    e = _mm512_or_si512(e, _mm512_slli_epi16(e, 1));
+    e = _mm512_or_si512(e, _mm512_slli_epi16(e, 2));
+    return e;
+}
+
+/// Full element-wise multiplication of 128 packed GF(16) elements
+/// \param a[in]: 512-bit vector containing 128 GF(16) elements (4 bits each)
+/// \param b[in]: 512-bit vector containing 128 GF(16) elements (4 bits each)
+/// \return [a_0*b_0, ..., a_127*b_127]
+static inline __m512i gf16v_mul_u512(const __m512i a,
+                                     const __m512i b) {
+    const __m512i m11 = _mm512_set1_epi8(0x11);
+    __m512i t = a;
+    __m512i e, r;
+
+    e = gf16v_spread_bit_u512(_mm512_and_si512(b, m11));
+    r = _mm512_and_si512(t, e);
+    t = gf16v_mulx_u512(t);
+
+    e = gf16v_spread_bit_u512(_mm512_and_si512(_mm512_srli_epi16(b, 1), m11));
+    r = _mm512_xor_si512(r, _mm512_and_si512(t, e));
+    t = gf16v_mulx_u512(t);
+
+    e = gf16v_spread_bit_u512(_mm512_and_si512(_mm512_srli_epi16(b, 2), m11));
+    r = _mm512_xor_si512(r, _mm512_and_si512(t, e));
+    t = gf16v_mulx_u512(t);
+
+    e = gf16v_spread_bit_u512(_mm512_and_si512(_mm512_srli_epi16(b, 3), m11));
+    r = _mm512_xor_si512(r, _mm512_and_si512(t, e));
+    return r;
+}
+#endif // USE_AVX512
 
 #undef MODULUS

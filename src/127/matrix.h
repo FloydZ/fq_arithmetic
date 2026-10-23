@@ -6,20 +6,36 @@
 #include <stdlib.h>
 
 #include "arith.h"
+#include "vector.h"
 
-/// NOTE: everything row major
+#ifdef __x86_64__
+#include <immintrin.h>
+#endif
+
+/// NOTE: the canonical API (alloc/get/set/print/zero/random/copy/id/add/
+///     add_scalar/mul/add_mul/transpose and their SIMD versions) stores
+///     matrices column-major: entry (i, j) is at m[j*nrows + i].
+/// NOTE: the specialized square/8xN transpose functions (`*_opt*`, `*8x8`,
+///     `*32x32*`, `*8xN`, `*Nx8`) work on row-major byte matrices; for square
+///     matrices both conventions coincide.
+/// NOTE: the output of `mul`/`add_mul` must not alias the inputs
 
 /// Allocate memory for a GF(127) matrix with specified dimensions
 /// \param nrows[in]: number of rows in the matrix
 /// \param ncols[in]: number of columns in the matrix
-/// \return pointer to allocated memory
+/// \return pointer to zero initialized memory, must be freed with `free`
 static inline
 gf127* gf127_matrix_alloc(const uint32_t nrows,
                           const uint32_t ncols) {
+    const size_t size = (size_t)nrows * ncols * sizeof(gf127);
 #ifdef USE_AVX2
-    return (gf127 *)aligned_alloc(32, nrows * ncols * sizeof(gf127));
+    // NOTE: aligned_alloc requires the size to be a multiple of the alignment
+    const size_t asize = ((size + 31) / 32) * 32 + (size == 0 ? 32 : 0);
+    gf127 *ret = (gf127 *)aligned_alloc(32, asize);
+    if (ret) { memset(ret, 0, asize); }
+    return ret;
 #else
-    return (gf127 *)malloc(nrows * ncols * sizeof(gf127));
+    return (gf127 *)calloc(size ? size : 1, 1);
 #endif
 }
 
@@ -34,7 +50,7 @@ gf127 gf127_matrix_get(const gf127 *m,
                        const uint32_t nrows,
                        const uint32_t i,
                        const uint32_t j) {
-    return m[j*nrows + i];
+    return m[(size_t)j*nrows + i];
 }
 
 /// Set the value at position (i,j) in a GF(127) matrix
@@ -49,7 +65,7 @@ void gf127_matrix_set(gf127 *m,
                       const uint32_t i,
                       const uint32_t j,
                       const gf127 a) {
-    m[j*nrows + i] = a;
+    m[(size_t)j*nrows + i] = a;
 }
 
 /// Initialize a GF(127) matrix with all zeros
@@ -68,14 +84,26 @@ void gf127_matrix_zero(gf127 *m,
 /// \param nrows[in]: number of rows in the matrix
 /// \param ncols[in]: number of columns in the matrix
 static inline
-void gf127_matrix_rng(gf127 *m,
-                      const uint32_t nrows,
-                      const uint32_t ncols) {
+void gf127_matrix_random(gf127 *m,
+                         const uint32_t nrows,
+                         const uint32_t ncols) {
     for(uint32_t i = 0; i < nrows; i++) {
         for (uint32_t j = 0; j < ncols; j++) {
-            gf127_matrix_set(m, nrows, i, j, rand() & 0x7F);
+            gf127_matrix_set(m, nrows, i, j, rand() % PRIME);
         }
     }
+}
+
+/// \param out[out]: = in
+/// \param in[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_copy(gf127 *out,
+                       const gf127 *in,
+                       const uint32_t nrows,
+                       const uint32_t ncols) {
+    memmove(out, in, (size_t)nrows * ncols * sizeof(gf127));
 }
 
 /// Initialize a GF(127) matrix as an identity matrix
@@ -84,42 +112,125 @@ void gf127_matrix_rng(gf127 *m,
 /// \param ncols[in]: number of columns in the matrix
 static inline
 void gf127_matrix_id(gf127 *m,
-               const uint32_t nrows,
-               const uint32_t ncols) {
+                     const uint32_t nrows,
+                     const uint32_t ncols) {
     gf127_matrix_zero(m, nrows, ncols);
-    for (uint32_t i = 0; i < nrows; ++i) {
+    const uint32_t n = nrows < ncols ? nrows : ncols;
+    for (uint32_t i = 0; i < n; ++i) {
         gf127_matrix_set(m, nrows, i, i, 1);
     }
 }
 
 /// Print a GF(127) matrix to stdout
-/// \param in[in]: pointer to the matrix to print
+/// \param m[in]: pointer to the matrix to print
 /// \param nrows[in]: number of rows in the matrix
 /// \param ncols[in]: number of columns in the matrix
-static inline void gf127_matrix_print(const uint8_t *in,
+static inline void gf127_matrix_print(const gf127 *m,
                                       const uint32_t nrows,
                                       const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for(uint32_t j = 0; j < ncols; j++) {
-            printf("%03d ", in[i*ncols + j]);
+            printf("%03d ", gf127_matrix_get(m, nrows, i, j));
         }
         printf("\n");
     }
     printf("\n");
 }
 
-/// Simple matrix transpose operation, primarily used for debugging
-/// \param out[out]: pointer to the output transposed matrix
-/// \param in[in]: pointer to the input matrix
+/// \param m1[out]: = m2 + m3
+/// \param m2[in]: input matrix
+/// \param m3[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_add(gf127 *m1,
+                      const gf127 *m2,
+                      const gf127 *m3,
+                      const uint32_t nrows,
+                      const uint32_t ncols) {
+    for (uint32_t i = 0; i < nrows * ncols; i++) {
+        m1[i] = gf127_add(m2[i], m3[i]);
+    }
+}
+
+/// \param m1[in/out]: += c*m2
+/// \param c[in]: scalar
+/// \param m2[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_add_scalar(gf127 *m1,
+                             const gf127 c,
+                             const gf127 *m2,
+                             const uint32_t nrows,
+                             const uint32_t ncols) {
+    gf127_vector_scalar_add(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[out]: = A*B, nrows1 x ncols2
+/// \param A[in]: nrows1 x ncols1 matrix
+/// \param B[in]: ncols1 x ncols2 matrix
+/// \param nrows1[in]: number of rows of A
+/// \param ncols1[in]: number of columns of A, rows of B
+/// \param ncols2[in]: number of columns of B
+static inline
+void gf127_matrix_mul(gf127 *r,
+                      const gf127 *A,
+                      const gf127 *B,
+                      const uint32_t nrows1,
+                      const uint32_t ncols1,
+                      const uint32_t ncols2) {
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            gf127 t = 0;
+            for (uint32_t k = 0; k < ncols1; k++) {
+                const gf127 a = gf127_matrix_get(A, nrows1, i, k);
+                const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+                t = gf127_add(t, gf127_mul(a, b));
+            }
+            gf127_matrix_set(r, nrows1, i, j, t);
+        }
+    }
+}
+
+/// \param r[in/out]: += A*B, nrows1 x ncols2
+/// \param A[in]: nrows1 x ncols1 matrix
+/// \param B[in]: ncols1 x ncols2 matrix
+/// \param nrows1[in]: number of rows of A
+/// \param ncols1[in]: number of columns of A, rows of B
+/// \param ncols2[in]: number of columns of B
+static inline
+void gf127_matrix_add_mul(gf127 *r,
+                          const gf127 *A,
+                          const gf127 *B,
+                          const uint32_t nrows1,
+                          const uint32_t ncols1,
+                          const uint32_t ncols2) {
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            gf127 t = gf127_matrix_get(r, nrows1, i, j);
+            for (uint32_t k = 0; k < ncols1; k++) {
+                const gf127 a = gf127_matrix_get(A, nrows1, i, k);
+                const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+                t = gf127_add(t, gf127_mul(a, b));
+            }
+            gf127_matrix_set(r, nrows1, i, j, t);
+        }
+    }
+}
+
+/// Matrix transpose (column-major convention)
+/// \param out[out]: = in^T, ncols x nrows matrix
+/// \param in[in]: nrows x ncols matrix
 /// \param nrows[in]: number of rows in the input matrix
 /// \param ncols[in]: number of columns in the input matrix
-static inline void gf127_matrix_transpose(uint8_t *out,
-                                          const uint8_t *in,
+static inline void gf127_matrix_transpose(gf127 *out,
+                                          const gf127 *in,
                                           const uint32_t nrows,
                                           const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for(uint32_t j = 0; j < ncols; j++) {
-            out[j*nrows + i] = in[i*ncols + j];
+            gf127_matrix_set(out, ncols, j, i, gf127_matrix_get(in, nrows, i, j));
         }
     }
 }
@@ -128,15 +239,17 @@ static inline void gf127_matrix_transpose(uint8_t *out,
 /// \param dst[out]: pointer to the output transposed matrix
 /// \param src[in]: pointer to the input matrix
 /// \param stride[in]: distance between rows in bytes
+static inline
 void gf127_matrix_transpose4x4(uint8_t* dst,
                                const uint8_t* src,
                                const size_t stride) {
     // load rows of src matrix
-    uint32_t a0 = *((uint32_t*)(src+0*stride));
-    uint32_t a1 = *((uint32_t*)(src+1*stride));
-    uint32_t a2 = *((uint32_t*)(src+2*stride));
-    uint32_t a3 = *((uint32_t*)(src+3*stride));
-    
+    uint32_t a0, a1, a2, a3;
+    memcpy(&a0, src+0*stride, 4);
+    memcpy(&a1, src+1*stride, 4);
+    memcpy(&a2, src+2*stride, 4);
+    memcpy(&a3, src+3*stride, 4);
+
     // 2x2 block matrices
     uint32_t b0 = (a0 & 0x00ff00ffU) | ((a1 << 8) & 0xff00ff00U);
     uint32_t b1 = (a1 & 0xff00ff00U) | ((a0 >> 8) & 0x00ff00ffU);
@@ -150,10 +263,10 @@ void gf127_matrix_transpose4x4(uint8_t* dst,
     uint32_t c3 = (b3 & 0xffff0000U) | ((b1 >> 16) & 0x0000ffffU);
     
     // write to dst matrix
-    *(uint32_t*)(dst + 0*stride) = c0;
-    *(uint32_t*)(dst + 1*stride) = c1;
-    *(uint32_t*)(dst + 2*stride) = c2;
-    *(uint32_t*)(dst + 3*stride) = c3;
+    memcpy(dst + 0*stride, &c0, 4);
+    memcpy(dst + 1*stride, &c1, 4);
+    memcpy(dst + 2*stride, &c2, 4);
+    memcpy(dst + 3*stride, &c3, 4);
 }
 
 /// Optimized transpose of an 8x8 matrix of bytes
@@ -161,20 +274,22 @@ void gf127_matrix_transpose4x4(uint8_t* dst,
 /// \param src[in]: pointer to the input matrix
 /// \param src_stride[in]: distance between rows in the source matrix
 /// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose8x8(uint8_t* dst,
                                const uint8_t* src,
                                const size_t src_stride,
                                const size_t dst_stride) {
-    // load rows of src matrix
-    const uint64_t a0 = *((uint64_t*)(src+0*src_stride));
-    const uint64_t a1 = *((uint64_t*)(src+1*src_stride));
-    const uint64_t a2 = *((uint64_t*)(src+2*src_stride));
-    const uint64_t a3 = *((uint64_t*)(src+3*src_stride));
-    const uint64_t a4 = *((uint64_t*)(src+4*src_stride));
-    const uint64_t a5 = *((uint64_t*)(src+5*src_stride));
-    const uint64_t a6 = *((uint64_t*)(src+6*src_stride));
-    const uint64_t a7 = *((uint64_t*)(src+7*src_stride));
-    
+    // load rows of src matrix (memcpy: the rows are not necessarily aligned)
+    uint64_t a0, a1, a2, a3, a4, a5, a6, a7;
+    memcpy(&a0, src+0*src_stride, 8);
+    memcpy(&a1, src+1*src_stride, 8);
+    memcpy(&a2, src+2*src_stride, 8);
+    memcpy(&a3, src+3*src_stride, 8);
+    memcpy(&a4, src+4*src_stride, 8);
+    memcpy(&a5, src+5*src_stride, 8);
+    memcpy(&a6, src+6*src_stride, 8);
+    memcpy(&a7, src+7*src_stride, 8);
+
     // 2x2 block matrices
     const uint64_t b0 = (a0 & 0x00ff00ff00ff00ffULL) | ((a1 << 8) & 0xff00ff00ff00ff00ULL);
     const uint64_t b1 = (a1 & 0xff00ff00ff00ff00ULL) | ((a0 >> 8) & 0x00ff00ff00ff00ffULL);
@@ -206,14 +321,14 @@ void gf127_matrix_transpose8x8(uint8_t* dst,
     const uint64_t d7 = (c7 & 0xffffffff00000000ULL) | ((c3 >> 32) & 0x00000000ffffffffULL);
     
     // write to dst matrix
-    *(uint64_t*)(dst + 0*dst_stride) = d0;
-    *(uint64_t*)(dst + 1*dst_stride) = d1;
-    *(uint64_t*)(dst + 2*dst_stride) = d2;
-    *(uint64_t*)(dst + 3*dst_stride) = d3;
-    *(uint64_t*)(dst + 4*dst_stride) = d4;
-    *(uint64_t*)(dst + 5*dst_stride) = d5;
-    *(uint64_t*)(dst + 6*dst_stride) = d6;
-    *(uint64_t*)(dst + 7*dst_stride) = d7;
+    memcpy(dst + 0*dst_stride, &d0, 8);
+    memcpy(dst + 1*dst_stride, &d1, 8);
+    memcpy(dst + 2*dst_stride, &d2, 8);
+    memcpy(dst + 3*dst_stride, &d3, 8);
+    memcpy(dst + 4*dst_stride, &d4, 8);
+    memcpy(dst + 5*dst_stride, &d5, 8);
+    memcpy(dst + 6*dst_stride, &d6, 8);
+    memcpy(dst + 7*dst_stride, &d7, 8);
 }
 
 /// Compute origin of the next 64-byte block after position (rb, cb) in row-major order
@@ -302,6 +417,7 @@ static const uint8_t SHUFFLE_MASK[4][32] __attribute__((aligned(32))) = {
 /// \param src_origin[in]: pointer to the input matrix
 /// \param src_stride[in]: distance between rows in the source matrix
 /// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const size_t src_stride,
@@ -393,6 +509,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
 /// \param prf_origin[in]: lookahead pointer to prefetch for optimization
 /// \param src_stride[in]: distance between rows in the source matrix
 /// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_32x32_u256_v2(uint8_t* dst_origin,
                                           const uint8_t* src_origin,
                                           const uint8_t* prf_origin,
@@ -824,6 +941,7 @@ typedef __m256i_u STORE_TYPE;
 /// \param src_origin[in]: pointer to the input matrix
 /// \param src_stride[in]: distance between rows in the source matrix
 /// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_64x64_u512(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const size_t src_stride,
@@ -943,6 +1061,7 @@ void gf127_matrix_transpose_64x64_u512(uint8_t* dst_origin,
 /// \param dst
 /// \param src
 /// \param n must be divisable by 64
+static inline
 void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
                                      const uint8_t *src,
                                      const size_t n) {
@@ -1090,18 +1209,179 @@ static inline void gf127_matrix_transposeNx8(uint8_t *dst,
     }
 }
 
-/// 
-void gf127_matrix_vector_mul(uint8_t *c, 
-                             const uint8_t *a, 
-                             const uint8_t *b, 
+/// scales every row i of the row-major matrix `a` (row stride m) with b[i]:
+///     c[i*m + j] = b[i] * a[i*m + j], for i < m, j < n
+static inline
+void gf127_matrix_vector_mul(uint8_t *c,
+                             const uint8_t *a,
+                             const uint8_t *b,
                              const size_t n,
                              const size_t m) {
     for (uint32_t i = 0; i < m; i++) {
         const uint8_t v = b[i];
         for (uint32_t j = 0; j < n; j++) {
             const uint8_t w = a[i*m + j];
-            const uint8_t a = gf127_mul(v, w);
-            c[i*m + j] = a;
+            const uint8_t t = gf127_mul(v, w);
+            c[i*m + j] = t;
         }
     }
 }
+
+
+#ifdef USE_AVX2
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u256(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u256_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u256(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u256(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u256(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u256(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u256(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u256(r, A, B, nrows1, ncols1, ncols2);
+}
+#endif
+
+
+#ifdef USE_AVX512
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u512(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u512_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u512(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u512(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u512(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u512(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u512(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u512(r, A, B, nrows1, ncols1, ncols2);
+}
+#endif
+
+
+#ifdef USE_NEON
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u128(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u128_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u128(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u128(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u128(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u128(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u128(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u128(r, A, B, nrows1, ncols1, ncols2);
+}
+#endif
