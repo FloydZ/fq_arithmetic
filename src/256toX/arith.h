@@ -9,8 +9,13 @@
 #define NR_REDUCTION_ENTRIES 4
 
 // describes the reduction polynomial:
-// 	[0,1,2,5], becomes: x^(EXTENSION_DEGREE) + X^5 + X^2 + X + 1
+// 	[0,1,2,5] with the coefficients [9,1,1,1], becomes:
+//      X^(EXTENSION_DEGREE) + X^5 + X^2 + X + 9
+// NOTE: a polynomial with only 0/1 coefficients (e.g. the former constant
+//  term 1) is never irreducible over GF(256) for EXTENSION_DEGREE = 48, as it
+//  splits into gcd(48, 8) factors.
 static const uint8_t __gf256toX_red_pol[] __attribute__((aligned(32))) = {0,1,2,5};
+static const uint8_t __gf256toX_red_coef[] __attribute__((aligned(32))) = {9,1,1,1};
 static const uint8_t __gf256toX_red_pol_full[][EXTENSION_DEGREE] __attribute__((aligned(32))) = {
         {0,0,0,0,0,0,0,0,0,0,1}
 };
@@ -69,7 +74,7 @@ static inline void gf256toX_mul_gf16(gf256toX res,
 static inline void gf256toX_mul(gf256toX res,
                                 const gf256toX a,
                                 const gf256toX b) {
-    gf256 product[2*EXTENSION_DEGREE - 1u];
+    gf256 product[2*EXTENSION_DEGREE - 1u] = {0};
     gf256toX tmp;
     gf256toX_scalar_mul(product, a, b[0]);
 
@@ -82,7 +87,7 @@ static inline void gf256toX_mul(gf256toX res,
     // Red
     for(uint32_t i = 2*EXTENSION_DEGREE - 2; i>=EXTENSION_DEGREE ; i--) {
         for (uint32_t j = 0; j < NR_REDUCTION_ENTRIES; j++) {
-            product[i - (EXTENSION_DEGREE - __gf256toX_red_pol[j])] ^= product[i];
+            product[i - (EXTENSION_DEGREE - __gf256toX_red_pol[j])] ^= gf256_mul(product[i], __gf256toX_red_coef[j]);
         }
     }
 

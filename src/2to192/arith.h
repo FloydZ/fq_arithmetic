@@ -296,7 +296,7 @@ void gf2to192_mul_gf2(gf2to192 r,
                       const gf2to192 a,
                       const gf2 b) {
     const uint64_t t = -b;
-    for (uint32_t i = 0; i < 4; i++) {
+    for (uint32_t i = 0; i < 3; i++) {
         r[i] = a[i] & t;
     }
 }

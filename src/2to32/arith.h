@@ -10,7 +10,7 @@
 /// 
 /// Now using a more efficient polynomial for faster reduction in 'gf2to32v_mul_u256_v2':
 /// GF(2)/[x^32 + x^15 + x^7 + x^1 + 1]
-#define MODULUS 0b000000000000000010000000100000011ull
+#define MODULUS 0b000000000000000001000000010000011ull
 typedef uint32_t gf2to32;
 
 /// Addition in GF(2^32)

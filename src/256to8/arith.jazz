@@ -1,0 +1,15 @@
+require "arith.jinc"
+
+export
+fn gf256to8_mul(reg u64 a, reg u64 b) -> reg u64 {
+    reg u64 r;
+    r = __gf256to8_mul(a, b);
+    return r;
+}
+
+export
+fn gf256to8v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 r;
+    r = __gf256to8v_mul_u256(a, b);
+    return r;
+}

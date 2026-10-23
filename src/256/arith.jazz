@@ -1,13 +1,11 @@
-//export 
+require "arith.jinc"
+
+//export
 //fn gf256_add(reg u8 a, reg u8 b) -> reg u8 {
 //	reg u8 c;
 //	c = a ^ b;
 //	return c;
 //}
-
-u8[1] what = {
-    0x1B
-};
 
 export
 fn gf256_add_u256(reg u256 a, reg u256 b) -> reg u256 {
@@ -16,74 +14,20 @@ fn gf256_add_u256(reg u256 a, reg u256 b) -> reg u256 {
     return c;
 }
 
+export
+fn gf256_mul(reg u8 a, reg u8 b) -> reg u8 {
+    reg u64 x, y, z;
+    reg u8 r;
+    x = (64u) a;
+    y = (64u) b;
+    z = __gf256_mul(x, y);
+    r = (8u) z;
+    return r;
+}
 
-export fn gf256v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
-    reg u256 zero;
-    reg u256 mask;
-    reg u256 r, r2, a2, b2, t1, t2;
-    
-    zero = #VPXOR_256(a, a);
-    mask = #VPBROADCAST_32u8(what[0]);
-   
-    // 0
-    r  = #BLENDV_32u8(zero, a, b);
-
-    // 1
-    b2 = #VPSLL_16u16(b, 1);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-    // 2
-    b2 = #VPSLL_16u16(b, 2);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-    // 3
-    b2 = #VPSLL_16u16(b, 3);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-    // 4
-    b2 = #VPSLL_16u16(b, 4);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-    // 5
-    b2 = #VPSLL_16u16(b, 5);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-    
-    // 6
-    b2 = #VPSLL_16u16(b, 6);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-    // 7
-    b2 = #VPSLL_16u16(b, 7);
-    a2 = #BLENDV_32u8(zero, a, b2);
-    r2 = #VPADD_32u8(r, r);
-    t2 = #BLENDV_32u8(zero, mask, r);
-    t1 = #VPXOR_256(t2,r2);
-    r  = #VPXOR_256(a2,t1);
-
-
-  return r;
+export
+fn gf256v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 r;
+    r = __gf256v_mul_u256(a, b);
+    return r;
 }

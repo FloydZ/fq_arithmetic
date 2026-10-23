@@ -40,7 +40,7 @@ int gf16to32_cmp(const gf16to32 a, const gf16to32 b) {
             return 1;
         }
 
-        if (a[i] > b[i]) {
+        if (a[i] < b[i]) {
             return -1;
         }
     }

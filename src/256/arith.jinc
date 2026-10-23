@@ -1,0 +1,63 @@
+// GF(256) = GF(2)[x]/(x^8 + x^4 + x^3 + x + 1), the AES field
+
+u8[1] gf256_modulus = {
+    0x1B
+};
+
+// constant time, no lookup table (same as `gf256_mul_v2`)
+// NOTE: a, b < 256
+// \return a*b
+inline
+fn __gf256_mul(reg u64 a, reg u64 b) -> reg u64 {
+    inline int i;
+    reg u64 r, c, m, bb;
+
+    r = 0;
+    bb = b;
+    bb <<= 56;
+    for i = 0 to 8 {
+        // r = r*x mod x^8 + x^4 + x^3 + x + 1
+        c = r;
+        c >>= 7;
+        c = -c;
+        c &= 0x1B;
+        r <<= 1;
+        r &= 0xFF;
+        r ^= c;
+
+        // r += a * b_{7-i}
+        m = bb;
+        m = m >>s 63;
+        m &= a;
+        r ^= m;
+        bb <<= 1;
+    }
+    return r;
+}
+
+// \param a: [a_0, ..., a_31]
+// \param b: [b_0, ..., b_31]
+// \return [a_0*b_0, ..., a_31*b_31]
+inline
+fn __gf256v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    inline int i;
+    reg u256 zero, mask, r, t, m, bb;
+
+    zero = #set0_256();
+    mask = #VPBROADCAST_32u8(gf256_modulus[0]);
+
+    // 0
+    r = #VPBLENDVB_256(zero, a, b);
+
+    // 1, ..., 7
+    bb = b;
+    for i = 1 to 8 {
+        bb = #VPSLL_16u16(bb, 1);
+        m  = #VPBLENDVB_256(zero, a, bb);
+        t  = #VPBLENDVB_256(zero, mask, r);
+        r  = #VPADD_32u8(r, r);
+        r ^= t;
+        r ^= m;
+    }
+    return r;
+}

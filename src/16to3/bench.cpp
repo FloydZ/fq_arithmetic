@@ -60,7 +60,7 @@ static void BM_gf16to3_matrix_add_multiple_3(benchmark::State& state) {
         gf16to3_matrix_add_multiple_3(m3, m2, c, m1, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
-    free(m1); free(m2);
+    free(m1); free(m2); free(m3);
 }
 
 static void BM_gf16to3_matrix_add_multiple_2(benchmark::State& state) {
@@ -233,7 +233,7 @@ static void BM_gf16to3_matrix_add_multiple_3_XxX(benchmark::State& state) {
         gf16to3_matrix_add_multiple_3_XxX(m3, m2, c, m1, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
-    free(m1); free(m2);
+    free(m1); free(m2); free(m3);
 }
 
 static void BM_gf16to3_matrix_add_multiple_2_XxX(benchmark::State& state) {

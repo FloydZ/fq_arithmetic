@@ -1,0 +1,19 @@
+require "arith.jinc"
+
+export
+fn gf256to4_mul(reg u32 a, reg u32 b) -> reg u32 {
+    reg u64 x, y, z;
+    reg u32 r;
+    x = (64u) a;
+    y = (64u) b;
+    z = __gf256to4_mul(x, y);
+    r = (32u) z;
+    return r;
+}
+
+export
+fn gf256to4v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 r;
+    r = __gf256to4v_mul_u256(a, b);
+    return r;
+}

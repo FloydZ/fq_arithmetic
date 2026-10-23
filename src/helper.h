@@ -16,7 +16,7 @@ typedef union v256_t {
     uint8_t  v8[32];
     uint16_t v16[16];
     uint32_t v32[8];
-    uint64_t v64[3];
+    uint64_t v64[4];
 #ifdef USE_AVX2
     __m256i v256;
 #endif

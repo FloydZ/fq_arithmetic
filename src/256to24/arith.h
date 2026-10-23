@@ -1,6 +1,7 @@
 #ifndef FQ_ARITHMETIC_GF256TO24_ARITH_H
 #define FQ_ARITHMETIC_GF256TO24_ARITH_H
 #include <stdint.h>
+#include <string.h>
 #include "../256to16/arith.h"
 #include "../256/arith.h"
 
@@ -48,7 +49,12 @@ static inline void gf256to24_set_(gf256to24 *res,
 #endif
 }
 
-/// multiplication using karatsuba
+/// multiplication using karatsuba, reduced by X^3 + X + 1:
+///     c_0 = p0, c_1 = p01 + p0 + p1, c_2 = p012 + p01 + p12,
+///     c_3 = p12 + p1 + p2, c_4 = p2
+///     r_0 = c_0 + c_3       = p0 + p1 + p2 + p12
+///     r_1 = c_1 + c_3 + c_4 = p0 + p01 + p12
+///     r_2 = c_2 + c_4       = p012 + p01 + p12 + p2
 /// \param res
 /// \param a
 /// \param b
@@ -56,9 +62,10 @@ static inline void gf256to24_set_(gf256to24 *res,
 static inline void gf256to24_mul(gf256to24 res,
                                  const gf256to24 a,
                                  const gf256to24 b) {
-    uint64_t *a_ = (uint64_t *)a;
-    uint64_t *b_ = (uint64_t *)b;
-    uint64_t *r_ = (uint64_t *)res;
+    // NOTE: memcpy instead of casts to `uint64_t *`, which break strict aliasing
+    uint64_t a_[3], b_[3], r_[3];
+    memcpy(a_, a, 24);
+    memcpy(b_, b, 24);
 
     const uint64_t p0 = gf256to8_mul(a_[0], b_[0]);
     const uint64_t p1 = gf256to8_mul(a_[1], b_[1]);
@@ -75,30 +82,58 @@ static inline void gf256to24_mul(gf256to24 res,
     const uint64_t b012= gf256to8_add(b01, b_[2]);
     const uint64_t p012= gf256to8_mul(a012, b012);
 
-    const uint64_t factor = 1; //0x100000000000000;
-
     r_[0] = gf256to8_add(p1, p2);
     r_[0] = gf256to8_add(r_[0], p12);
-    r_[0] = gf256to8_mul(r_[0], factor);
     r_[0] = gf256to8_add(r_[0], p0);
 
-    r_[1] = gf256to8_mul(p2, factor);
-    r_[1] = gf256to8_add(r_[1], p01);
-    r_[1] = gf256to8_add(r_[1], p0);
-    r_[1] = gf256to8_add(r_[1], p1);
+    r_[1] = gf256to8_add(p0, p01);
+    r_[1] = gf256to8_add(r_[1], p12);
 
     r_[2] = gf256to8_add(p012, p01);
     r_[2] = gf256to8_add(r_[2], p12);
+    r_[2] = gf256to8_add(r_[2], p2);
+    memcpy(res, r_, 24);
 }
 
 #ifdef USE_AVX2
+/// same as `gf256to24_mul`, but the 6 products are computed in 2 vectorized
+/// multiplications.
+/// NOTE: the 4th limb of a and b is ignored, the 4th limb of the output is zero
+/// \param a: [a_0, a_1, a_2, *]
+/// \param b: [b_0, b_1, b_2, *]
+/// \return a*b
 static inline __m256i gf256to24v_mul(const __m256i a,
                                      const __m256i b) {
-    // const __m256i pi = a ^ b;
-    const __m256i a0i = a ^ _mm256_permute4x64_epi64(a, 0b00010000);
-    const __m256i b0i = b ^ _mm256_permute4x64_epi64(b, 0b00010000);
-    const __m256i p0i = gf256to8v_mul_u256(a0i, b0i);
-    return p0i;
+    const __m256i zero = _mm256_setzero_si256();
+
+    // q = [p0, p1, p2, *]
+    const __m256i q = gf256to8v_mul_u256(a, b);
+
+    // [a0^a1, a1^a2, a0^a1^a2, 0]
+    const __m256i a1 = _mm256_blend_epi32(zero, _mm256_permute4x64_epi64(a, 0x10), 0x30);
+    const __m256i b1 = _mm256_blend_epi32(zero, _mm256_permute4x64_epi64(b, 0x10), 0x30);
+    const __m256i x = a ^ _mm256_permute4x64_epi64(a, 0xC9) ^ a1;
+    const __m256i y = b ^ _mm256_permute4x64_epi64(b, 0xC9) ^ b1;
+
+    // w = [p01, p12, p012, *]
+    const __m256i w = gf256to8v_mul_u256(x, y);
+
+    // s = p0 + p1 + p2 in every limb
+    const __m256i s = _mm256_permute4x64_epi64(q, 0x00) ^
+                      _mm256_permute4x64_epi64(q, 0x55) ^
+                      _mm256_permute4x64_epi64(q, 0xAA);
+
+    const __m256i w1 = _mm256_permute4x64_epi64(w, 0xC1); // [p12, p01, p01, *]
+    const __m256i w2 = _mm256_permute4x64_epi64(w, 0xD4); // [*, p12, p12, *]
+    const __m256i q1 = _mm256_permute4x64_epi64(q, 0xE0); // [*, p0, p2, *]
+
+    const __m256i r0 = s ^ w1;              // [r0, *, *, *]
+    const __m256i r1 = w1 ^ w2 ^ q1;        // [*, r1, p2 + p01 + p12, *]
+    const __m256i r2 = r1 ^ w;              // [*, *, r2, *]
+
+    __m256i r = _mm256_blend_epi32(r0, r1, 0x0C);
+    r = _mm256_blend_epi32(r, r2, 0x30);
+    return _mm256_blend_epi32(r, zero, 0xC0);
 }
 #endif
 

@@ -1,0 +1,66 @@
+// GF(127)
+
+u16[1] gf127v_q   = { 127 };
+u16[1] gf127v_m   = { 33027 };  // ceil(2^22 / 127)
+u16[1] gf127v_low = { 0x00FF };
+
+// NOTE: assumes reduced inputs
+// \return a*b mod 127
+export
+fn gf127_mul(reg u8 a, reg u8 b) -> reg u8 {
+    reg u64 x, y, q;
+    reg u8 r;
+
+    x = (64u) a;
+    y = (64u) b;
+    x *= y;
+
+    // x / 127 = (x * 16514) >> 21, for x <= 16644
+    q = x;
+    q *= 16514;
+    q >>= 21;
+    q *= 127;
+    x -= q;
+
+    r = (8u) x;
+    return r;
+}
+
+// \param c: [c_0, ..., c_15], c_i < 127^2
+// \return [c_0 mod 127, ..., c_15 mod 127]
+inline
+fn __gf127v_red_u256(reg u256 c) -> reg u256 {
+    reg u256 q, m, t;
+    q = #VPBROADCAST_16u16(gf127v_q[0]);
+    m = #VPBROADCAST_16u16(gf127v_m[0]);
+    t = #VPMULHU_16u16(c, m);
+    t = #VPSRL_16u16(t, 6);
+    t = #VPMULL_16u16(t, q);
+    c = #VPSUB_16u16(c, t);
+    return c;
+}
+
+// NOTE: assumes that each gf127 element is in a single uint8_t, and reduced
+// \param a: [a_0, ..., a_31]
+// \param b: [b_0, ..., b_31]
+// \return [a_0*b_0 mod 127, ..., a_31*b_31 mod 127]
+export
+fn gf127v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 low, al, ah, bl, bh, r;
+
+    low = #VPBROADCAST_16u16(gf127v_low[0]);
+    al = a & low;
+    bl = b & low;
+    ah = #VPSRL_16u16(a, 8);
+    bh = #VPSRL_16u16(b, 8);
+
+    al = #VPMULL_16u16(al, bl);
+    ah = #VPMULL_16u16(ah, bh);
+
+    al = __gf127v_red_u256(al);
+    ah = __gf127v_red_u256(ah);
+
+    ah = #VPSLL_16u16(ah, 8);
+    r  = al ^ ah;
+    return r;
+}

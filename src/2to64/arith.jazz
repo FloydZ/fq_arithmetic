@@ -1,0 +1,81 @@
+// GF(2^64) = GF(2)[x]/(x^64 + x^4 + x^3 + x + 1)
+
+u64[2] gf2to64v_mod = { 0x1B, 0 };
+
+// constant time (same as `gf2to64_mul`)
+// \return a*b
+export
+fn gf2to64_mul(reg u64 a, reg u64 b) -> reg u64 {
+    reg u64 bb, r, c, m, i;
+
+    bb = b;
+    r = 0;
+    i = 0;
+    while (i < 64) {
+        // r = r*x mod f
+        c = r;
+        c = c >>s 63;
+        c &= 0x1B;
+        r += r;
+        r ^= c;
+
+        // r += a * b_{63-i}
+        m = bb;
+        m = m >>s 63;
+        m &= a;
+        r ^= m;
+        bb += bb;
+        i += 1;
+    }
+    return r;
+}
+
+// \param m[in]: 128 bit carry-less product
+// \return m mod f in the lower 64 bits
+inline
+fn __gf2to64_red_u128(reg u128 m, reg u128 mod) -> reg u128 {
+    reg u128 t, r;
+
+    // reduce the 64 higher order bits of m. Output is 68 bits
+    t = #VPCLMULQDQ_128(mod, m, 0x10);
+    r = m ^ t;
+
+    // reduce the 4 higher order bits of t
+    t = #VPCLMULQDQ_128(mod, t, 0x10);
+    r ^= t;
+    return r;
+}
+
+// (same as `gf2to64v_mul_u256_`)
+// \param a: [a_0, ..., a_3]
+// \param b: [b_0, ..., b_3]
+// \return [a_0*b_0, ..., a_3*b_3]
+export
+fn gf2to64v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u128 mod, a1, a2, b1, b2, m11, m12, m21, m22, t1, t2;
+    reg u256 r;
+
+    mod = gf2to64v_mod[:u128 0];
+    a1 = #VEXTRACTI128(a, 0);
+    a2 = #VEXTRACTI128(a, 1);
+    b1 = #VEXTRACTI128(b, 0);
+    b2 = #VEXTRACTI128(b, 1);
+
+    m11 = #VPCLMULQDQ_128(a1, b1, 0x00);
+    m12 = #VPCLMULQDQ_128(a1, b1, 0x11);
+    m21 = #VPCLMULQDQ_128(a2, b2, 0x00);
+    m22 = #VPCLMULQDQ_128(a2, b2, 0x11);
+
+    m11 = __gf2to64_red_u128(m11, mod);
+    m12 = __gf2to64_red_u128(m12, mod);
+    m21 = __gf2to64_red_u128(m21, mod);
+    m22 = __gf2to64_red_u128(m22, mod);
+
+    t1 = #VPUNPCKL_2u64(m11, m12);
+    t2 = #VPUNPCKL_2u64(m21, m22);
+
+    r = #set0_256();
+    r = #VINSERTI128(r, t1, 0);
+    r = #VINSERTI128(r, t2, 1);
+    return r;
+}

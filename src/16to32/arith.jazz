@@ -1,0 +1,195 @@
+// GF(16^32) = GF(16)[Y]/(Y^32 + B*Y^28 + Y^21 + F*Y^2 + 9)
+// GF(16)    = GF(2)[x]/(x^4 + x + 1)
+// 32 GF(16) coefficients packed as nibbles: coefficient i is stored in the
+// bits [4i, 4i+4) of the 128 bit element.
+//
+// a*b is computed via horner over the coefficients of a (most significant
+// first):
+//      acc = acc*Y mod f + a_i*b
+// Multiplying by Y moves the top coefficient c out of the element, which
+// is added back as c*(B*Y^28 + Y^21 + F*Y^2 + 9). For both a_i*b and c*f the
+// GF(16) scalar is split into its bits: c*f = sum_k c_k * (x^k*f).
+
+// x^k * (B*Y^28 + Y^21 + F*Y^2 + 9) for k = 0..3, [low limb, high limb]
+u64[8] gf16to32_mod = {
+    0x0F09, 0x000B000000100000,
+    0x0D01, 0x0005000000200000,
+    0x0902, 0x000A000000400000,
+    0x0104, 0x0007000000800000
+};
+
+// same as `gf16to32_mod`, but repeated in both 128 bit lanes
+u64[16] gf16to32v_mod = {
+    0x0F09, 0x000B000000100000, 0x0F09, 0x000B000000100000,
+    0x0D01, 0x0005000000200000, 0x0D01, 0x0005000000200000,
+    0x0902, 0x000A000000400000, 0x0902, 0x000A000000400000,
+    0x0104, 0x0007000000800000, 0x0104, 0x0007000000800000
+};
+
+u8[1] gf16to32v_m7 = { 0x77 };
+u8[1] gf16to32v_m8 = { 0x88 };
+
+// \return x*X for each of the 16 nibbles in x
+inline
+fn __gf16to32_xtime(reg u64 x) -> reg u64 {
+    reg u64 m, t, u;
+    m = 0x8888888888888888;
+    t = x;
+    t &= m;
+    t >>= 3;
+    u = t;
+    u <<= 1;
+    t ^= u;
+    m = 0x7777777777777777;
+    x &= m;
+    x <<= 1;
+    x ^= t;
+    return x;
+}
+
+// constant time (same result as `gf16to32_mul`)
+// \param rp[out]: a*b, 16 bytes
+// \param ap[in]: 16 bytes
+// \param bp[in]: 16 bytes
+export
+fn gf16to32_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    inline int h, k;
+    stack u64[8] bs;
+    reg u64 acc0, acc1, aa, t, u, m, i;
+
+    // bs[2k, 2k+1] = x^k * b
+    t = [:u64 bp + 0];
+    u = [:u64 bp + 8];
+    bs[0] = t;
+    bs[1] = u;
+    for k = 1 to 4 {
+        t = __gf16to32_xtime(t);
+        u = __gf16to32_xtime(u);
+        bs[2 * k] = t;
+        bs[2 * k + 1] = u;
+    }
+
+    acc0 = 0;
+    acc1 = 0;
+
+    // most significant limb of a first
+    for h = 0 to 2 {
+        aa = [:u64 ap + 8 * (1 - h)];
+        i = 0;
+        while (i < 16) {
+            // acc = acc*Y mod f
+            t = acc1;
+            u = acc0;
+            u >>= 60;
+            acc1 <<= 4;
+            acc1 ^= u;
+            acc0 <<= 4;
+            for k = 0 to 4 {
+                m = t;
+                m = m >>s 63;
+                u = gf16to32_mod[2 * (3 - k)];
+                u &= m;
+                acc0 ^= u;
+                u = gf16to32_mod[2 * (3 - k) + 1];
+                u &= m;
+                acc1 ^= u;
+                t <<= 1;
+            }
+
+            // acc += a_i * b
+            for k = 0 to 4 {
+                m = aa;
+                m = m >>s 63;
+                u = m;
+                u &= bs[2 * (3 - k)];
+                acc0 ^= u;
+                m &= bs[2 * (3 - k) + 1];
+                acc1 ^= m;
+                aa <<= 1;
+            }
+            i += 1;
+        }
+    }
+
+    [:u64 rp + 0] = acc0;
+    [:u64 rp + 8] = acc1;
+}
+
+// \return x*X for each of the 64 nibbles in x
+inline
+fn __gf16to32v_xtime(reg u256 x) -> reg u256 {
+    reg u256 m7, m8, t, u;
+    m7 = #VPBROADCAST_32u8(gf16to32v_m7[0]);
+    m8 = #VPBROADCAST_32u8(gf16to32v_m8[0]);
+    t  = x & m8;
+    t  = #VPSRL_4u64(t, 3);
+    u  = #VPSLL_4u64(t, 1);
+    t ^= u;
+    x &= m7;
+    x  = #VPSLL_4u64(x, 1);
+    x ^= t;
+    return x;
+}
+
+// two multiplications in parallel, one per 128 bit lane
+// \param a: [a_0, a_1]
+// \param b: [b_0, b_1]
+// \return [a_0*b_0, a_1*b_1]
+export
+fn gf16to32v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    inline int h, k;
+    stack u256[4] bs;
+    stack u256[2] sa;
+    reg u256 zero, acc, aa, t, u, m;
+    reg u64 i;
+
+    zero = #set0_256();
+
+    // bs[k] = x^k * b
+    t = b;
+    bs[0] = t;
+    for k = 1 to 4 {
+        t = __gf16to32v_xtime(t);
+        bs[k] = t;
+    }
+
+    // the coefficients of a are read from the sign bit of the upper qword
+    // of each lane. sa[1] moves the lower qword into the upper one.
+    sa[0] = a;
+    t = #VPUNPCKL_4u64(zero, a);
+    sa[1] = t;
+
+    acc = zero;
+    for h = 0 to 2 {
+        aa = sa[h];
+        i = 0;
+        while (i < 16) {
+            // acc = acc*Y mod f
+            t   = acc;
+            u   = #VPUNPCKL_4u64(zero, acc);
+            u   = #VPSRL_4u64(u, 60);
+            acc = #VPSLL_4u64(acc, 4);
+            acc ^= u;
+            for k = 0 to 4 {
+                m   = #VPCMPGT_4u64(zero, t);
+                m   = #VPERMQ(m, 0xF5);
+                u   = gf16to32v_mod[:u256 (3 - k)];
+                m  &= u;
+                acc ^= m;
+                t   = #VPSLL_4u64(t, 1);
+            }
+
+            // acc += a_i * b
+            for k = 0 to 4 {
+                m   = #VPCMPGT_4u64(zero, aa);
+                m   = #VPERMQ(m, 0xF5);
+                u   = bs[3 - k];
+                m  &= u;
+                acc ^= m;
+                aa  = #VPSLL_4u64(aa, 1);
+            }
+            i += 1;
+        }
+    }
+    return acc;
+}

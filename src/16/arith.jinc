@@ -1,0 +1,81 @@
+// GF(16) = GF(2)[x]/(x^4 + x + 1)
+
+u8[1] gf16v_m7 = { 0x77 };
+u8[1] gf16v_m8 = { 0x88 };
+u8[1] gf16v_m1 = { 0x11 };
+u16[1] gf16v_c15 = { 0x000F };
+
+// constant time, no lookup table
+// NOTE: a, b < 16
+// \return a*b
+inline
+fn __gf16_mul(reg u64 a, reg u64 b) -> reg u64 {
+    inline int i;
+    reg u64 r, c, m, bb;
+
+    r = 0;
+    bb = b;
+    bb <<= 60;
+    for i = 0 to 4 {
+        // r = r*x mod x^4 + x + 1
+        c = r;
+        c >>= 3;
+        c = -c;
+        c &= 0x3;
+        r <<= 1;
+        r &= 0xF;
+        r ^= c;
+
+        // r += a * b_{3-i}
+        m = bb;
+        m = m >>s 63;
+        m &= a;
+        r ^= m;
+        bb <<= 1;
+    }
+    return r;
+}
+
+// full multiplication of 64 nibble-packed elements, each nibble of
+// a is multiplied with the corresponding nibble of b
+// (same as `gf16v_mul_full_u256`)
+// \param a: [a_0, ..., a_63]
+// \param b: [b_0, ..., b_63]
+// \return [a_0*b_0, ..., a_63*b_63]
+inline
+fn __gf16v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    inline int i;
+    reg u256 m7, m8, m1, c15;
+    reg u256 r, x, bb, m, t;
+
+    m7  = #VPBROADCAST_32u8(gf16v_m7[0]);
+    m8  = #VPBROADCAST_32u8(gf16v_m8[0]);
+    m1  = #VPBROADCAST_32u8(gf16v_m1[0]);
+    c15 = #VPBROADCAST_16u16(gf16v_c15[0]);
+
+    // r = a * b_0, the bit of each nibble is expanded to 0x0 or 0xF
+    x  = a;
+    bb = b;
+    m  = bb & m1;
+    m  = #VPMULL_16u16(m, c15);
+    r  = x & m;
+
+    for i = 1 to 4 {
+        // x = x*X mod X^4 + X + 1, nibble wise
+        t  = x & m8;
+        t  = #VPSRL_16u16(t, 3);
+        m  = #VPSLL_16u16(t, 1);
+        t ^= m;
+        x &= m7;
+        x  = #VPSLL_16u16(x, 1);
+        x ^= t;
+
+        // r += x * b_i
+        bb = #VPSRL_16u16(bb, 1);
+        m  = bb & m1;
+        m  = #VPMULL_16u16(m, c15);
+        m &= x;
+        r ^= m;
+    }
+    return r;
+}

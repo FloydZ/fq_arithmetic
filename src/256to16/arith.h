@@ -2,6 +2,7 @@
 #define FQ_ARITHMETIC_GF256TO16_ARITH_H
 
 #include <stdint.h>
+#include <string.h>
 
 #include "../256to8/arith.h"
 #include "../16/arith.h"
@@ -9,36 +10,20 @@
 /// GF256to16:uint8_t[16]: X^2 + x + (4294967296 * 65536 * 256 * 32)
 typedef uint8_t  gf256to16[16];
 
+// NOTE: elements are accessed via `memcpy` and not via casts to `uint64_t *`
+// or `__uint128_t *`, because those break strict aliasing (and alignment).
 static inline void gf256to16_zero(gf256to16 res) {
-#ifdef __SIZEOF_INT128__
-    *((__uint128_t *)res) = 0;
-#else
-    for (uint32_t i = 0; i < 16; i++){
-        res[i] = 0;
-    }
-#endif
+    memset(res, 0, 16);
 }
 
 static inline void gf256to16_set(gf256to16 res,
                                  const uint8_t *b) {
-#ifdef __SIZEOF_INT128__
-    *(__uint128_t *)res = (*(__uint128_t *)b);
-#else
-    for (uint32_t i = 0; i < 16; i++){
-        res[i] = b[i];
-    }
-#endif
+    memcpy(res, b, 16);
 }
 
 static inline void gf256to16_set_(gf256to16 *res,
                                   const uint8_t *b) {
-#ifdef __SIZEOF_INT128__
-    *(__uint128_t *)(*res) = (*(__uint128_t *)b);
-#else
-    for (uint32_t i = 0; i < 16; i++){
-        res[i] = b[i];
-    }
-#endif
+    memcpy(*res, b, 16);
 }
 
 /// X^2 + X + (4294967296*4096*256*32) = 0
@@ -48,18 +33,19 @@ static inline void gf256to16_set_(gf256to16 *res,
 static inline void gf256to16_mul(gf256to16 res,
                                  const gf256to16 a,
                                  const gf256to16 b) {
-    const gf256to8 upper = gf256to8_mul(*(uint64_t *)((uint8_t *)a + 8), *(uint64_t *)((uint8_t *)b + 8));
-    const gf256to8 lower = gf256to8_mul(*(uint64_t *)a, *(uint64_t *)b);
+    gf256to8 a_[2], b_[2], r_[2];
+    memcpy(a_, a, 16);
+    memcpy(b_, b, 16);
+    const gf256to8 upper = gf256to8_mul(a_[1], b_[1]);
+    const gf256to8 lower = gf256to8_mul(a_[0], b_[0]);
 
     // Compute lower
     const gf256to8 factor = 0x2000000000000000;
-    *(uint64_t *)res = gf256to8_mul(upper, factor);
-    *(uint64_t *)res = gf256to8_add(*((gf256to8 *)res), lower);
+    r_[0] = gf256to8_add(gf256to8_mul(upper, factor), lower);
 
     // Compute upper
-    *(uint64_t *)(res + 8) = gf256to8_mul(gf256to8_add(*(uint64_t *)a, *(uint64_t *)((uint8_t *)a + 8)),
-                                          gf256to8_add(*(uint64_t *)b, *(uint64_t *)((uint8_t *)b + 8)));
-    *(uint64_t *)(res + 8) = gf256to8_add(*(uint64_t *)((uint8_t *)res + 8), lower);
+    r_[1] = gf256to8_add(gf256to8_mul(gf256to8_add(a_[0], a_[1]), gf256to8_add(b_[0], b_[1])), lower);
+    memcpy(res, r_, 16);
 }
 
 ///
@@ -69,13 +55,9 @@ static inline void gf256to16_mul(gf256to16 res,
 static inline void gf256to16_add(gf256to16 res,
                                  const gf256to16 a,
                                  const gf256to16 b) {
-#ifdef __SIZEOF_INT128__
-    *(__uint128_t *)res = (*(__uint128_t *)a) ^ (*(__uint128_t *)b);
-#else
     for (uint32_t i = 0; i < 16; i++){
         res[i] = a[i] ^ b[i];
     }
-#endif
 }
 
 ///

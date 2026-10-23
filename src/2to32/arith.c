@@ -27,6 +27,24 @@ uint32_t test_add() {
     return 0;
 }
 
+/// a^(2^32) = a holds only if MODULUS is irreducible
+uint32_t test_mul_field() {
+    for (uint64_t t = 0; t < N; ++t) {
+        const gf2to32 a = rand() ^ ((uint32_t)rand() << 16u);
+        gf2to32 b = a;
+        for (uint32_t k = 0; k < 32; ++k) {
+            b = gf2to32_mul(b, b);
+        }
+
+        if (a != b) {
+            printf("error: test mul field: %u %u\n", a, b);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 #ifdef USE_AVX2
 uint32_t test_vector_add() {
     return 0;
@@ -132,6 +150,7 @@ int test_vector_scalar_add_u256() {
 
 int main() {
     if (test_add()) { return 1; }
+    if (test_mul_field()) { return 1; }
 
 #ifdef USE_AVX2
     // if (test_vector_add()) { return 1; }

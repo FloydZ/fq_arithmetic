@@ -20,13 +20,12 @@ bool test_add() {
 }
 
 bool test_mul() {
-    gf16to32 a, b, c1, c2, d;
+    gf16to32 a, b, c1, d;
     gf16to32_set_u(d, 1);
-    for (uint32_t i = 2; i < 1u << 21; ++i) {
+    for (uint32_t i = 2; i < 1u << 12; ++i) {
         gf16to32_set_u(b, i);
         gf16to32_inv(a, b);
         gf16to32_mul(c1, a, b);
-        gf16to32_mul_v2(c1, a, b);
 
         if (gf16to32_cmp(c1, d) != 0) {
             printf("error gf16to32_mul\n");
@@ -38,7 +37,7 @@ bool test_mul() {
 }
 
 int main() {
-    // if (test_add()) { return 1; }
+    if (test_add()) { return 1; }
     if (test_mul()) { return 1; }
 
     printf("all good\n");

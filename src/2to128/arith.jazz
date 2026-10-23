@@ -1,0 +1,106 @@
+// GF(2^128) = GF(2)[x]/(x^128 + x^7 + x^2 + x + 1)
+
+u64[2] gf2to128v_mod = { 0x87, 0 };
+
+// constant time (same as `gf2to128_mul`)
+// \param rp[out]: a*b, 2 limbs
+// \param ap[in]: 2 limbs
+// \param bp[in]: 2 limbs
+export
+fn gf2to128_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    inline int k;
+    reg u64 r0, r1, a0, a1, bb, c, m, t, i;
+
+    a0 = [:u64 ap + 0];
+    a1 = [:u64 ap + 8];
+    r0 = 0;
+    r1 = 0;
+
+    // most significant limb of b first
+    for k = 0 to 2 {
+        bb = [:u64 bp + 8 * (1 - k)];
+        i = 0;
+        while (i < 64) {
+            // r = r*x mod f
+            c = r1;
+            c = c >>s 63;
+            c &= 0x87;
+            t = r0;
+            t >>= 63;
+            r1 <<= 1;
+            r1 |= t;
+            r0 <<= 1;
+            r0 ^= c;
+
+            // r += a * b_j
+            m = bb;
+            m = m >>s 63;
+            t = m;
+            t &= a0;
+            r0 ^= t;
+            m &= a1;
+            r1 ^= m;
+            bb <<= 1;
+            i += 1;
+        }
+    }
+
+    [:u64 rp + 0] = r0;
+    [:u64 rp + 8] = r1;
+}
+
+// (same as `gf2to128_mul_u128`)
+// \return a*b
+inline
+fn __gf2to128_mul_u128(reg u128 a, reg u128 b, reg u128 mod) -> reg u128 {
+    reg u128 zero, hi, lo, mid, t;
+
+    zero = #set0_128();
+
+    // 256 bit product: hi*2^128 + lo
+    hi  = #VPCLMULQDQ_128(a, b, 0x11);
+    lo  = #VPCLMULQDQ_128(a, b, 0x00);
+    mid = #VPCLMULQDQ_128(a, b, 0x01);
+    t   = #VPCLMULQDQ_128(a, b, 0x10);
+    mid ^= t;
+    t   = #VPUNPCKH_2u64(mid, zero);  // mid >> 64
+    hi ^= t;
+    t   = #VPUNPCKL_2u64(zero, mid);  // mid << 64
+    lo ^= t;
+
+    // reduce w.r.t. high half of hi
+    t   = #VPCLMULQDQ_128(hi, mod, 0x01);
+    mid = #VPUNPCKL_2u64(zero, t);
+    lo ^= mid;
+    mid = #VPUNPCKH_2u64(t, zero);
+    hi ^= mid;
+
+    // reduce w.r.t. low half of hi
+    t   = #VPCLMULQDQ_128(hi, mod, 0x00);
+    lo ^= t;
+    return lo;
+}
+
+// (same as `gf2to128v_mul_u256`)
+// \param a: [a_0, a_1]
+// \param b: [b_0, b_1]
+// \return [a_0*b_0, a_1*b_1]
+export
+fn gf2to128v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u128 mod, a1, b1, c1;
+    reg u256 r;
+
+    mod = gf2to128v_mod[:u128 0];
+    r = #set0_256();
+
+    a1 = #VEXTRACTI128(a, 0);
+    b1 = #VEXTRACTI128(b, 0);
+    c1 = __gf2to128_mul_u128(a1, b1, mod);
+    r  = #VINSERTI128(r, c1, 0);
+
+    a1 = #VEXTRACTI128(a, 1);
+    b1 = #VEXTRACTI128(b, 1);
+    c1 = __gf2to128_mul_u128(a1, b1, mod);
+    r  = #VINSERTI128(r, c1, 1);
+    return r;
+}
