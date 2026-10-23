@@ -1,0 +1,60 @@
+// GF(4) = GF(2)[x]/(x^2 + x + 1)
+
+u8[1] gf4v_m1 = { 0x55 };
+u8[1] gf4v_m2 = { 0xAA };
+
+// (same as `gf4_mul_v2`)
+// NOTE: a, b < 4
+export
+fn gf4_mul(reg u8 a, reg u8 b) -> reg u8 {
+    reg u8 l1, l2, h1, h2, t, r;
+
+    // low bit: a_0*b_0 + a_1*b_1
+    l1 = a;
+    l1 &= b;
+    l2 = l1;
+    l2 >>= 1;
+    l2 ^= l1;
+    l2 &= 1;
+
+    // high bit: a_0*b_1 + a_1*b_0 + a_1*b_1
+    h1 = a;
+    h1 <<= 1;
+    h1 &= b;
+    t = b;
+    t <<= 1;
+    t &= a;
+    h1 ^= t;
+    h2 = l1;
+    h2 ^= h1;
+    h2 &= 2;
+
+    r = l2;
+    r ^= h2;
+    return r;
+}
+
+// 128 elements, two bits each
+export
+fn gf4v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 m1, m2, and0, and1, and2, l, t, r;
+
+    m1 = #VPBROADCAST_32u8(gf4v_m1[0]);
+    m2 = #VPBROADCAST_32u8(gf4v_m2[0]);
+
+    and0 = a & b;
+    t    = #VPSLL_4u64(a, 1);
+    and2 = t & b;
+    t    = #VPSLL_4u64(b, 1);
+    and1 = t & a;
+    l    = and1 ^ and2;
+
+    t  = #VPSRL_4u64(and0, 1);
+    r  = and0 ^ t;
+    r &= m1;
+
+    l ^= and0;
+    l &= m2;
+    r ^= l;
+    return r;
+}

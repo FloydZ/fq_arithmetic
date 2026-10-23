@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "arith.h"
+#include "vector.h"
 
 #define LIST_SIZE (1u << 13u)
 gf256to2 *A, *B, *C;
@@ -27,15 +28,15 @@ static void BM_gf256to2v_mul_u256(benchmark::State& state) {
 }
 
 static void BM_gf256to2v_vector_add_scalar_u256(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 
     for (auto _ : state) {
         gf256to2 s = rand();
-        gf256to2_vector_add_scalar_u256(A, B, s, C, sizeof(gf256to2) * state.range(0));
-        gf256to2_vector_add_scalar_u256(B, C, s, A, sizeof(gf256to2) * state.range(0));
-        gf256to2_vector_add_scalar_u256(C, A, s, B, sizeof(gf256to2) * state.range(0));
+        gf256to2_vector_scalar_add_u256_v2(A, B, s, C, state.range(0));
+        gf256to2_vector_scalar_add_u256_v2(B, C, s, A, state.range(0));
+        gf256to2_vector_scalar_add_u256_v2(C, A, s, B, state.range(0));
         benchmark::ClobberMemory();
     }
 }
@@ -45,17 +46,17 @@ BENCHMARK(BM_gf256to2v_mul_u256);
 BENCHMARK(BM_gf256to2v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
 #endif
 
-#ifdef __AVX512VL__
+#ifdef USE_AVX512
 static void BM_gf256v_vector_add_scalar_u512(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 
     for (auto _ : state) {
         gf256to2 s = rand();
-        gf256to2_vector_add_scalar_u256(A, B, s, C, sizeof(gf256to2) * state.range(0));
-        gf256to2_vector_add_scalar_u256(B, C, s, A, sizeof(gf256to2) * state.range(0));
-        gf256to2_vector_add_scalar_u256(C, A, s, B, sizeof(gf256to2) * state.range(0));
+        gf256to2_vector_scalar_add_u512_v2(A, B, s, C, state.range(0));
+        gf256to2_vector_scalar_add_u512_v2(B, C, s, A, state.range(0));
+        gf256to2_vector_scalar_add_u512_v2(C, A, s, B, state.range(0));
         benchmark::ClobberMemory();
     }
 }

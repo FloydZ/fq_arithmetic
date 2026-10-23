@@ -1,0 +1,102 @@
+// GF(256^16) = GF(256^8)[X]/(X^2 + X + 4294967296*65536*256*32), a single element is stored in 16 bytes
+require "../256to8/arith.jinc"
+
+u64[4] gf256to16v_low  = { 0xFFFFFFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFF, 0 };
+u64[4] gf256to16v_high = { 0, 0xFFFFFFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFF };
+u64[1] gf256to16v_mulm = { 0x2000000000000000 };
+
+// (same as `gf256to16_mul`)
+// \param rp[out]: a*b, 16 bytes
+// \param ap[in]: 16 bytes
+// \param bp[in]: 16 bytes
+export
+fn gf256to16_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    stack u64 srp, sap, sbp, sl, sr;
+    reg u64 x, y, l, r;
+
+    srp = rp;
+    sap = ap;
+    sbp = bp;
+
+    // l = a_0*b_0
+    x = [:u64 ap + 0];
+    y = [:u64 bp + 0];
+    l = __gf256to8_mul(x, y);
+    sl = l;
+
+    // r_0 = l + (4294967296*65536*256*32)*a_1*b_1
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 8];
+    y = [:u64 bp + 8];
+    r = __gf256to8_mul(x, y);
+    y = 0x2000000000000000;
+    r = __gf256to8_mul(r, y);
+    l = sl;
+    r ^= l;
+    sr = r;
+
+    // r_1 = (a_0 + a_1)*(b_0 + b_1) + l
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 0];
+    x ^= [:u64 ap + 8];
+    y = [:u64 bp + 0];
+    y ^= [:u64 bp + 8];
+    r = __gf256to8_mul(x, y);
+    l = sl;
+    r ^= l;
+
+    rp = srp;
+    [:u64 rp + 8] = r;
+    r = sr;
+    [:u64 rp + 0] = r;
+}
+
+// (same as `gf256to16v_mul_u256`)
+// \param a: [a_0, a_1]
+// \param b: [b_0, b_1]
+// \return [a_0*b_0, a_1*b_1]
+export
+fn gf256to16v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    stack u256 sab, ssa, ssb, sc;
+    reg u256 zero, ab, t, c, m;
+
+    // a ^ (a << 64), per 128 bit lane
+    zero = #set0_256();
+    t   = #VPUNPCKL_4u64(zero, a);
+    t  ^= a;
+    ssa = t;
+    t   = #VPUNPCKL_4u64(zero, b);
+    t  ^= b;
+    ssb = t;
+
+    ab  = __gf256to8v_mul_u256(a, b);
+    sab = ab;
+
+    // compute the lower limb
+    zero = #set0_256();
+    t = #VPUNPCKH_4u64(ab, zero);
+    m = #VPBROADCAST_4u64(gf256to16v_mulm[0]);
+    c = __gf256to8v_mul_u256(t, m);
+    ab = sab;
+    c ^= ab;
+    m = gf256to16v_low[:u256 0];
+    c &= m;
+    sc = c;
+
+    // compute the higher limb
+    t = ssa;
+    m = ssb;
+    c = __gf256to8v_mul_u256(t, m);
+    ab = sab;
+    zero = #set0_256();
+    ab = #VPUNPCKL_4u64(zero, ab);
+    c ^= ab;
+    m = gf256to16v_high[:u256 0];
+    c &= m;
+
+    t = sc;
+    c ^= t;
+    return c;
+}

@@ -16,8 +16,18 @@
 #define WORD_SIZE       (8 * sizeof(uint64_t))
 
 
+/// NOTE: matrices are stored column major, each column is a bit packed
+/// vector (see `vector.h`) of `gf2_matrix_bytes_per_column(n_rows)` bytes.
 #define gf2_matrix_bytes_per_column(n_rows) (((n_rows) >> 3) + (((n_rows) & 0x1) | (((n_rows) & 0x2) >> 1) | (((n_rows) & 0x4) >> 2)))
 #define gf2_matrix_bytes_size(n_rows, n_cols) ((gf2_matrix_bytes_per_column(n_rows)) * (n_cols))
+
+/// unaligned memory helpers (avoid misaligned pointer casts)
+static inline uint16_t gf2_load_u16(const uint8_t *p) { uint16_t r; memcpy(&r, p, 2); return r; }
+static inline uint32_t gf2_load_u32(const uint8_t *p) { uint32_t r; memcpy(&r, p, 4); return r; }
+static inline uint64_t gf2_load_u64(const uint8_t *p) { uint64_t r; memcpy(&r, p, 8); return r; }
+static inline void gf2_store_u16(uint8_t *p, const uint16_t v) { memcpy(p, &v, 2); }
+static inline void gf2_store_u32(uint8_t *p, const uint32_t v) { memcpy(p, &v, 4); }
+static inline void gf2_store_u64(uint8_t *p, const uint64_t v) { memcpy(p, &v, 8); }
 
 ///
 /// \brief create a bit mask to zero out all but the (n - 1) % m4ri_radix + 1 leftmost bits.
@@ -48,7 +58,7 @@
 #define MAX_M4RI_K 9
 
 /// precomputed with `table_precompute.c`
-const uint8_t rev[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
+static const uint8_t gf2_m4ri_rev[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -60,8 +70,8 @@ const uint8_t rev[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64)
 	{ 0, 1, 3, 2, 7, 6, 4, 5, 15, 14, 12, 13, 8, 9, 11, 10, 31, 30, 28, 29, 24, 25, 27, 26, 16, 17, 19, 18, 23, 22, 20, 21, 63, 62, 60, 61, 56, 57, 59, 58, 48, 49, 51, 50, 55, 54, 52, 53, 32, 33, 35, 34, 39, 38, 36, 37, 47, 46, 44, 45, 40, 41, 43, 42, 127, 126, 124, 125, 120, 121, 123, 122, 112, 113, 115, 114, 119, 118, 116, 117, 96, 97, 99, 98, 103, 102, 100, 101, 111, 110, 108, 109, 104, 105, 107, 106, 64, 65, 67, 66, 71, 70, 68, 69, 79, 78, 76, 77, 72, 73, 75, 74, 95, 94, 92, 93, 88, 89, 91, 90, 80, 81, 83, 82, 87, 86, 84, 85, 255, 254, 252, 253, 248, 249, 251, 250, 240, 241, 243, 242, 247, 246, 244, 245, 224, 225, 227, 226, 231, 230, 228, 229, 239, 238, 236, 237, 232, 233, 235, 234, 192, 193, 195, 194, 199, 198, 196, 197, 207, 206, 204, 205, 200, 201, 203, 202, 223, 222, 220, 221, 216, 217, 219, 218, 208, 209, 211, 210, 215, 214, 212, 213, 128, 129, 131, 130, 135, 134, 132, 133, 143, 142, 140, 141, 136, 137, 139, 138, 159, 158, 156, 157, 152, 153, 155, 154, 144, 145, 147, 146, 151, 150, 148, 149, 191, 190, 188, 189, 184, 185, 187, 186, 176, 177, 179, 178, 183, 182, 180, 181, 160, 161, 163, 162, 167, 166, 164, 165, 175, 174, 172, 173, 168, 169, 171, 170}
 };
 
-/// precompted 
-const uint8_t diff[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
+/// precompted
+static const uint8_t gf2_m4ri_diff[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64))) = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -73,11 +83,13 @@ const uint8_t diff[MAX_M4RI_K][1u << (MAX_M4RI_K - 1)] __attribute__((aligned(64
 	{ 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 7, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 8}
 };
 
-static unsigned char log2_ceil_table[64] = {
+static const unsigned char gf2_log2_ceil_table[64] = {
         0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
         6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6};
 
-static inline int log2_ceil(int n) { return log2_ceil_table[n - 1]; }
+/// \param n[in]: 1 <= n <= 64
+/// \return ceil(log2(n))
+static inline int gf2_log2_ceil(int n) { return gf2_log2_ceil_table[n - 1]; }
 
 
 static inline uint64_t gf2_read8rows(const uint8_t *ptr,
@@ -88,6 +100,19 @@ static inline uint64_t gf2_read8rows(const uint8_t *ptr,
     }
 
     return t;
+}
+
+/// \param ptr
+/// \param data
+/// \param len how many bytes to write
+static inline void gf2_write8rows(uint8_t *ptr,
+                                  const uint64_t data,
+                                  const uint32_t len) {
+    uint64_t t = data;
+    for (uint32_t i = 0; i < len; i++) {
+        ptr[i] = t;
+        t >>= 8;
+    }
 }
 
 
@@ -144,6 +169,7 @@ static inline void gf2_matrix_set(gf2 *matrix,
     matrix[nbytes_col*j + idx_line] = (matrix[nbytes_col*j + idx_line] & mask) ^ (scalar << bit_line);
 }
 
+/// NOTE: the unused padding bits of each column are set to zero
 /// \param matrix
 /// \param n_rows
 /// \param n_cols
@@ -152,9 +178,7 @@ static inline void gf2_matrix_random(gf2 *matrix,
                                     const uint32_t n_cols) {
     const uint32_t p = gf2_matrix_bytes_per_column(n_rows);
     for (uint32_t i = 0; i < n_cols; i++) {
-        for (uint32_t j = 0; j < p; j++) {
-            matrix[i*p + j] = rand() &0x1F;
-        }
+        gf2_vector_random(matrix + i*p, n_rows);
     }
 }
 
@@ -167,7 +191,6 @@ static inline void gf2_matrix_rng_full_rank(gf2 *matrix,
                                             const uint32_t nrows,
                                             const uint32_t ncols,
                                             const uint32_t padded) {
-    const uint32_t p = gf2_matrix_bytes_per_column(nrows);
     for (uint32_t i = 0; i < ncols; i++) {
         for (uint32_t j = 0; j < nrows; j++) {
             gf2_matrix_set(matrix, nrows, i, j, i==j);
@@ -200,6 +223,17 @@ static inline void gf2_matrix_zero(gf2 *matrix,
                                    const uint32_t n_cols) {
     const uint32_t p = gf2_matrix_bytes_size(n_rows, n_cols);
     memset(matrix, 0, p);
+}
+
+/// \param out[out]: out = in
+/// \param in[in]: input matrix
+/// \param n_rows
+/// \param n_cols
+static inline void gf2_matrix_copy(gf2 *out,
+                                   const gf2 *in,
+                                   const uint32_t n_rows,
+                                   const uint32_t n_cols) {
+    memcpy(out, in, gf2_matrix_bytes_size(n_rows, n_cols));
 }
 
 /// \param matrix
@@ -304,17 +338,22 @@ static inline void gf2_matrix_print_row_major(const gf2 *matrix,
 
 /// NOTE: row major
 /// reads nn bits from row x and column y on
-uint64_t matrix_read_bits(const uint8_t *M,
-                          const uint32_t ncols,
-                          const size_t x,
-                          const size_t y,
-                          const size_t nn) {
+/// NOTE: nn <= 8
+static inline uint64_t gf2_matrix_read_bits(const uint8_t *M,
+                                            const uint32_t ncols,
+                                            const size_t x,
+                                            const size_t y,
+                                            const size_t nn) {
 	const uint32_t spot  = y % 8;
 	const uint64_t block = y / 8;
     const uint32_t cp = (ncols + 7) / 8;
     const uint16_t mask = (1u << nn) - 1u;
 
-    const uint16_t t1 = *(uint16_t *)(M + x*cp + block);
+    // do not read past the end of the row
+    uint16_t t1 = M[x*cp + block];
+    if ((block + 1) < cp) {
+        t1 |= ((uint16_t)M[x*cp + block + 1]) << 8u;
+    }
     const uint16_t t2 = t1 >> spot;
     const uint16_t t3 = t2 & mask;
 	return t3;
@@ -334,14 +373,14 @@ static inline void gf2_matrix_add(gf2 *matrix1,
 }
 
 /// matrix1 += scalar *matrix2
-static inline void gf2_matrix_scalar_add(gf2 *matrix1, 
+static inline void gf2_matrix_add_scalar(gf2 *matrix1,
                                          const gf2 scalar, 
                                          const gf2 *matrix2,
                                          const uint32_t n_rows, 
                                          const uint32_t n_cols) {
     const uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
 
-    const uint8_t t = -scalar;
+    const uint8_t t = -(scalar & 1u);
     for (uint32_t i = 0; i < n_bytes; i++) {
         matrix1[i] ^= (t&matrix2[i]);
     }
@@ -367,6 +406,31 @@ static inline void gf2_matrix_mul(gf2 *result,
             for (k = 0; k < n_cols1; k++) {
                 entry_i_k = gf2_matrix_get(matrix1, n_rows1, i, k);
                 entry_k_j = gf2_matrix_get(matrix2, n_cols1, k, j);
+                entry_i_j ^= gf2_mul(entry_i_k, entry_k_j);
+            }
+
+            gf2_matrix_set(result, n_rows1, i, j, entry_i_j);
+        }
+    }
+}
+
+/// result += matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_add_mul(gf2 *result,
+                                      const gf2 *matrix1,
+                                      const gf2 *matrix2,
+                                      const uint32_t n_rows1,
+                                      const uint32_t n_cols1,
+                                      const uint32_t n_cols2) {
+    for (uint32_t i = 0; i < n_rows1; i++) {
+        for (uint32_t j = 0; j < n_cols2; j++) {
+            gf2 entry_i_j = gf2_matrix_get(result, n_rows1, i, j);
+
+            for (uint32_t k = 0; k < n_cols1; k++) {
+                const gf2 entry_i_k = gf2_matrix_get(matrix1, n_rows1, i, k);
+                const gf2 entry_k_j = gf2_matrix_get(matrix2, n_cols1, k, j);
                 entry_i_j ^= gf2_mul(entry_i_k, entry_k_j);
             }
 
@@ -401,13 +465,13 @@ static inline void gf2_matrix_add_u256(gf2 *matrix1,
 }
 
 /// matrix1 += scalar*matrix2
-static inline void gf2_matrix_scalar_add_u256(gf2 *matrix1, 
-                                              const gf2 scalar, 
+static inline void gf2_matrix_add_scalar_u256(gf2 *matrix1,
+                                              const gf2 scalar,
                                               const gf2 *matrix2,
-                                              const uint32_t n_rows, 
+                                              const uint32_t n_rows,
                                               const uint32_t n_cols) {
     uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
-    const uint8_t m = -scalar;
+    const uint8_t m = -(scalar & 1u);
     const __m256i m256 = _mm256_set1_epi8(m);
     while(n_bytes >= 32) {
         const __m256i to = _mm256_loadu_si256((const __m256i *)matrix1);
@@ -425,7 +489,8 @@ static inline void gf2_matrix_scalar_add_u256(gf2 *matrix1,
 }
 
 /// NOTE: assumes that `n_cols2` == 1
-/// result = matrix1 * matrix2
+/// NOTE: accumulates into `result`, which must be zeroed by the caller
+/// result += matrix1 * matrix2
 /// matrix1 of size n_rows1 * n_cols1
 /// matrix2 of size n_cols1 * n_cols2
 /// result  of size n_rows1 * n_cols2
@@ -468,8 +533,9 @@ static inline void gf2_matrix_mul_u256_vector(gf2 *result,
 }
 
 
-/// NOTE: assumes n_cols1 <= 8
-/// result = matrix1 * matrix2
+/// NOTE: assumes n_cols1 <= 8 and n_rows1 <= 64
+/// NOTE: accumulates into `result`, which must be zeroed by the caller
+/// result += matrix1 * matrix2
 /// matrix1 of size n_rows1 * n_cols1
 /// matrix2 of size n_cols1 * n_cols2
 /// result  of size n_rows1 * n_cols2
@@ -483,7 +549,7 @@ static inline void gf2_matrix_mul_u256_Axle8xC(gf2 *result,
     for (uint32_t colA = 0; colA < n_cols1; colA++) {
         const uint8_t *m1 = matrix1 + (colA*bytes_per_col);
         // load up to 8 columns
-        uint64_t a = gf2_read8rows(m1, bytes_per_col);
+        const uint64_t a = gf2_read8rows(m1, bytes_per_col);
         // iterate over all columns in B
         for (uint32_t col = 0; col < n_cols2; col++) {
             const uint64_t b1 = (matrix2[col]>>colA) & 1u;
@@ -499,43 +565,48 @@ static inline void gf2_matrix_mul_u256_Axle8xC(gf2 *result,
     }
 }
 
+/// result += matrix1 * matrix2
+/// column wise: result[:, j] += matrix2[k, j] * matrix1[:, k]
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_add_mul_u256(gf2 *result,
+                                           const gf2 *matrix1,
+                                           const gf2 *matrix2,
+                                           const uint32_t n_rows1,
+                                           const uint32_t n_cols1,
+                                           const uint32_t n_cols2) {
+    const uint32_t bpc = gf2_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const gf2 b = gf2_matrix_get(matrix2, n_cols1, k, j);
+            gf2_vector_scalar_add_u256(result + j*bpc, b, matrix1 + k*bpc, n_rows1);
+        }
+    }
+}
+
 /// result = matrix1 * matrix2
 /// matrix1 of size n_rows1 * n_cols1
 /// matrix2 of size n_cols1 * n_cols2
 /// result  of size n_rows1 * n_cols2
-static inline void gf2_matrix_mul_u256(gf2 *result, 
-                                       const gf2 *matrix1, 
+static inline void gf2_matrix_mul_u256(gf2 *result,
+                                       const gf2 *matrix1,
                                        const gf2 *matrix2,
-                                       const uint32_t n_rows1, 
-                                       const uint32_t n_cols1, 
+                                       const uint32_t n_rows1,
+                                       const uint32_t n_cols1,
                                        const uint32_t n_cols2) {
+    gf2_matrix_zero(result, n_rows1, n_cols2);
     if (n_cols2 == 1) {
         gf2_matrix_mul_u256_vector(result, matrix1, matrix2, n_rows1, n_cols1);
         return;
     }
 
-    if (n_cols1 <= 8) {
+    if ((n_cols1 <= 8) && (n_rows1 <= 64)) {
         gf2_matrix_mul_u256_Axle8xC(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
         return;
     }
 
-    /// TODO
-    uint32_t i, j, k;
-    gf2 entry_i_k, entry_k_j, entry_i_j;
-
-    for (i = 0; i < n_rows1; i++) {
-        for (j = 0; j < n_cols2; j++) {
-            entry_i_j = 0;
-
-            for (k = 0; k < n_cols1; k++) {
-                entry_i_k = gf2_matrix_get(matrix1, n_rows1, i, k);
-                entry_k_j = gf2_matrix_get(matrix2, n_cols1, k, j);
-                entry_i_j ^= gf2_mul(entry_i_k, entry_k_j);
-            }
-
-            gf2_matrix_set(result, n_rows1, i, j, entry_i_j);
-        }
-    }
+    gf2_matrix_add_mul_u256(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
 }
 #endif
 
@@ -543,21 +614,21 @@ static inline void gf2_matrix_mul_u256(gf2 *result,
 /// \param x [in]
 /// \param y [in]
 /// \param z [out] z = x ^ y
-void gf2_matrix_xor_rows(const uint8_t *x,
-                         const uint8_t *y,
-                         uint8_t *z,
-                         const uint32_t bytes) {
+static inline void gf2_matrix_xor_rows(const uint8_t *x,
+                                       const uint8_t *y,
+                                       uint8_t *z,
+                                       const uint32_t bytes) {
     uint32_t i = 0;
 #ifdef USE_AVX2
 	for (; i+32 <= bytes; i += 32) {
-	    __m256 x_avx = _mm256_loadu_ps((float*)(x + i));
-	    __m256 y_avx = _mm256_loadu_ps((float*)(y + i));
-	    __m256 z_avx = _mm256_xor_ps(x_avx,y_avx);
-	    _mm256_storeu_ps((float*)(z + i), z_avx);
+	    __m256i x_avx = _mm256_loadu_si256((const __m256i *)(x + i));
+	    __m256i y_avx = _mm256_loadu_si256((const __m256i *)(y + i));
+	    __m256i z_avx = _mm256_xor_si256(x_avx,y_avx);
+	    _mm256_storeu_si256((__m256i *)(z + i), z_avx);
 	}
 #endif
 	for (; i+8 <= bytes; i += 8) {
-		*((uint64_t *)(z+i)) = *((uint64_t *)(x+i)) ^ *((uint64_t *)(y+i));
+		gf2_store_u64(z+i, gf2_load_u64(x+i) ^ gf2_load_u64(y+i));
 	}
 
 	for (; i < bytes; i++) {
@@ -571,7 +642,7 @@ void gf2_matrix_xor_rows(const uint8_t *x,
 /// \param ncols: number of columns
 /// \param i
 /// \param j
-static void gf2_matrix_swap_rows(uint8_t *__restrict__ M,
+static inline void gf2_matrix_swap_rows(uint8_t *__restrict__ M,
                                  const uint32_t ncols,
                                  const uint32_t i,
                                  const uint32_t j) {
@@ -590,7 +661,7 @@ static void gf2_matrix_swap_rows(uint8_t *__restrict__ M,
 /// \param nrows
 /// \param ncols
 /// \param k
-static size_t matrix_gauss_submatrix(uint8_t *__restrict__ M,
+static inline size_t gf2_matrix_gauss_submatrix(uint8_t *__restrict__ M,
                                      const size_t r,
                                      const size_t c,
                                      const size_t nrows,
@@ -640,7 +711,7 @@ static size_t matrix_gauss_submatrix(uint8_t *__restrict__ M,
 /// \param k m4ri 
 /// \param T
 /// \param diff
-void matrix_make_table(uint8_t *__restrict__ M,
+static inline void gf2_matrix_make_table(uint8_t *__restrict__ M,
                        const size_t r,
                        const size_t cols,
                        const size_t k,
@@ -663,7 +734,7 @@ void matrix_make_table(uint8_t *__restrict__ M,
 }
 
 /// \param
-void matrix_process_rows(uint8_t *__restrict__ M,
+static inline void gf2_matrix_process_rows(uint8_t *__restrict__ M,
                          const size_t rstart,
                          const size_t cstart,
                          const size_t rstop,
@@ -675,7 +746,7 @@ void matrix_process_rows(uint8_t *__restrict__ M,
     const uint32_t cp = (cols+7) / 8;
 
 	for (size_t r = rstart; r < rstop; ++r) {
-		const size_t x0 = rev[k][matrix_read_bits(M, cols, r, cstart, k)];
+		const size_t x0 = rev[k][gf2_matrix_read_bits(M, cols, r, cstart, k)];
 		if (x0) {
 			gf2_matrix_xor_rows((uint8_t *) (T + x0 * cols_padded_word),
 			                    (uint8_t *) M+(r*cp),
@@ -688,7 +759,7 @@ void matrix_process_rows(uint8_t *__restrict__ M,
 ///
 
 /// \return rank of the matrix
-size_t gf2_matrix_echelonize(uint8_t *M,
+static inline size_t gf2_matrix_echelonize(uint8_t *M,
                              const uint32_t nrows,
                              const uint32_t ncols,
                              const size_t k) {
@@ -709,16 +780,16 @@ size_t gf2_matrix_echelonize(uint8_t *M,
 			kk = nrows - c;
 		}
 
-		size_t kbar = matrix_gauss_submatrix(M, r, c, nrows, ncols, kk);
+		size_t kbar = gf2_matrix_gauss_submatrix(M, r, c, nrows, ncols, kk);
 		if (kk != kbar)
 			break;
 
 		if (kbar > 0) {
-			matrix_make_table  (M, r, ncols, kbar, xor_rows, diff);
+			gf2_matrix_make_table  (M, r, ncols, kbar, xor_rows, gf2_m4ri_diff);
 			// fix everything below
-			matrix_process_rows(M, r + kbar, c, nrows, kbar, ncols, xor_rows, rev);
+			gf2_matrix_process_rows(M, r + kbar, c, nrows, kbar, ncols, xor_rows, gf2_m4ri_rev);
 			// fix everything over it
-			matrix_process_rows(M, 0, c, r, kbar, ncols, xor_rows, rev);
+			gf2_matrix_process_rows(M, 0, c, r, kbar, ncols, xor_rows, gf2_m4ri_rev);
 		}
 
 		r += kbar;
@@ -794,18 +865,18 @@ static inline int _mzd_transpose_Nxjx64(uint64_t *__restrict__ t,
 /// \param n Number of rows in source matrix, must be less than or equal 8.
 /// \param m Number of columns in source matrix, must be less than or equal 8.
 /// \param maxsize the max(n, m)
-void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
-                                  uint8_t const *__restrict__ src,
-                                  const uint32_t rowstride_dst, 
-                                  const uint32_t rowstride_src, 
-                                  int n, 
-                                  int m,
-                                  int maxsize) {
-    int end                      = maxsize;
+static inline void gf2_matrix_transpose_le8xle8(uint8_t *__restrict__ dst,
+                                                uint8_t const *__restrict__ src,
+                                                const uint32_t rowstride_dst,
+                                                const uint32_t rowstride_src,
+                                                int n,
+                                                int m,
+                                                int maxsize) {
+    int end                      = maxsize * 7;
     uint8_t const *__restrict__ wks  = src;
     uint64_t w                   = *wks;
     int shift                    = 0;
-    for (uint32_t i = 1; i < n; ++i) {
+    for (int i = 1; i < n; ++i) {
         wks += rowstride_src;
     	const uint8_t t1 = *wks;
     	const uint64_t t2 = t1;
@@ -859,35 +930,35 @@ static inline void gf2_matrix_transpose_le16xle16(uint8_t *__restrict__ dst,
   uint64_t t[4];
   int i = n;
   do {
-    t[0] = *((uint16_t *)(wks+0));
+    t[0] = gf2_load_u16(wks+0);
     if (--i == 0) {
       t[1] = 0;
       t[2] = 0;
       t[3] = 0;
       break;
     }
-    t[1] = *(uint16_t *)(wks+rowstride_src);
+    t[1] = gf2_load_u16(wks+rowstride_src);
     if (--i == 0) {
       t[2] = 0;
       t[3] = 0;
       break;
     }
-    t[2] = *(uint16_t *)(wks+2*rowstride_src);
+    t[2] = gf2_load_u16(wks+2*rowstride_src);
     if (--i == 0) {
       t[3] = 0;
       break;
     }
-    t[3] = *(uint16_t *)(wks+3*rowstride_src);
+    t[3] = gf2_load_u16(wks+3*rowstride_src);
     if (--i == 0) break;
     wks += 4*rowstride_src;
     for (uint32_t shift = 16;; shift += 16) {
-      t[0] |= ((uint64_t)(*(uint16_t *)wks) << shift);
+      t[0] |= ((uint64_t)gf2_load_u16(wks) << shift);
       if (--i == 0) break;
-      t[1] |= ((uint64_t)(*(uint16_t *)(wks + 1*rowstride_src)) << shift);
+      t[1] |= ((uint64_t)gf2_load_u16(wks + 1*rowstride_src) << shift);
       if (--i == 0) break;
-      t[2] |= ((uint64_t)(*(uint16_t *)(wks + 2*rowstride_src)) << shift);
+      t[2] |= ((uint64_t)gf2_load_u16(wks + 2*rowstride_src) << shift);
       if (--i == 0) break;
-      t[3] |= ((uint64_t)(*(uint16_t *)(wks + 3*rowstride_src)) << shift);
+      t[3] |= ((uint64_t)gf2_load_u16(wks + 3*rowstride_src) << shift);
       if (--i == 0) break;
       wks += 4 * rowstride_src;
     }
@@ -915,25 +986,23 @@ static inline void gf2_matrix_transpose_le16xle16(uint8_t *__restrict__ dst,
   i                 = m;
   uint8_t *__restrict__ wk = (uint8_t *)dst;
   do {
-    *(uint16_t *)wk = (uint16_t)t[0];
+    gf2_store_u16(wk, (uint16_t)t[0]);
     if (--i == 0) break;
-    *(uint16_t *)(wk+rowstride_dst) = (uint16_t)t[1];
+    gf2_store_u16(wk+rowstride_dst, (uint16_t)t[1]);
     if (--i == 0) break;
-    *(uint16_t *)(wk+2*rowstride_dst) = (uint16_t)t[2];
+    gf2_store_u16(wk+2*rowstride_dst, (uint16_t)t[2]);
     if (--i == 0) break;
-    *(uint16_t *)(wk+3*rowstride_dst) = (uint16_t)t[3];
+    gf2_store_u16(wk+3*rowstride_dst, (uint16_t)t[3]);
     if (--i == 0) break;
     wk += 4 * rowstride_dst;
     for (int shift = 16;; shift += 16) {
-      wk[0] = (uint16_t)(t[0] >> shift);
-      *(uint16_t *)wk = (uint16_t)(t[0] >> shift);
+      gf2_store_u16(wk, (uint16_t)(t[0] >> shift));
       if (--i == 0) break;
-      wk[rowstride_dst] = (uint16_t)(t[1] >> shift);
-      *(uint16_t *)(wk + rowstride_dst) = (uint16_t)(t[1] >> shift);
+      gf2_store_u16(wk + rowstride_dst, (uint16_t)(t[1] >> shift));
       if (--i == 0) break;
-      *(uint16_t *)(wk + 2*rowstride_dst) = (uint16_t)(t[2] >> shift);
+      gf2_store_u16(wk + 2*rowstride_dst, (uint16_t)(t[2] >> shift));
       if (--i == 0) break;
-      *(uint16_t *)(wk + 3*rowstride_dst) = (uint16_t)(t[3] >> shift);
+      gf2_store_u16(wk + 3*rowstride_dst, (uint16_t)(t[3] >> shift));
       if (--i == 0) break;
       wk += 4 * rowstride_dst;
     }
@@ -966,19 +1035,19 @@ static inline void gf2_matrix_transpose_le32xle32(uint8_t *__restrict__ dst,
   if (n > 16) {
     i -= 16;
     for (uint32_t j = 0; j < 16; ++j) {
-      t[j] = *(uint32_t *)wks;
+      t[j] = gf2_load_u32(wks);
       t[j] &= mask;
       wks += rowstride_src;
     }
     int j = 0;
     do {
-      t[j++] |= (((uint64_t)*(uint32_t *)wks) << 32);
+      t[j++] |= (((uint64_t)(gf2_load_u32(wks) & mask)) << 32);
       wks += rowstride_src;
     } while (--i);
   } else {
-    uint32_t j = 0;
+    int j = 0;
     for (; j < n; ++j) {
-      t[j] = *wks;
+      t[j] = gf2_load_u32(wks) & mask;
       wks += rowstride_src;
     }
     for (; j < 16; ++j) t[j] = 0;
@@ -989,23 +1058,23 @@ static inline void gf2_matrix_transpose_le32xle32(uint8_t *__restrict__ dst,
   if (m > 16) {
     m -= 16;
     for (int j = 0; j < 16; j += 2) {
-      *(uint32_t *)wk				  = (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000);
-      *(uint32_t *)(wk+rowstride_dst) = (t[j + 1] & 0xFFFF) | ((t[j + 1] >> 16) & 0xFFFF0000);
+      gf2_store_u32(wk,               (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000));
+      gf2_store_u32(wk+rowstride_dst, (t[j + 1] & 0xFFFF) | ((t[j + 1] >> 16) & 0xFFFF0000));
       wk += 2 * rowstride_dst;
     }
     for (int j = 1; j < m; j += 2) {
-      *(uint32_t *)wk				  = ((t[j - 1] >> 16) & 0xFFFF) | ((t[j - 1] >> 32) & 0xFFFF0000);
-      *(uint32_t *)(wk+rowstride_dst) = ((t[j] >> 16) & 0xFFFF) | ((t[j] >> 32) & 0xFFFF0000);
+      gf2_store_u32(wk,               ((t[j - 1] >> 16) & 0xFFFF) | ((t[j - 1] >> 32) & 0xFFFF0000));
+      gf2_store_u32(wk+rowstride_dst, ((t[j] >> 16) & 0xFFFF) | ((t[j] >> 32) & 0xFFFF0000));
       wk += 2 * rowstride_dst;
     }
-    if (one_more) { *(uint32_t *)wk = ((t[m - 1] >> 16) & 0xFFFF) | ((t[m - 1] >> 32) & 0xFFFF0000); }
+    if (one_more) { gf2_store_u32(wk, ((t[m - 1] >> 16) & 0xFFFF) | ((t[m - 1] >> 32) & 0xFFFF0000)); }
   } else {
     for (int j = 1; j < m; j += 2) {
-      *(uint32_t *)wk                 = (t[j - 1] & 0xFFFF) | ((t[j - 1] >> 16) & 0xFFFF0000);
-      *(uint32_t *)(wk+rowstride_dst) = (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000);
+      gf2_store_u32(wk,               (t[j - 1] & 0xFFFF) | ((t[j - 1] >> 16) & 0xFFFF0000));
+      gf2_store_u32(wk+rowstride_dst, (t[j] & 0xFFFF) | ((t[j] >> 16) & 0xFFFF0000));
       wk += 2 * rowstride_dst;
     }
-    if (one_more) { *(uint32_t *)wk = (t[m - 1] & 0xFFFF) | ((t[m - 1] >> 16) & 0xFFFF0000); }
+    if (one_more) { gf2_store_u32(wk, (t[m - 1] & 0xFFFF) | ((t[m - 1] >> 16) & 0xFFFF0000)); }
   }
 }
 
@@ -1049,12 +1118,14 @@ static inline void gf2_matrix_transpose_64x64(uint8_t *dst,
     /// Therefore, wk starts at the first row and then has rowstride
     /// added j times, running over the rows of A, then skips C
 
-    const uint32_t rowstride_dst = (_rowstride_dst + 7)/8;
-    const uint32_t rowstride_src = (_rowstride_src + 7)/8;
-    uint64_t m               = (uint64_t)0xFFFFFFFF;
+    // NOTE: the row strides are given in bytes and must be multiples of 8,
+    // the pointer arithmetic below is in words.
+    const uint32_t rowstride_dst = _rowstride_dst / 8;
+    const uint32_t rowstride_src = _rowstride_src / 8;
     uint32_t j_rowstride_dst = rowstride_dst * 64;
     uint32_t j_rowstride_src = rowstride_src * 32;
     uint64_t *const end      = ((uint64_t *)(dst)) + j_rowstride_dst;
+    uint64_t m               = 0xFFFFFFFF;
     // We start with j = 32, and a one-time unrolled loop, where
     // we copy from src and write the result to dst, swapping
     // the two 32x32 corner matrices.
@@ -1186,24 +1257,24 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *__restrict__ dst,
                                                 const uint32_t rowstride_src,
                                                 const uint32_t n) {
     // Preload the n input rows into level 1, using a minimum of cache lines (compact storage).
+    // NOTE: the input rows have 64 columns, the output rows have n bits
     uint64_t t[64];
     uint8_t const *__restrict__ wks = src;
     uint64_t const m      = __LEFT_BITMASK(n);
-    int k;
+    uint32_t k;
     for (k = 0; k < n; ++k) {
-        t[k] = *(uint64_t *)wks;
-        t[k] &= m;
+        t[k] = gf2_load_u64(wks);
         wks += rowstride_src;
     }
     // see https://bitbucket.org/malb/m4ri/issues/53
     for (; k < 64; ++k) { t[k] = 0; }
     if (n > 32) {
-        while (k < 64) { t[k++] = 0; }
+        // NOTE: `rowstride_dst` must be a multiple of 8
         gf2_matrix_transpose_64x64(dst, (uint8_t *)t, rowstride_dst, 8);
         return;
     }
 
-    int log2j = _mzd_transpose_Nxjx64(t, n);
+    const int log2j = _mzd_transpose_Nxjx64(t, n);
     // All output bits are now transposed, but still might need to be shifted in place.
     // What we have now is 64/j matrices of size jxj. Thus,
     // [Al]...[A1][A0], where l = 64/j - 1.
@@ -1212,220 +1283,65 @@ static inline void gf2_matrix_transpose_le64x64(uint8_t *__restrict__ dst,
     // [A1]
     // ...
     // [Al]
-    uint8_t *__restrict__ wk = (uint8_t *)dst;
-    switch (log2j) {
-        case 5: {
-            const uint32_t j_rowstride_dst = 32 * rowstride_dst;
-            for (uint32_t k = 0; k < 32; ++k) {
-                *(uint64_t *)(wk + 0)               = t[k] & m;
-                *(uint64_t *)(wk + j_rowstride_dst) = (t[k] >> 32) & m;
-                wk += rowstride_dst;
-            }
-            break;
-        }
-        case 4: {
-            const uint32_t j_rowstride_dst = 16 * rowstride_dst;
-            for (uint32_t k = 0; k < 16; ++k) {
-                wk[0]                   = t[k] & m;
-                wk[j_rowstride_dst]     = (t[k] >> 16) & m;
-                wk[2 * j_rowstride_dst] = (t[k] >> 32) & m;
-                wk[3 * j_rowstride_dst] = (t[k] >> 48) & m;
-                wk += rowstride_dst;
-            }
-            break;
-        }
-        case 3: {
-            const uint32_t j_rowstride_dst = 8 * rowstride_dst;
-            for (uint32_t k = 0; k < 8; ++k) {
-                wk[0]                   = t[k] & m;
-                wk[j_rowstride_dst]     = (t[k] >> 8) & m;
-                wk[2 * j_rowstride_dst] = (t[k] >> 16) & m;
-                wk[3 * j_rowstride_dst] = (t[k] >> 24) & m;
-                wk[4 * j_rowstride_dst] = (t[k] >> 32) & m;
-                wk[5 * j_rowstride_dst] = (t[k] >> 40) & m;
-                wk[6 * j_rowstride_dst] = (t[k] >> 48) & m;
-                wk[7 * j_rowstride_dst] = (t[k] >> 56) & m;
-                wk += rowstride_dst;
-            }
-            break;
-        }
-        case 2: {
-            const uint32_t j_rowstride_dst = 4 * rowstride_dst;
-            for (uint32_t k = 0; k < 4; ++k) {
-                uint64_t *__restrict__ wk2 = (uint64_t *__restrict__)wk;
-                uint64_t tk            = t[k];
-                for (int i = 0; i < 2; ++i) {
-                    wk2[0]                   = tk & m;
-                    wk2[j_rowstride_dst]     = (tk >> 4) & m;
-                    wk2[2 * j_rowstride_dst] = (tk >> 8) & m;
-                    wk2[3 * j_rowstride_dst] = (tk >> 12) & m;
-                    wk2[4 * j_rowstride_dst] = (tk >> 16) & m;
-                    wk2[5 * j_rowstride_dst] = (tk >> 20) & m;
-                    wk2[6 * j_rowstride_dst] = (tk >> 24) & m;
-                    wk2[7 * j_rowstride_dst] = (tk >> 28) & m;
-                    wk2 += 8 * j_rowstride_dst;
-                    tk >>= 32;
-                }
-                wk += rowstride_dst;
-            }
-            break;
-        }
-        case 1: {
-            const uint32_t j_rowstride_dst = 2 * rowstride_dst;
-            for (uint32_t k = 0; k < 2; ++k) {
-                uint64_t *__restrict__ wk2 = (uint64_t *__restrict__)wk;
-                uint64_t tk            = t[k];
-                for (int i = 0; i < 8; ++i) {
-                    wk2[0]                   = tk & m;
-                    wk2[j_rowstride_dst]     = (tk >> 2) & m;
-                    wk2[2 * j_rowstride_dst] = (tk >> 4) & m;
-                    wk2[3 * j_rowstride_dst] = (tk >> 6) & m;
-                    wk2 += 4 * j_rowstride_dst;
-                    tk >>= 8;
-                }
-                wk += rowstride_dst;
-            }
-            break;
-        }
-        case 0: {
-            uint64_t *__restrict__ wk2 = (uint64_t *__restrict__) wk;
-            uint64_t tk            = t[0];
-            for (int i = 0; i < 16; ++i) {
-                wk2[0]                 = tk & m;
-                wk2[rowstride_dst]     = (tk >> 1) & m;
-                wk2[2 * rowstride_dst] = (tk >> 2) & m;
-                wk2[3 * rowstride_dst] = (tk >> 3) & m;
-                wk2 += 4 * rowstride_dst;
-                tk >>= 4;
-            }
-            break;
+    // Hence output row r is stored in block r/j of t[r%j].
+    const uint32_t j = 1u << log2j;
+    const uint32_t out_bytes = (n + 7) / 8;
+    for (uint32_t r = 0; r < 64; ++r) {
+        const uint64_t row = (t[r % j] >> ((r / j) * j)) & m;
+        for (uint32_t b = 0; b < out_bytes; ++b) {
+            dst[r*rowstride_dst + b] = (uint8_t)(row >> (8*b));
         }
     }
 }
 
-/// TODO case n=1,2,3
 /// Rows of all matrices are expected have offset zero
 /// and lay entirely inside a single block.
 ///
-/// \note This function also works to transpose in-place.
-///
 /// Transpose a 64 x n matrix with width 1.
+/// NOTE: each output row is written as 8 bytes (64 bits).
 ///
 /// \param dst First word of destination matrix.
 /// \param src First word of source matrix.
-/// \param rowstride_dst Rowstride of destination matrix.
-/// \param rowstride_src Rowstride of source matrix.
-/// \param n Number of columns in source matrix, must be less than 64.
+/// \param rowstride_dst Rowstride of destination matrix in bytes.
+/// \param rowstride_src Rowstride of source matrix in bytes.
+/// \param n Number of columns in source matrix, 1 <= n <= 64.
 static inline void gf2_matrix_transpose_64xle64(uint8_t *__restrict__ dst,
                                                 uint8_t const *__restrict__ src,
                                                 const uint32_t rowstride_dst,
                                                 const uint32_t rowstride_src,
                                                 const uint32_t n) {
-    uint64_t t[64];
-    int log2j = log2_ceil((int)n);
-    const uint8_t  *__restrict__ wks = src;
+    uint64_t t[64] = {0};
+    const uint32_t j = 1u << gf2_log2_ceil((int)n);
+    const uint32_t in_bytes = (n + 7) / 8;
     const uint64_t mask = __LEFT_BITMASK(n);
-    switch (log2j) {
-        case 6: {
-            gf2_matrix_transpose_64x64((uint8_t *)t, src, 8, rowstride_src);
-            uint8_t *__restrict__ wk = dst;
-            for (uint32_t k = 0; k < n; ++k) {
-                *(uint64_t *)wk = t[k] & mask;
-                wk += rowstride_dst;
-            }
-            return;
+
+    // input row r goes into block r/j of t[r%j], s.t. t[0..j) consists
+    // of 64/j jxj matrices: [Al]...[A1][A0] with A_i = rows [i*j, (i+1)*j)
+    for (uint32_t r = 0; r < 64; ++r) {
+        uint64_t row = 0;
+        for (uint32_t b = 0; b < in_bytes; ++b) {
+            row |= ((uint64_t)src[r*rowstride_src + b]) << (8*b);
         }
-        case 5: {
-            const uint32_t j_rowstride_src = 32 * rowstride_src;
-            for (uint64_t k = 0; k < 32; ++k) {
-                t[k] = ((*(uint64_t *)wks)&mask) | (*((uint64_t *)(wks + j_rowstride_src)) << 32);
-                wks += rowstride_src;
-            }
-            break;
-        }
-        case 4: {
-            const uint32_t j_rowstride_src = 16 * rowstride_src;
-            for (int k = 0; k < 16; ++k) {
-                t[k] =  *((uint64_t *)(wks + 0))                          | (*((uint64_t *)(wks +     j_rowstride_src)) << 16);
-                t[k]|= (*((uint64_t *)(wks + 2 * j_rowstride_src)) << 32) | (*((uint64_t *)(wks + 3 * j_rowstride_src)) << 48);
-                wks += rowstride_src;
-            }
-            break;
-        }
-        case 3: {
-            const uint32_t j_rowstride_src = 8 * rowstride_src;
-            uint64_t tt;
-            for (int k = 0; k < 8; ++k) {
-                tt   =  (*(uint64_t *)(wks + 0))                          | ((*(uint64_t *)(wks +     j_rowstride_src)) <<  8);
-                t[k] = ((*(uint64_t *)(wks + 2 * j_rowstride_src)) << 16) | ((*(uint64_t *)(wks + 3 * j_rowstride_src)) << 24);
-                tt  |= ((*(uint64_t *)(wks + 4 * j_rowstride_src)) << 32) | ((*(uint64_t *)(wks + 5 * j_rowstride_src)) << 40);
-                t[k]|= ((*(uint64_t *)(wks + 6 * j_rowstride_src)) << 48) | ((*(uint64_t *)(wks + 7 * j_rowstride_src)) << 56);
-                wks += rowstride_src;
-                t[k] |= tt;
-            }
-            break;
-        }
-        case 2: {
-            uint8_t const *__restrict__ wks2 = wks + 60 * rowstride_src;
-            t[0]                      = *(uint64_t *)(wks2 + 0);
-            t[1]                      = *(uint64_t *)(wks2 +     rowstride_src);
-            t[2]                      = *(uint64_t *)(wks2 + 2 * rowstride_src);
-            t[3]                      = *(uint64_t *)(wks2 + 3 * rowstride_src);
-            for (int i = 0; i < 15; ++i) {
-                wks2 -= 4 * rowstride_src;
-                t[0] <<= 4;
-                t[1] <<= 4;
-                t[2] <<= 4;
-                t[3] <<= 4;
-                t[0] |= wks2[0];
-                t[1] |= wks2[rowstride_src];
-                t[2] |= wks2[2 * rowstride_src];
-                t[3] |= wks2[3 * rowstride_src];
-            }
-            break;
-        }
-        case 1: {
-            wks += 62 * rowstride_src;
-            t[0] = wks[0];
-            t[1] = wks[rowstride_src];
-            for (int i = 0; i < 31; ++i) {
-                wks -= 2 * rowstride_src;
-                t[0] <<= 2;
-                t[1] <<= 2;
-                t[0] |= wks[0];
-                t[1] |= wks[rowstride_src];
-            }
-            break;
-        }
-        case 0: {
-            uint64_t tt[2];
-            tt[0] = wks[0];
-            tt[1] = wks[rowstride_src];
-            for (int i = 2; i < 64; i += 2) {
-                wks += 2 * rowstride_src;
-                tt[0] |= wks[0] << i;
-                tt[1] |= wks[rowstride_src] << i;
-            }
-            *dst = tt[0] | (tt[1] << 1);
-            return;
-        }
+        t[r % j] |= (row & mask) << ((r / j) * j);
     }
-    int j = 1 << log2j;
+
+    // transposing all A_i in parallel, yields in t[c] the column c of A_i
+    // in block i, which is exactly the c-th output row.
     _mzd_transpose_Nxjx64(t, j);
-    uint8_t *__restrict__ wk = dst;
-    for (int k = 0; k < n; ++k) {
-        *(uint64_t *)wk = t[k] & mask;
-        wk += rowstride_dst;
+    for (uint32_t c = 0; c < n; ++c) {
+        gf2_store_u64(dst + c*rowstride_dst, t[c]);
     }
 }
 
-///
-/// \param dst
-/// \param src
-/// \param rowstride_dst
-/// \param rowstride_src
-/// \param n
-/// \param m
+/// Transpose a n x m matrix with n, m <= 64.
+/// Only ceil(m/8) bytes of each input and ceil(n/8) bytes of each output row
+/// are accessed.
+/// \param dst First word of destination matrix.
+/// \param src First word of source matrix.
+/// \param rowstride_dst Rowstride of destination matrix in bytes.
+/// \param rowstride_src Rowstride of source matrix in bytes.
+/// \param n Number of rows in source matrix
+/// \param m Number of columns in source matrix
 static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
                                                   uint8_t const *__restrict__ src,
                                                   const uint32_t rowstride_dst,
@@ -1435,9 +1351,14 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
     uint8_t const *__restrict__ wks = src;
     uint64_t t[64];
     const uint64_t mask = __LEFT_BITMASK(m);
-    int k;
+    const uint32_t in_bytes  = (m + 7) / 8;
+    const uint32_t out_bytes = (n + 7) / 8;
+    uint32_t k;
     for (k = 0; k < n; ++k) {
-        t[k] = *(uint64_t *)wks;
+        t[k] = 0;
+        for (uint32_t b = 0; b < in_bytes; ++b) {
+            t[k] |= ((uint64_t)wks[b]) << (8*b);
+        }
         t[k] &= mask;
         wks += rowstride_src;
     }
@@ -1446,18 +1367,196 @@ static inline void gf2_matrix_transpose_le64xle64(uint8_t *__restrict__ dst,
     gf2_matrix_transpose_64x64((uint8_t *)t, (uint8_t *)t, 8, 8);
     uint8_t *__restrict__ wk = dst;
     for (uint32_t s = 0; s < m; ++s) {
-        *(uint64_t *)wk = t[s];
+        for (uint32_t b = 0; b < out_bytes; ++b) {
+            wk[b] = (uint8_t)(t[s] >> (8*b));
+        }
         wk += rowstride_dst;
     }
 }
-///
+
+
+
+///  taken from hackers delight
+/// transposes an 8x8 bit block: bit c of b[r*dst_stride] = bit r of a[c*src_stride]
+static inline void gf2_matrix_transpose_8x8(uint8_t *b,
+                                            const uint8_t *a,
+                                            const uint64_t dst_stride,
+                                            const uint64_t src_stride) {
+    uint32_t x = (uint32_t)a[7*src_stride]<<24 | (uint32_t)a[6*src_stride]<<16 | (uint32_t)a[5*src_stride]<<8 | ((uint32_t)a[4*src_stride])<<0;
+    uint32_t y = (uint32_t)a[3*src_stride]<<24 | (uint32_t)a[2*src_stride]<<16 | (uint32_t)a[1*src_stride]<<8 | ((uint32_t)a[0*src_stride])<<0;
+
+    uint32_t t = (x ^ (x >> 7)) & 0x00AA00AA;  x = x ^ t ^ (t << 7);
+    t = (y ^ (y >> 7)) & 0x00AA00AA;  y = y ^ t ^ (t << 7);
+
+    t = (x ^ (x >>14)) & 0x0000CCCC;  x = x ^ t ^ (t <<14);
+    t = (y ^ (y >>14)) & 0x0000CCCC;  y = y ^ t ^ (t <<14);
+
+    t = (x & 0xF0F0F0F0) | ((y >> 4) & 0x0F0F0F0F);
+    y = ((x << 4) & 0xF0F0F0F0) | (y & 0x0F0F0F0F);
+    x = t;
+
+    b[7*dst_stride]=x>>24; b[6*dst_stride]=x>>16; b[5*dst_stride]=x>>8; b[4*dst_stride]=x;
+    b[3*dst_stride]=y>>24; b[2*dst_stride]=y>>16; b[1*dst_stride]=y>>8; b[0*dst_stride]=y;
+}
+
+#define REVERSE_BYTE(b) (((uint64_t)b * 0x80200802ULL) & 0x0884422110ULL) * 0x0101010101ULL >> 32
+
+/// \param a[in,out]: Array of 64 uint64_t values representing a 64x64 bit matrix
+static inline void gf2_matrix_transpose_64x64_inplace(uint64_t a[64]) {
+    for (uint64_t j = 32, m = 0x00000000FFFFFFFF; j; j >>= 1, m ^= m << j) {
+        for (uint64_t k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+            const uint64_t t = (a[k] ^ (a[k | j] >> j)) & m;
+            a[k] ^= t;
+            a[k | j] ^= (t << j);
+        }
+    }
+}
+
+static inline void gf2_matrix_transpose_64x64_(uint8_t *a,
+                                               const uint8_t *b,
+                                               const uint64_t dst_stride,
+                                               const uint64_t src_stride) {
+    for (uint64_t j = 32, m = 0x00000000FFFFFFFF; j; j >>= 1, m ^= m << j) {
+        for (uint64_t k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+            const uint64_t s1 = gf2_load_u64(b +  k     *src_stride);
+            const uint64_t s2 = gf2_load_u64(b + (k | j)*src_stride);
+            const uint64_t t = (s1 ^ (s2 >> j)) & m;
+            gf2_store_u64(a +  k     *dst_stride, gf2_load_u64(a +  k     *dst_stride) ^ t);
+            gf2_store_u64(a + (k | j)*dst_stride, gf2_load_u64(a + (k | j)*dst_stride) ^ (t<<j));
+        }
+        b = a;
+    }
+}
+
+/// transposes a 64x64 bit matrix, rows are 8 byte words (bit c of row r
+/// is column c) at `src + r*src_stride`, written to `dst + r*dst_stride`.
+/// \param a[out]: destination
+/// \param b[in]: source
+/// \param dst_stride[in]: in bytes
+/// \param src_stride[in]: in bytes
+static inline void gf2_matrix_transpose_64x64_v3(uint8_t *a,
+                                                 const uint8_t *b,
+                                                 const uint64_t dst_stride,
+                                                 uint64_t src_stride) {
+    const uint64_t mask[6][2] = {
+        {0X5555555555555555, 0XAAAAAAAAAAAAAAAA},
+        {0X3333333333333333, 0XCCCCCCCCCCCCCCCC},
+        {0X0F0F0F0F0F0F0F0F, 0XF0F0F0F0F0F0F0F0},
+        {0X00FF00FF00FF00FF, 0XFF00FF00FF00FF00},
+        {0X0000FFFF0000FFFF, 0XFFFF0000FFFF0000},
+        {0X00000000FFFFFFFF, 0XFFFFFFFF00000000}
+    };
+
+    for (int64_t j = 5; j >= 0; j--) {
+        const uint64_t s = 1 << j;
+        for (uint64_t p = 0; p < 32/s; p++) {
+            for (uint64_t i = 0; i < s; i++) {
+                const uint64_t idx0 = p*2*s + i;
+                const uint64_t idx1 = p*2*s + i + s;
+                const uint64_t in0 = gf2_load_u64(b + idx0 * src_stride);
+                const uint64_t in1 = gf2_load_u64(b + idx1 * src_stride);
+                const uint64_t x =  (in0 & mask[j][0])       | ((in1 & mask[j][0]) << s);
+                const uint64_t y = ((in0 & mask[j][1]) >> s) |  (in1 & mask[j][1]);
+                gf2_store_u64(a + idx0*dst_stride, x);
+                gf2_store_u64(a + idx1*dst_stride, y);
+            }
+        }
+
+        b = a;
+        src_stride = dst_stride;
+    }
+}
+
+/// dst = src^T, both column major, using 64x64 and 8x8 bit block transposes.
+/// NOTE: the edge cases use `gf2_matrix_get/set`, hence the strides must be
+///     dst_stride = gf2_matrix_bytes_per_column(ncols),
+///     src_stride = gf2_matrix_bytes_per_column(nrows).
+/// \param dst[out]: ncols x nrows matrix
+/// \param src[in]: nrows x ncols matrix
+/// \param dst_stride[in]: bytes per column of dst
+/// \param src_stride[in]: bytes per column of src
+/// \param nrows[in]: number of rows of src
+/// \param ncols[in]: number of cols of src
+static inline void gf2_matrix_transpose_strided(uint8_t *__restrict__ dst,
+                                                uint8_t const *__restrict__ src,
+                                                const uint32_t dst_stride,
+                                                const uint32_t src_stride,
+                                                const uint32_t nrows,
+                                                const uint32_t ncols) {
+    const size_t bsize = 64;
+    uint64_t rb = 0;
+    for (; rb < nrows / bsize; rb++) {
+        for (uint64_t cb = 0; cb < ncols / bsize; cb++) {
+            const uint8_t* src_origin = src + (8*cb*src_stride+rb)*(bsize/8);
+            uint8_t*       dst_origin = dst + (8*rb*dst_stride+cb)*(bsize/8);
+            gf2_matrix_transpose_64x64_v3(dst_origin, src_origin, dst_stride, src_stride);
+        }
+    }
+
+    if (nrows % bsize) {
+        uint32_t j = rb*bsize;
+        for(; j + 8 <= nrows; j+=8) {
+            uint32_t i = 0;
+            for (; i+8 <= ncols; i+=8) {
+                const uint8_t* src_origin = src + i * src_stride + j/8;
+                uint8_t*       dst_origin = dst + j * dst_stride + i/8;
+
+                gf2_matrix_transpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
+            }
+
+            for (; i < ncols; i++) {
+                for (uint32_t k = 0; k < 8; k++) {
+                    const uint8_t t = gf2_matrix_get(src, nrows, j+k, i);
+                    gf2_matrix_set(dst, ncols, i, j+k, t);
+                }
+            }
+        }
+
+        for(; j < nrows; j++) {
+            for (uint32_t i = 0; i < ncols; i++) {
+                const uint8_t t = gf2_matrix_get(src, nrows, j, i);
+                gf2_matrix_set(dst, ncols, i, j, t);
+            }
+        }
+    }
+
+    if (ncols % bsize) {
+        uint32_t j = (ncols/bsize)*bsize;
+        for(; j + 8 <= ncols; j+=8) {
+            uint32_t i = 0;
+            for (; i+8 <= nrows; i+=8) {
+                const uint8_t* src_origin = src + j * src_stride + i/8;
+                uint8_t*       dst_origin = dst + i * dst_stride + j/8;
+
+                gf2_matrix_transpose_8x8(dst_origin, src_origin, dst_stride, src_stride);
+            }
+
+            for (; i < nrows; i++) {
+                for (uint32_t k = 0; k < 8; k++) {
+                    const uint8_t t = gf2_matrix_get(src, nrows, i, j+k);
+                    gf2_matrix_set(dst, ncols, j+k, i, t);
+                }
+            }
+        }
+        for(; j < ncols; j++) {
+            for (uint32_t i = 0; i < nrows; i++) {
+                const uint8_t t = gf2_matrix_get(src, nrows, i, j);
+                gf2_matrix_set(dst, ncols, j, i, t);
+            }
+        }
+    }
+}
+
+/// transposes a row major nrows x ncols matrix with nrows, ncols <= 64
+/// NOTE: the underlying kernels read/write whole 16/32-bit words per row,
+///     hence the buffers need a few bytes of slack after the last row.
 /// \param fwd
 /// \param fws
 /// \param rowstride_dst
 /// \param rowstride_src
 /// \param nrows
 /// \param ncols
-/// \param maxsize
+/// \param maxsize = MAX(nrows, ncols)
 static inline void gf2_matrix_transpose_small(uint8_t *__restrict__ fwd,
                                               uint8_t const *__restrict__ fws,
                                               const uint32_t rowstride_dst,
@@ -1465,7 +1564,7 @@ static inline void gf2_matrix_transpose_small(uint8_t *__restrict__ fwd,
                                               const uint32_t nrows,
                                               const uint32_t ncols,
                                               const uint32_t maxsize) {
-    assert(maxsize < 64);
+    assert(maxsize <= 64);
     if (maxsize <= 8) {
         gf2_matrix_transpose_le8xle8(fwd, fws, rowstride_dst, rowstride_src, nrows, ncols, maxsize);
     } else if (maxsize <= 16) {
@@ -1485,7 +1584,7 @@ static inline void gf2_matrix_transpose_small(uint8_t *__restrict__ fwd,
 /// \param nrows
 /// \param ncols
 /// \param maxsize
-void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
+static inline void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
                                uint8_t const *__restrict__ fws,
                                const uint32_t rowstride_dst,
                                const uint32_t rowstride_src,
@@ -1530,14 +1629,13 @@ void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
         uint64_t const *__restrict__ fws_delayed = NULL;
         int even                         = 0;
         while (1) {
-            for (int j = js; j < whole_64cols; ++j) {
+            for (uint32_t j = js; j < whole_64cols; ++j) {
                 if (!even) {
                     fwd_delayed = fwd_current;
                     fws_delayed = fws_current;
                 } else {
-                    // TODO wont compile on C++
-                    // gf2_matrix_transpose_64x64_2(fwd_delayed, fwd_current, fws_delayed, fws_current,
-                    //                             rowstride_dst, rowstride_src);
+                    gf2_matrix_transpose_64x64_2((uint8_t *)fwd_delayed, (uint8_t *)fwd_current, (uint8_t *)fws_delayed, (uint8_t *)fws_current,
+                                                rowstride_dst, rowstride_src);
                 }
                 fwd_current += rowstride_64_dst;
                 ++fws_current;
@@ -1578,3 +1676,249 @@ void gf2_matrix_transpose_base(uint8_t *__restrict__ fwd,
     gf2_matrix_transpose_small(fwd, fws, rowstride_dst, rowstride_src, nrows, ncols, maxsize2);
 }
 
+/// c = a*b, computed via inner products of the rows of a and the cols of b
+/// NOTE: a must be at most 2^18 bits large (stack buffer for a^T)
+static inline void gf2_matrix_mul_transpose(uint8_t *c,
+                                            const uint8_t *a,
+                                            const uint8_t *b,
+                                            const uint64_t nrows1,
+                                            const uint64_t ncols1,
+                                            const uint64_t ncols2) {
+    uint8_t aT[1u<<15] __attribute__((aligned(32)));
+    assert(gf2_matrix_bytes_size(ncols1, nrows1) <= sizeof(aT));
+    gf2_matrix_transpose_strided(aT, a, (ncols1+7)/8, (nrows1+7)/8, nrows1, ncols1);
+
+    const uint64_t bsize = 64;
+    const uint64_t bbyte = bsize / 8;
+
+    const uint64_t a_stride = (ncols1+7) / 8;
+    const uint64_t b_stride = (ncols1+7) / 8;
+    const uint64_t c_stride = (nrows1+7) / 8;
+
+    // iterate over the cols of B
+    for (uint64_t k = 0; k < ncols2; k += 1) {
+        uint64_t cs = 0;
+        // iterate over the rows of A = cols of AT
+        for (uint64_t i = 0; i < nrows1; i += 1) {
+            uint64_t acc = 0;
+            uint64_t j = 0;
+            for (; j+bbyte <= ncols1/8; j += bbyte) {
+                const uint64_t A = gf2_load_u64(aT + i*a_stride + j);
+                const uint64_t B = gf2_load_u64(b  + k*b_stride + j);
+                acc ^= A & B;
+            }
+
+            // tail mngt.
+            for (; j < (ncols1+7)/8; j += 1) {
+                const uint8_t A = aT[i*a_stride + j];
+                const uint8_t B = b [k*b_stride + j];
+                acc ^= A & B;
+            }
+
+            // after accumulating 64 bits write them
+            acc = __builtin_popcountll(acc) & 1;
+            cs ^= acc << (i % bsize);
+            if (i % bsize == 0x3f) {
+                gf2_store_u64(c + k*c_stride + (i-63)/8, cs);
+                cs = 0;
+            }
+        }
+
+        // tail mngt.
+        if (nrows1 % bsize) {
+            const uint32_t bytes = ((nrows1 % bsize)+7) / 8;
+            const uint64_t off = bbyte * (nrows1 / bsize);
+            gf2_write8rows(c + k*c_stride + off, cs, bytes);
+        }
+    }
+}
+
+/// out = in^T, both column major
+/// \param out[out]: ncols x nrows matrix
+/// \param in[in]: nrows x ncols matrix
+/// \param nrows[in]: number of rows of `in`
+/// \param ncols[in]: number of columns of `in`
+static inline void gf2_matrix_transpose(gf2 *out,
+                                        const gf2 *in,
+                                        const uint32_t nrows,
+                                        const uint32_t ncols) {
+    const uint32_t bin  = gf2_matrix_bytes_per_column(nrows);
+    const uint32_t bout = gf2_matrix_bytes_per_column(ncols);
+    const uint32_t r8 = nrows & ~7u;
+    const uint32_t c8 = ncols & ~7u;
+
+    // full 8x8 blocks: rows [i, i+8) and cols [j, j+8) of `in`
+    for (uint32_t j = 0; j < c8; j += 8) {
+        for (uint32_t i = 0; i < r8; i += 8) {
+            gf2_matrix_transpose_8x8(out + i*bout + j/8, in + j*bin + i/8, bout, bin);
+        }
+    }
+
+    // remaining rows of `in`
+    for (uint32_t j = 0; j < ncols; j++) {
+        for (uint32_t i = r8; i < nrows; i++) {
+            gf2_matrix_set(out, ncols, j, i, gf2_matrix_get(in, nrows, i, j));
+        }
+    }
+
+    // remaining cols of `in`
+    for (uint32_t j = c8; j < ncols; j++) {
+        for (uint32_t i = 0; i < r8; i++) {
+            gf2_matrix_set(out, ncols, j, i, gf2_matrix_get(in, nrows, i, j));
+        }
+    }
+}
+
+#ifdef USE_NEON
+
+/// matrix1 = matrix2 + matrix3
+static inline void gf2_matrix_add_u128(gf2 *matrix1,
+                                       const gf2 *matrix2,
+                                       const gf2 *matrix3,
+                                       const uint32_t n_rows,
+                                       const uint32_t n_cols) {
+    const uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
+    uint32_t i = 0;
+    for (; (i + 16) <= n_bytes; i += 16) {
+        const uint8x16_t t2 = vld1q_u8(matrix2 + i);
+        const uint8x16_t t3 = vld1q_u8(matrix3 + i);
+        vst1q_u8(matrix1 + i, gf2v_add_u128(t2, t3));
+    }
+
+    for (; i < n_bytes; i++) {
+        matrix1[i] = matrix2[i] ^ matrix3[i];
+    }
+}
+
+/// matrix1 += scalar*matrix2
+static inline void gf2_matrix_add_scalar_u128(gf2 *matrix1,
+                                              const gf2 scalar,
+                                              const gf2 *matrix2,
+                                              const uint32_t n_rows,
+                                              const uint32_t n_cols) {
+    const uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
+    const uint8_t m = -(scalar & 1u);
+    const uint8x16_t s = vdupq_n_u8(m);
+    uint32_t i = 0;
+    for (; (i + 16) <= n_bytes; i += 16) {
+        const uint8x16_t t1 = vld1q_u8(matrix1 + i);
+        const uint8x16_t t2 = vld1q_u8(matrix2 + i);
+        vst1q_u8(matrix1 + i, gf2v_add_u128(t1, gf2v_mul_u128(t2, s)));
+    }
+
+    for (; i < n_bytes; i++) {
+        matrix1[i] ^= m & matrix2[i];
+    }
+}
+
+/// result += matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_add_mul_u128(gf2 *result,
+                                           const gf2 *matrix1,
+                                           const gf2 *matrix2,
+                                           const uint32_t n_rows1,
+                                           const uint32_t n_cols1,
+                                           const uint32_t n_cols2) {
+    const uint32_t bpc = gf2_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const gf2 b = gf2_matrix_get(matrix2, n_cols1, k, j);
+            gf2_vector_scalar_add_u128(result + j*bpc, b, matrix1 + k*bpc, n_rows1);
+        }
+    }
+}
+
+/// result = matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_mul_u128(gf2 *result,
+                                       const gf2 *matrix1,
+                                       const gf2 *matrix2,
+                                       const uint32_t n_rows1,
+                                       const uint32_t n_cols1,
+                                       const uint32_t n_cols2) {
+    gf2_matrix_zero(result, n_rows1, n_cols2);
+    gf2_matrix_add_mul_u128(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+
+#endif
+
+#ifdef USE_AVX512
+
+/// matrix1 = matrix2 + matrix3
+static inline void gf2_matrix_add_u512(gf2 *matrix1,
+                                       const gf2 *matrix2,
+                                       const gf2 *matrix3,
+                                       const uint32_t n_rows,
+                                       const uint32_t n_cols) {
+    const uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
+    uint32_t i = 0;
+    for (; (i + 64) <= n_bytes; i += 64) {
+        const __m512i t2 = _mm512_loadu_si512((const void *)(matrix2 + i));
+        const __m512i t3 = _mm512_loadu_si512((const void *)(matrix3 + i));
+        _mm512_storeu_si512((void *)(matrix1 + i), gf2v_add_u512(t2, t3));
+    }
+
+    for (; i < n_bytes; i++) {
+        matrix1[i] = matrix2[i] ^ matrix3[i];
+    }
+}
+
+/// matrix1 += scalar*matrix2
+static inline void gf2_matrix_add_scalar_u512(gf2 *matrix1,
+                                              const gf2 scalar,
+                                              const gf2 *matrix2,
+                                              const uint32_t n_rows,
+                                              const uint32_t n_cols) {
+    const uint32_t n_bytes = gf2_matrix_bytes_size(n_rows, n_cols);
+    const uint8_t m = -(scalar & 1u);
+    const __m512i s = _mm512_set1_epi8(m);
+    uint32_t i = 0;
+    for (; (i + 64) <= n_bytes; i += 64) {
+        const __m512i t1 = _mm512_loadu_si512((const void *)(matrix1 + i));
+        const __m512i t2 = _mm512_loadu_si512((const void *)(matrix2 + i));
+        _mm512_storeu_si512((void *)(matrix1 + i), gf2v_add_u512(t1, gf2v_mul_u512(t2, s)));
+    }
+
+    for (; i < n_bytes; i++) {
+        matrix1[i] ^= m & matrix2[i];
+    }
+}
+
+/// result += matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_add_mul_u512(gf2 *result,
+                                           const gf2 *matrix1,
+                                           const gf2 *matrix2,
+                                           const uint32_t n_rows1,
+                                           const uint32_t n_cols1,
+                                           const uint32_t n_cols2) {
+    const uint32_t bpc = gf2_matrix_bytes_per_column(n_rows1);
+    for (uint32_t j = 0; j < n_cols2; j++) {
+        for (uint32_t k = 0; k < n_cols1; k++) {
+            const gf2 b = gf2_matrix_get(matrix2, n_cols1, k, j);
+            gf2_vector_scalar_add_u512(result + j*bpc, b, matrix1 + k*bpc, n_rows1);
+        }
+    }
+}
+
+/// result = matrix1 * matrix2
+/// matrix1 of size n_rows1 * n_cols1
+/// matrix2 of size n_cols1 * n_cols2
+/// result  of size n_rows1 * n_cols2
+static inline void gf2_matrix_mul_u512(gf2 *result,
+                                       const gf2 *matrix1,
+                                       const gf2 *matrix2,
+                                       const uint32_t n_rows1,
+                                       const uint32_t n_cols1,
+                                       const uint32_t n_cols2) {
+    gf2_matrix_zero(result, n_rows1, n_cols2);
+    gf2_matrix_add_mul_u512(result, matrix1, matrix2, n_rows1, n_cols1, n_cols2);
+}
+
+#endif

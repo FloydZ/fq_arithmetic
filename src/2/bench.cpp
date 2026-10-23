@@ -13,11 +13,11 @@ const uint32_t ncols  = 7;
 const uint32_t ncols2 = 32;
 
 
-static void BM_gf2_mul_u64(benchmark::State& state) {
+static void BM_gf2v_mul_u64(benchmark::State& state) {
     uint64_t a = 1;
     uint8_t b = 2;
     for (auto _ : state) {
-        a = gf2_mul_u64(a, b);
+        a = gf2v_mul_u64(a, b);
         a += 1;
         b += 1;
         benchmark::DoNotOptimize(a);
@@ -34,9 +34,9 @@ static void BM_gf2_vector_eval(benchmark::State& state) {
 
 static void BM_gf2_vector_add(benchmark::State& state) {
     for (auto _ : state) {
-        gf2_vector_add(v1, v2, v3, N);
-        gf2_vector_add(v2, v3, v1, N);
-        gf2_vector_add(v3, v1, v2, N);
+        gf2_vector_add_v2(v1, v2, v3, N);
+        gf2_vector_add_v2(v2, v3, v1, N);
+        gf2_vector_add_v2(v3, v1, v2, N);
         benchmark::DoNotOptimize(v3[7] += 1);
     }
 }
@@ -60,9 +60,9 @@ static void BM_gf2_matrix_mul(benchmark::State& state) {
     }
 }
 
-// BENCHMARK(BM_gf2_vector_eval);
-// BENCHMARK(BM_gf2_vector_add);
-// BENCHMARK(BM_gf2_vector_scalar_add_v2);
+BENCHMARK(BM_gf2_vector_eval);
+BENCHMARK(BM_gf2_vector_add);
+BENCHMARK(BM_gf2_vector_scalar_add_v2);
 BENCHMARK(BM_gf2_matrix_mul);
 #ifdef USE_AVX2
 
@@ -88,9 +88,9 @@ static void BM_gf2_vector_eval_u256(benchmark::State& state) {
 
 static void BM_gf2_vector_add_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf2_vector_add_u256(v1, v2, v3, N);
-        gf2_vector_add_u256(v2, v3, v1, N);
-        gf2_vector_add_u256(v3, v1, v2, N);
+        gf2_vector_add_u256_v2(v1, v2, v3, N);
+        gf2_vector_add_u256_v2(v2, v3, v1, N);
+        gf2_vector_add_u256_v2(v3, v1, v2, N);
         benchmark::DoNotOptimize(v3[7] += 1);
     }
 }
@@ -115,14 +115,14 @@ static void BM_gf2_matrix_mul_u256(benchmark::State& state) {
 }
 
 
-//BENCHMARK(BM_gf2_mul_u256);
-//BENCHMARK(BM_gf2_vector_eval_u256);
-//BENCHMARK(BM_gf2_vector_add_u256);
-//BENCHMARK(BM_gf2_vector_scalar_add_v2_u256);
+BENCHMARK(BM_gf2_mul_u256);
+BENCHMARK(BM_gf2_vector_eval_u256);
+BENCHMARK(BM_gf2_vector_add_u256);
+BENCHMARK(BM_gf2_vector_scalar_add_v2_u256);
 BENCHMARK(BM_gf2_matrix_mul_u256);
 #endif
 
-//BENCHMARK(BM_gf2_mul_u64);
+BENCHMARK(BM_gf2v_mul_u64);
 
 
 

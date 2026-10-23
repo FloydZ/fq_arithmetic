@@ -22,6 +22,11 @@ static inline gf256to2 gf256to2_sub(const gf256to2 a,
     return a^b;
 }
 
+/// \return -a = a (characteristic 2)
+static inline gf256to2 gf256to2_neg(const gf256to2 a) {
+    return a;
+}
+
 /// addition
 static inline gf256to2 gf256to2_add_gf256(const gf256to2 a,
                             const uint8_t b) {
@@ -47,26 +52,21 @@ static inline gf256to2 gf256to2_mul(const gf256to2 a, const gf256to2 b) {
 static inline gf256to2 gf256to2_mul_gf256(const gf256to2 a,
                             const gf256 b) {
     gf256to2 ret = gf256_mul(a, b);
-    ret ^= gf256_mul(a>>8, b);
+    ret ^= ((gf256to2)gf256_mul(a>>8, b)) << 8;
     return ret;
 }
 
+/// inversion via the norm map: for a = a_1*X + a_0 the conjugate is
+/// a_1*X + (a_0 + a_1) and N(a) = a_0*(a_0 + a_1) + 32*a_1^2 \in GF(256), so
+///     a^-1 = conj(a) * N(a)^-1
+/// NOTE: inv(0) = 0; not constant time, as `gf256_inv` is a table lookup
 /// \return a^-1
-static inline gf256to2 gf256to2_inverse(const gf256to2 a) {
-    // we are using the lagrange methode: a^-1 = a^{2^{16} - 2}
-    // which can be computed as:
-    //  t = 2^8
-    //  x = a^{2^8 + 1} \in F_256
-    //  y = x^-1
-    //  return y * t
-    gf256to2 t = a;
-    for (uint32_t i = 0; i < 8; ++i) {
-        t = gf256_mul(t, t);
-    }
-    const gf256to2 x = gf256_mul(t, a);
-    const gf256to2 y = gf256_inverse(x);
-    const gf256to2 ret = gf256_mul(y, t);
-    return ret;
+static inline gf256to2 gf256to2_inv(const gf256to2 a) {
+    const gf256 a0 = a, a1 = a >> 8u;
+    const gf256 s = a0 ^ a1;
+    const gf256 n = gf256_mul(a0, s) ^ gf256_mul(0x20, gf256_mul(a1, a1));
+    const gf256 ninv = gf256_inv(n);
+    return (gf256to2)(((gf256to2)gf256_mul(a1, ninv) << 8u) | gf256_mul(s, ninv));
 }
 
 /// addition
@@ -81,25 +81,42 @@ static inline uint64_t gf256to2v_sub(const uint64_t a,
 }
 
 static inline uint64_t gf256to2v_add_gf256(const uint64_t a,
-                            const uint8_t b) {
-    uint64_t b_ = ((uint64_t)b) -1ull;
+                                           const uint8_t b) {
     return a^b;
 }
 
-/// \param a
-/// \param b
-/// \return a*b but 8 values in parallel
+/// \param a [a_0, ..., a_3]
+/// \param b [b_0, ..., b_3]
+/// \return [a_0*b_0, ..., a_3*b_3]: 4 values in parallel
 static inline uint64_t gf256to2v_mul_u64(const uint64_t a,
                            const uint64_t b) {
+    const uint64_t mask_low = 0x00FF00FF00FF00FFull;
     const uint64_t ab = gf256v_mul_u64(a, b);
     const uint64_t sa = a ^ (a >> 8);
     const uint64_t sb = b ^ (b >> 8);
-    uint64_t ret = ab ^ gf256v_mul_u64(ab, 0x20);
-    ret ^= (gf256v_mul_u64(sa, sb) ^ ab) << 8;
+    // lower limb: a_0*b_0 + 32*a_1*b_1
+    uint64_t ret = (ab ^ gf256v_mul_u64(ab >> 8, 0x0020002000200020ull)) & mask_low;
+    // upper limb: (a_0 + a_1)*(b_0 + b_1) + a_0*b_0
+    ret ^= ((gf256v_mul_u64(sa, sb) ^ ab) << 8) & ~mask_low;
     return ret;
 }
 
 #ifdef USE_AVX2
+/// \param a [a_0, ..., a_15]
+/// \param b [b_0, ..., b_15]
+/// \return [a_0+b_0, ..., a_15+b_15]
+static inline __m256i gf256to2v_add_u256(const __m256i a, const __m256i b) {
+    return a ^ b;
+}
+
+/// \return [a_0-b_0, ..., a_15-b_15]
+static inline __m256i gf256to2v_sub_u256(const __m256i a, const __m256i b) {
+    return a ^ b;
+}
+
+/// \param a [a_0, ..., a_15]
+/// \param b [b_0, ..., b_15]
+/// \return [a_0*b_0, ..., a_15*b_15]
 static inline __m256i gf256to2v_mul_u256(__m256i a, __m256i b) {
     __m256i c;
     const __m256i mask1 = _mm256_set1_epi16(0x00FF);
@@ -117,6 +134,7 @@ static inline __m256i gf256to2v_mul_u256(__m256i a, __m256i b) {
     return c;
 }
 
+/// SSE version of `gf256to2v_mul_u256`
 /// 3 gf(256) mul + 11 inst = 119 instr
 /// \param a
 /// \param b
@@ -146,7 +164,7 @@ static inline __m256i gf256to2_lookup (
 }
 
 
-static inline __m256i gf256_multab(uint8_t b) {
+static inline __m256i gf256to2_gf256_multab(uint8_t b) {
     const __m256i bx = _mm256_set1_epi16(b);
     const __m256i b1 = _mm256_srli_epi16(bx, 1);
 
@@ -216,7 +234,7 @@ static inline __m256i gf256to2_multab(uint16_t b) {
 }
 
 /// generates the mult-table for *32
-static inline __m256i gf256to2_multab32() {
+static inline __m256i gf256to2_multab32(void) {
     return _mm256_load_si256((__m256i const *) (__gf256_mulbase_avx2 + 32*5));
 }
 
@@ -228,76 +246,59 @@ static inline __m256i gf256to2v_mul_32(const __m256i a) {
     const __m256i th = _mm256_permute2x128_si256(t, t, 0x11);
     return gf256to2_lookup(tl, th, a, mask);
 }
-
-
-/// out = in1 ^ scalar*in2
-static inline void gf256to2_vector_add_scalar_u256(gf256to2 *out,
-                                                    const gf256to2 *in1,
-                                                    const gf256to2 scalar,
-                                                    const gf256to2 *in2,
-                                                    const size_t bytes) {
-    const __m256i mask = _mm256_set1_epi8(0xf);
-    const __m256i maskff = _mm256_set1_epi16(0xff);
-
-    // * 32 lookup table
-    const __m256i t32 = gf256to2_multab32();
-    const __m256i t32l = _mm256_permute2x128_si256(t32, t32, 0);
-    const __m256i t32h = _mm256_permute2x128_si256(t32, t32, 0x11);
-
-    const uint8_t bs = scalar ^ (scalar >> 8);
-    const __m256i bs0 = gf256_multab(bs);
-    const __m256i tbsl = _mm256_permute2x128_si256(bs0, bs0, 0);
-    const __m256i tbsh = _mm256_permute2x128_si256(bs0, bs0, 0x11);
-    const __m256i b = _mm256_set1_epi16(scalar);
-
-    uint32_t i = bytes;
-    while (i >= 32u) {
-        __m256i a = _mm256_loadu_si256((__m256i *)in2);
-
-        // NOTE: extremely expensive
-        const __m256i ab = gf256v_mul_u256(a, b);
-        const __m256i as = (a ^ (_mm256_srli_epi16(a, 8)));
-
-        // low
-        __m256i tmp = gf256to2_lookup(t32l, t32h, _mm256_srli_epi16(ab, 8), mask);
-        __m256i ret = (ab & maskff) ^ tmp;
-
-        // high
-        tmp = gf256to2_lookup(tbsl, tbsh, as, mask);
-        ret ^= (_mm256_slli_epi16(tmp, 8) ^ _mm256_slli_epi16(ab, 8));
-
-        _mm256_storeu_si256((__m256i *)out, _mm256_loadu_si256((__m256i *)in1) ^ ret);
-        i   -= 32u;
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-    }
-
-    uint16_t tmp[16];
-    for (uint32_t j = 0; j < (i + 1)/2; ++j) {
-        tmp[j] = in2[j];
-    }
-
-    __m256i a = _mm256_loadu_si256((__m256i *)tmp);
-    const __m256i ab = gf256v_mul_u256(a, b);
-    const __m256i as = (a ^ (_mm256_srli_epi16(a, 8)));
-
-    // low
-    __m256i ttt = gf256to2_lookup(t32l, t32h, _mm256_srli_epi16(ab, 8), mask);
-    __m256i ret = (ab & maskff) ^ ttt;
-
-    // high
-    ttt = gf256to2_lookup(tbsl, tbsh, as, mask);
-    ret ^= (_mm256_slli_epi16(ttt, 8) ^ _mm256_slli_epi16(ab, 8));
-    _mm256_storeu_si256((__m256i *)tmp, ret);
-
-    for (uint32_t j = 0; j < (i + 1) / 2; ++j) {
-        out[j] = in1[j] ^ tmp[j];
-    }
-}
 #endif // USE_AVX2
 
-#ifdef __AVX512F__
+#ifdef USE_NEON
+/// \param a [a_0, ..., a_7]
+/// \param b [b_0, ..., b_7]
+/// \return [a_0+b_0, ..., a_7+b_7]
+static inline uint16x8_t gf256to2v_add_u128(const uint16x8_t a, const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// \return [a_0-b_0, ..., a_7-b_7]
+static inline uint16x8_t gf256to2v_sub_u128(const uint16x8_t a, const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// NEON version of `gf256to2v_mul_u256`
+/// \param a [a_0, ..., a_7]
+/// \param b [b_0, ..., b_7]
+/// \return [a_0*b_0, ..., a_7*b_7]
+static inline uint16x8_t gf256to2v_mul_u128(const uint16x8_t a, const uint16x8_t b) {
+    const uint16x8_t mask1 = vdupq_n_u16(0x00FF);
+    const uint16x8_t mask2 = vdupq_n_u16(0xFF00);
+    const uint8x16_t mulm  = vreinterpretq_u8_u16(vdupq_n_u16(0x0020));
+    const uint16x8_t ab = vreinterpretq_u16_u8(gf256v_mul_u128(vreinterpretq_u8_u16(a),
+                                                               vreinterpretq_u8_u16(b)));
+    const uint16x8_t sa = veorq_u16(vshlq_n_u16(a, 8), a);
+    const uint16x8_t sb = veorq_u16(vshlq_n_u16(b, 8), b);
+
+    // compute the higher limb
+    const uint16x8_t h = vreinterpretq_u16_u8(gf256v_mul_u128(vreinterpretq_u8_u16(sa),
+                                                              vreinterpretq_u8_u16(sb)));
+    uint16x8_t c = vandq_u16(veorq_u16(h, vshlq_n_u16(ab, 8)), mask2);
+
+    // compute the lower limb
+    const uint16x8_t l = vreinterpretq_u16_u8(gf256v_mul_u128(vreinterpretq_u8_u16(vshrq_n_u16(ab, 8)), mulm));
+    c = veorq_u16(c, vandq_u16(veorq_u16(ab, l), mask1));
+    return c;
+}
+#endif // USE_NEON
+
+#ifdef USE_AVX512
+/// \return [a_0+b_0, ..., a_31+b_31]
+static inline __m512i gf256to2v_add_u512(const __m512i a,
+                                         const __m512i b) {
+    return a ^ b;
+}
+
+/// \return [a_0-b_0, ..., a_31-b_31]
+static inline __m512i gf256to2v_sub_u512(const __m512i a,
+                                         const __m512i b) {
+    return a ^ b;
+}
+
 /// full multiplication: every 16bit limb is multiplied
 /// \param a input
 /// \param b input
@@ -318,84 +319,6 @@ static inline __m512i gf256to2v_mul_u512(const __m512i a,
     // compute the lower limb:
     c ^= (ab ^ gf256v_mul_u512(_mm512_srli_epi16(ab, 8), mulm)) & mask1;
     return c;
-}
-
-/// out = in1 ^ in2
-static inline void gf256to2_vector_add_u512(gf256 *out,
-                                            const gf256 *in1,
-                                            const gf256 *in2,
-                                            const size_t bytes) {
-    size_t i = bytes;
-
-    // avx512 code
-    while (i >= 64u) {
-        _mm512_storeu_si512((__m512i *)out,
-                            _mm512_loadu_si512((__m512i *)in1) ^
-                            _mm512_loadu_si512((__m512i *)in2));
-        i   -= 64u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    // avx2 code
-    while (i >= 32u) {
-        _mm256_storeu_si256((__m256i *)out,
-                            _mm256_loadu_si256((__m256i *)in1) ^
-                            _mm256_loadu_si256((__m256i *)in2));
-        i   -= 32u;
-        in1 += 16u;
-        in2 += 16u;
-        out += 16u;
-    }
-
-    // sse code
-    while(i >= 16u) {
-        _mm_storeu_si128((__m128i *)out,
-                         _mm_loadu_si128((__m128i *)in1) ^
-                         _mm_loadu_si128((__m128i *)in2));
-        i   -= 16u;
-        in1 += 8u;
-        in2 += 8u;
-        out += 8u;
-    }
-
-    for(uint32_t j = 0; j<((i+1)/2); j++) {
-        out[j] = in1[j] ^ in2[j];
-    }
-}
-
-
-/// out = in1 ^ scalar*in2
-static inline void gf256to2_vector_add_scalar_u512(gf256to2 *out,
-                                            const gf256to2 *in1,
-                                            const gf256to2 scalar,
-                                            const gf256to2 *in2,
-                                            const size_t bytes) {
-    const __m512i b = _mm512_set1_epi16(scalar);
-    size_t i = bytes;
-    while (i >= 64u) {
-        __m512i tmp = _mm512_loadu_si512((__m512i *)in2);
-        tmp = gf256to2v_mul_u512(tmp, b);
-        _mm512_storeu_si512((__m512i *)out, _mm512_loadu_si512((__m512i *)in1) ^ tmp);
-        i   -= 64u;
-        in1 += 32u;
-        in2 += 32u;
-        out += 32u;
-    }
-
-    uint16_t tmp[32] __attribute__ ((aligned(64)));
-    for (uint32_t j = 0; j < (i + 1)/2; ++j) {
-        tmp[j] = in2[j];
-    }
-
-    __m512i t = _mm512_load_si512((__m512i *)tmp);
-    t = gf256to2v_mul_u512(t, b);
-    _mm512_store_si512((__m512i *)tmp, t);
-
-    for (uint32_t j = 0; j < (i + 1) / 2; ++j) {
-        out[j] = in1[j] ^ tmp[j];
-    }
 }
 #endif
 

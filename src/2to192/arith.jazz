@@ -1,0 +1,134 @@
+// GF(2^192) = GF(2)[x]/(x^192 + x^7 + x^2 + x + 1)
+
+u64[2] gf2to192v_mod = { 0x87, 0 };
+
+// constant time (same as `gf2to192_mul`)
+// \param rp[out]: a*b, 3 limbs
+// \param ap[in]: 3 limbs
+// \param bp[in]: 3 limbs
+export
+fn gf2to192_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    inline int k;
+    reg u64 r0, r1, r2, bb, c, m, t, i;
+
+    r0 = 0;
+    r1 = 0;
+    r2 = 0;
+
+    // most significant limb of b first
+    for k = 0 to 3 {
+        bb = [:u64 bp + 8 * (2 - k)];
+        i = 0;
+        while (i < 64) {
+            // r = r*x mod f
+            c = r2;
+            c = c >>s 63;
+            c &= 0x87;
+            t = r1;
+            t >>= 63;
+            r2 <<= 1;
+            r2 |= t;
+            t = r0;
+            t >>= 63;
+            r1 <<= 1;
+            r1 |= t;
+            r0 <<= 1;
+            r0 ^= c;
+
+            // r += a * b_j
+            m = bb;
+            m = m >>s 63;
+            t = m;
+            t &= [:u64 ap + 0];
+            r0 ^= t;
+            t = m;
+            t &= [:u64 ap + 8];
+            r1 ^= t;
+            m &= [:u64 ap + 16];
+            r2 ^= m;
+            bb <<= 1;
+            i += 1;
+        }
+    }
+
+    [:u64 rp + 0]  = r0;
+    [:u64 rp + 8]  = r1;
+    [:u64 rp + 16] = r2;
+}
+
+// karatsuba (same as `gf2to192v_mul_u256`)
+// NOTE: the 4th limb of a and b is ignored, the 4th limb of the output is zero
+// \param a: [a_0, a_1, a_2, *]
+// \param b: [b_0, b_1, b_2, *]
+// \return a*b
+export
+fn gf2to192v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 t1, t2, r;
+    reg u128 mod, zero, ab0, ab1, ab2, c0, c1, c2, c3, c4, t, x, d0, d1, d2;
+
+    // abi = [a_i, b_i]
+    t1  = #VPUNPCKL_4u64(a, b);
+    t2  = #VPUNPCKH_4u64(a, b);
+    ab0 = #VEXTRACTI128(t1, 0);
+    ab1 = #VEXTRACTI128(t2, 0);
+    ab2 = #VEXTRACTI128(t1, 1);
+    mod = gf2to192v_mod[:u128 0];
+    zero = #set0_128();
+
+    // 1. c0 = a0 * b0
+    // 2. c4 = a2 * b2
+    // 3. t  = a1 * b1
+    // 4. c1 = (a0 + a1) * (b0 + b1) - c0 - t
+    // 5. c3 = (a1 + a2) * (b1 + b2) - c4 - t
+    // 6. c2 = (a0 + a2) * (b0 + b2) - c0 - c4 + t
+    c0 = #VPCLMULQDQ_128(ab0, ab0, 0x01);
+    c4 = #VPCLMULQDQ_128(ab2, ab2, 0x01);
+    t  = #VPCLMULQDQ_128(ab1, ab1, 0x01);
+
+    x   = ab0 ^ ab1;
+    c1  = #VPCLMULQDQ_128(x, x, 0x01);
+    c1 ^= c0;
+    c1 ^= t;
+
+    x   = ab1 ^ ab2;
+    c3  = #VPCLMULQDQ_128(x, x, 0x01);
+    c3 ^= c4;
+    c3 ^= t;
+
+    x   = ab0 ^ ab2;
+    c2  = #VPCLMULQDQ_128(x, x, 0x01);
+    c2 ^= c0;
+    c2 ^= c4;
+    c2 ^= t;
+
+    // d = d0 + B^2 * d1 + B^4 * d2
+    x   = #VPUNPCKL_2u64(zero, c1);
+    d0  = c0 ^ x;
+    x   = #VPUNPCKH_2u64(c3, zero);
+    d2  = c4 ^ x;
+    x   = #VPUNPCKH_2u64(c1, zero);
+    d1  = c2 ^ x;
+    x   = #VPUNPCKL_2u64(zero, c3);
+    d1 ^= x;
+
+    // reduce w.r.t. high half of d2
+    t   = #VPCLMULQDQ_128(d2, mod, 0x01);
+    d1 ^= t;
+
+    // reduce w.r.t. low half of d2
+    t   = #VPCLMULQDQ_128(d2, mod, 0x00);
+    x   = #VPUNPCKH_2u64(t, zero);
+    d1 ^= x;
+    x   = #VPUNPCKL_2u64(zero, t);
+    d0 ^= x;
+
+    // reduce w.r.t. high half of d1
+    t   = #VPCLMULQDQ_128(d1, mod, 0x01);
+    d0 ^= t;
+    d1  = #VPUNPCKL_2u64(d1, zero);
+
+    r = #set0_256();
+    r = #VINSERTI128(r, d0, 0);
+    r = #VINSERTI128(r, d1, 1);
+    return r;
+}

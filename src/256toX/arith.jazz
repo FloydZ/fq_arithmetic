@@ -1,0 +1,139 @@
+// GF(256^48) = GF(256)[X]/(X^48 + X^5 + X^2 + X + 9), a single element is stored in 48 bytes
+require "../256/arith.jinc"
+
+// prod[i - 48] += 9 * prod[i] and prod[i - 48 + j] += prod[i]
+// for j in {1, 2, 5} and i = 94, ..., 48
+inline
+fn __gf256toX_reduce(stack u8[128] prod) -> stack u8[128] {
+    reg u64 i, k, y, z;
+    reg u8 t, x;
+
+    i = 94;
+    while (i >= 48) {
+        y = (64u) prod[i];
+        z = 9;
+        y = __gf256_mul(y, z);
+        k = i;
+        k -= 48;
+        x = prod[k];
+        x ^= (8u) y;
+        prod[k] = x;
+        t = prod[i];
+        k += 1;
+        x = prod[k];
+        x ^= t;
+        prod[k] = x;
+        k += 1;
+        x = prod[k];
+        x ^= t;
+        prod[k] = x;
+        k += 3;
+        x = prod[k];
+        x ^= t;
+        prod[k] = x;
+        i -= 1;
+    }
+    return prod;
+}
+
+// schoolbook (same as `gf256toX_mul`)
+// \param rp[out]: a*b, 48 bytes
+// \param ap[in]: 48 bytes
+// \param bp[in]: 48 bytes
+export
+fn gf256toX_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    inline int n;
+    stack u8[128] prod;
+    stack u64 srp;
+    reg u64 i, j, k, x, y, p, z;
+    reg u8 t;
+
+    srp = rp;
+    z = 0;
+    for n = 0 to 16 {
+        prod[:u64 n] = z;
+    }
+
+    i = 0;
+    while (i < 48) {
+        j = 0;
+        while (j < 48) {
+            x = (64u)[:u8 ap + i];
+            y = (64u)[:u8 bp + j];
+            p = __gf256_mul(x, y);
+            k = i;
+            k += j;
+            t = prod[k];
+            t ^= (8u) p;
+            prod[k] = t;
+            j += 1;
+        }
+        i += 1;
+    }
+
+    prod = __gf256toX_reduce(prod);
+
+    rp = srp;
+    for n = 0 to 6 {
+        x = prod[:u64 n];
+        [:u64 rp + 8 * n] = x;
+    }
+}
+
+// schoolbook, 32 + 16 coefficients of a are multiplied with b_j at once
+// \param rp[out]: a*b, 48 bytes
+// \param ap[in]: 48 bytes
+// \param bp[in]: 48 bytes
+export
+fn gf256toXv_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    inline int n;
+    stack u8[128] prod;
+    stack u256 sa0, sa1;
+    stack u64 srp;
+    reg u256 a0, a1, bj, p, t;
+    reg u128 x;
+    reg u64 j, k;
+
+    srp = rp;
+    t = #set0_256();
+    for n = 0 to 4 {
+        prod[:u256 n] = t;
+    }
+
+    a0  = [:u256 ap + 0];
+    x   = [:u128 ap + 32];
+    a1  = #set0_256();
+    a1  = #VINSERTI128(a1, x, 0);
+    sa0 = a0;
+    sa1 = a1;
+
+    j = 0;
+    while (j < 48) {
+        bj = #VPBROADCAST_32u8([:u8 bp + j]);
+
+        // prod[j..j+32] += a[0..32] * b_j
+        a0 = sa0;
+        p  = __gf256v_mul_u256(a0, bj);
+        t  = prod.[:u256 j];
+        t ^= p;
+        prod.[:u256 j] = t;
+
+        // prod[j+32..j+48] += a[32..48] * b_j
+        a1 = sa1;
+        p  = __gf256v_mul_u256(a1, bj);
+        k  = j;
+        k += 32;
+        t  = prod.[:u256 k];
+        t ^= p;
+        prod.[:u256 k] = t;
+        j += 1;
+    }
+
+    prod = __gf256toX_reduce(prod);
+
+    rp = srp;
+    t = prod.[:u256 0];
+    [:u256 rp + 0] = t;
+    x = prod.[:u128 32];
+    [:u128 rp + 32] = x;
+}

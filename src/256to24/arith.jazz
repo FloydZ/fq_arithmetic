@@ -1,0 +1,150 @@
+// GF(256^24) = GF(256^8)[X]/(X^3 + X + 1), a single element is stored in 24 bytes
+require "../256to8/arith.jinc"
+
+// karatsuba (same as `gf256to24_mul`)
+//  r_0 = p0 + p1 + p2 + p12
+//  r_1 = p0 + p01 + p12
+//  r_2 = p012 + p01 + p12 + p2
+// \param rp[out]: a*b, 24 bytes
+// \param ap[in]: 24 bytes
+// \param bp[in]: 24 bytes
+export
+fn gf256to24_mul(reg u64 rp, reg u64 ap, reg u64 bp) {
+    stack u64 srp, sap, sbp, s0, s2, s012, s12;
+    reg u64 x, y, p, t;
+
+    srp = rp;
+    sap = ap;
+    sbp = bp;
+
+    // p0
+    x = [:u64 ap + 0];
+    y = [:u64 bp + 0];
+    p = __gf256to8_mul(x, y);
+    s0 = p;
+
+    // p1
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 8];
+    y = [:u64 bp + 8];
+    p = __gf256to8_mul(x, y);
+    s012 = p;
+
+    // p2
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 16];
+    y = [:u64 bp + 16];
+    p = __gf256to8_mul(x, y);
+    s2 = p;
+    t = s012;
+    t ^= p;
+    t ^= s0;
+    s012 = t;
+
+    // p12
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 8];
+    x ^= [:u64 ap + 16];
+    y = [:u64 bp + 8];
+    y ^= [:u64 bp + 16];
+    p = __gf256to8_mul(x, y);
+    s12 = p;
+
+    // p01, r_1 = p0 + p01 + p12, r_2 = p01 + p12 + p2
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 0];
+    x ^= [:u64 ap + 8];
+    y = [:u64 bp + 0];
+    y ^= [:u64 bp + 8];
+    p = __gf256to8_mul(x, y);
+    p ^= s12;
+    t = p;
+    t ^= s0;
+    s0 = t;
+    p ^= s2;
+    s2 = p;
+
+    // p012, r_2 += p012
+    ap = sap;
+    bp = sbp;
+    x = [:u64 ap + 0];
+    x ^= [:u64 ap + 8];
+    x ^= [:u64 ap + 16];
+    y = [:u64 bp + 0];
+    y ^= [:u64 bp + 8];
+    y ^= [:u64 bp + 16];
+    p = __gf256to8_mul(x, y);
+    p ^= s2;
+
+    // r_0 = p0 + p1 + p2 + p12
+    x = s012;
+    x ^= s12;
+    y = s0;
+
+    rp = srp;
+    [:u64 rp + 0]  = x;
+    [:u64 rp + 8]  = y;
+    [:u64 rp + 16] = p;
+}
+
+// NOTE: the 4th limb of a and b is ignored, the 4th limb of the output is zero
+// \param a: [a_0, a_1, a_2, *]
+// \param b: [b_0, b_1, b_2, *]
+// \return a*b
+export
+fn gf256to24v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    stack u256 sa, sb, sq;
+    reg u256 zero, q, s, x, y, t, u, w;
+
+    sa = a;
+    sb = b;
+
+    // q = [p0, p1, p2, *]
+    q  = __gf256to8v_mul_u256(a, b);
+    sq = q;
+
+    // [a0^a1, a1^a2, a0^a1^a2, 0]
+    zero = #set0_256();
+    x  = sa;
+    t  = #VPERMQ(x, 0xC9);          // [a1, a2, a0, a3]
+    t ^= x;                         // [a01, a12, a02, 0]
+    u  = #VPERMQ(x, 0x10);          // [*, *, a1, *]
+    u  = #VPBLEND_8u32(zero, u, 0x30);
+    x  = t ^ u;
+
+    y  = sb;
+    t  = #VPERMQ(y, 0xC9);
+    t ^= y;
+    u  = #VPERMQ(y, 0x10);
+    u  = #VPBLEND_8u32(zero, u, 0x30);
+    y  = t ^ u;
+
+    // w = [p01, p12, p012, *]
+    w = __gf256to8v_mul_u256(x, y);
+
+    // s = p0 + p1 + p2 in every limb
+    q  = sq;
+    s  = #VPERMQ(q, 0x00);
+    t  = #VPERMQ(q, 0x55);
+    s ^= t;
+    t  = #VPERMQ(q, 0xAA);
+    s ^= t;
+
+    t  = #VPERMQ(w, 0xC1);          // [p12, p01, p01, *]
+    s ^= t;                         // [r0, *, *, *]
+    u  = #VPERMQ(w, 0xD4);          // [*, p12, p12, *]
+    t ^= u;
+    u  = #VPERMQ(q, 0xE0);          // [*, p0, p2, *]
+    t ^= u;                         // [*, r1, p2 + p01 + p12, *]
+    u  = t ^ w;                     // [*, *, r2, *]
+
+    zero = #set0_256();
+    s = #VPBLEND_8u32(s, t, 0x0C);
+    s = #VPBLEND_8u32(s, u, 0x30);
+    s = #VPBLEND_8u32(s, zero, 0xC0);
+    return s;
+}

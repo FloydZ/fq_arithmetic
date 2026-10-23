@@ -103,9 +103,9 @@ static void BM_gf16_mat_mul(benchmark::State& state) {
     uint64_t c = 0, a = 0;
     for (auto _ : state) {
         c -= cpucycles();
-        gf16_matrix_product(C, A, B, n, m, k);
-        gf16_matrix_product(A, B, C, n, m, k);
-        gf16_matrix_product(B, A, C, n, m, k);
+        gf16_matrix_mul(C, A, B, n, m, k);
+        gf16_matrix_mul(A, B, C, n, m, k);
+        gf16_matrix_mul(B, A, C, n, m, k);
         c += cpucycles();
 
         a += B[8];
@@ -118,14 +118,30 @@ static void BM_gf16_mat_mul(benchmark::State& state) {
 
 #ifdef USE_AVX2
 
-static void BM_gf16v_mul_u128(benchmark::State& state) {
+static void BM_gf16v_mul_lo_u128(benchmark::State& state) {
     const __m128i acc = {783246, 872346};
     __m128i a = {23874687,905389},
             b = {87326457823,234652734687};
     uint64_t c = 0;
     for (auto _ : state) {
         c -= cpucycles();
-        a = gf16v_mul_u128(a, b);
+        a = gf16v_mul_lo_u128(a, b);
+        c += cpucycles();
+        a ^= acc;
+        benchmark::DoNotOptimize(a);
+    }
+
+    state.counters["cycles"] = (double)c/(double)state.iterations();
+}
+
+static void BM_gf16v_mul_lo_u256(benchmark::State& state) {
+    const __m256i acc = {783246, 872346, 876502, 236478234023948};
+    __m256i a = {23874687,905389,235645274,873465876},
+            b = {87326457823,234652734687,8723468726347,78234687236478};
+    uint64_t c = 0;
+    for (auto _ : state) {
+        c -= cpucycles();
+        a = gf16v_mul_lo_u256(a, b);
         c += cpucycles();
         a ^= acc;
         benchmark::DoNotOptimize(a);
@@ -142,22 +158,6 @@ static void BM_gf16v_mul_u256(benchmark::State& state) {
     for (auto _ : state) {
         c -= cpucycles();
         a = gf16v_mul_u256(a, b);
-        c += cpucycles();
-        a ^= acc;
-        benchmark::DoNotOptimize(a);
-    }
-
-    state.counters["cycles"] = (double)c/(double)state.iterations();
-}
-
-static void BM_gf16v_mul_full_u256(benchmark::State& state) {
-    const __m256i acc = {783246, 872346, 876502, 236478234023948};
-    __m256i a = {23874687,905389,235645274,873465876},
-            b = {87326457823,234652734687,8723468726347,78234687236478};
-    uint64_t c = 0;
-    for (auto _ : state) {
-        c -= cpucycles();
-        a = gf16v_mul_full_u256(a, b);
         c += cpucycles();
         a ^= acc;
         benchmark::DoNotOptimize(a);
@@ -227,18 +227,18 @@ static void BM_gf16mat_prod_16x4x12(benchmark::State& state) {
     free(A); free(B); free(C);
 }
 
-BENCHMARK(BM_gf16v_mul_u128);
+BENCHMARK(BM_gf16v_mul_lo_u128);
+BENCHMARK(BM_gf16v_mul_lo_u256);
 BENCHMARK(BM_gf16v_mul_u256);
-BENCHMARK(BM_gf16v_mul_full_u256);
 BENCHMARK(BM_gf16mat_prod_16x4x12);
-//BENCHMARK(BM_gf16_matrix_transpose_64x64_avx2);
-//BENCHMARK(BM_gf16_solve_transpose);
+BENCHMARK(BM_gf16_matrix_transpose_64x64_avx2);
+BENCHMARK(BM_gf16_solve_transpose);
 #endif
 
 BENCHMARK(BM_gf16_mat_mul);
-//BENCHMARK(BM_gf16v_mul);
-//BENCHMARK(BM_gf16_matrix_transpose_16x16);
-//BENCHMARK(BM_gf16_matrix_transpose_64x64);
-//BENCHMARK(BM_gf16_solve);
+BENCHMARK(BM_gf16v_mul);
+BENCHMARK(BM_gf16_matrix_transpose_16x16);
+BENCHMARK(BM_gf16_matrix_transpose_64x64);
+BENCHMARK(BM_gf16_solve);
 BENCHMARK_MAIN();
 

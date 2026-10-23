@@ -17,16 +17,16 @@ static void BM_gf16to3_mul(benchmark::State& state) {
     }
 }
 
-static void BM_gf16to3v_mul(benchmark::State& state) {
-    uint64_t a = 1;
-    uint64_t b = 2;
-    for (auto _ : state) {
-        a = gf16to3v_mul(a, b);
-        a += 1;
-        b += 1;
-        benchmark::DoNotOptimize(a);
-    }
-}
+//static void BM_gf16to3v_mul(benchmark::State& state) {
+//    uint64_t a = 1;
+//    uint64_t b = 2;
+//    for (auto _ : state) {
+//        a = gf16to3v_mul(a, b);
+//        a += 1;
+//        b += 1;
+//        benchmark::DoNotOptimize(a);
+//    }
+//}
 
 static void BM_gf16to3_matrix_mul(benchmark::State& state) {
     const uint32_t nrows = 32, ncols = 6, ncols2 = 16;
@@ -60,10 +60,10 @@ static void BM_gf16to3_matrix_add_multiple_3(benchmark::State& state) {
         gf16to3_matrix_add_multiple_3(m3, m2, c, m1, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
-    free(m1); free(m2);
+    free(m1); free(m2); free(m3);
 }
 
-static void BM_gf16to3_matrix_add_multiple_2(benchmark::State& state) {
+static void BM_gf16to3_matrix_add_scalar(benchmark::State& state) {
     gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
     gf16to3 *m2 = gf16to3_matrix_alloc(nrows, ncols);
     gf16to3_matrix_random(m1, nrows, ncols);
@@ -71,8 +71,8 @@ static void BM_gf16to3_matrix_add_multiple_2(benchmark::State& state) {
 
     gf16to3 c = 0;
     for (auto _ : state) {
-        gf16to3_matrix_add_multiple_2(m2, c, m1, nrows, ncols);
-        gf16to3_matrix_add_multiple_2(m1, c, m2, nrows, ncols);
+        gf16to3_matrix_add_scalar(m2, c, m1, nrows, ncols);
+        gf16to3_matrix_add_scalar(m1, c, m2, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
     free(m1); free(m2);
@@ -233,10 +233,10 @@ static void BM_gf16to3_matrix_add_multiple_3_XxX(benchmark::State& state) {
         gf16to3_matrix_add_multiple_3_XxX(m3, m2, c, m1, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
-    free(m1); free(m2);
+    free(m1); free(m2); free(m3);
 }
 
-static void BM_gf16to3_matrix_add_multiple_2_XxX(benchmark::State& state) {
+static void BM_gf16to3_matrix_add_scalar_u256(benchmark::State& state) {
     gf16to3 *m1 = gf16to3_matrix_alloc(nrows, ncols);
     gf16to3 *m2 = gf16to3_matrix_alloc(nrows, ncols);
     gf16to3_matrix_random(m1, nrows, ncols);
@@ -244,8 +244,8 @@ static void BM_gf16to3_matrix_add_multiple_2_XxX(benchmark::State& state) {
 
     gf16to3 c = 0;
     for (auto _ : state) {
-        gf16to3_matrix_add_multiple_2_XxX(m2, c, m1, nrows, ncols);
-        gf16to3_matrix_add_multiple_2_XxX(m1, c, m2, nrows, ncols);
+        gf16to3_matrix_add_scalar_u256(m2, c, m1, nrows, ncols);
+        gf16to3_matrix_add_scalar_u256(m1, c, m2, nrows, ncols);
         benchmark::DoNotOptimize(c+=m2[7]);
     }
     free(m1); free(m2);
@@ -257,7 +257,7 @@ BENCHMARK(BM_gf16to3_matrix_mul_16x16);
 BENCHMARK(BM_gf16to3_matrix_mul_le32xCxC);
 BENCHMARK(BM_gf16to3_matrix_add_gf16_XxX);
 BENCHMARK(BM_gf16to3_matrix_mul_gf16_XxX);
-BENCHMARK(BM_gf16to3_matrix_add_multiple_2_XxX);
+BENCHMARK(BM_gf16to3_matrix_add_scalar_u256);
 BENCHMARK(BM_gf16to3_matrix_add_multiple_3_XxX);
 
 #endif
@@ -295,13 +295,12 @@ BENCHMARK(BM_gf16to3_vector_extend_gf16_x8_v2);
 BENCHMARK(BM_gf16to3_vector_extend_gf16_x8);
 #endif
 
-// BENCHMARK(BM_gf16to3_matrix_mul);
-// BENCHMARK(BM_gf16to3_matrix_add_gf16);
-// BENCHMARK(BM_gf16to3_matrix_map_gf16);
-// BENCHMARK(BM_gf16to3_mul);
-// BENCHMARK(BM_gf16to3_matrix_mul_gf16);
-// BENCHMARK(BM_gf16to3_matrix_add_multiple_2);
-// BENCHMARK(BM_gf16to3_matrix_add_multiple_3);
-// TODO BENCHMARK(BM_gf16to3v_mul);
+BENCHMARK(BM_gf16to3_matrix_mul);
+BENCHMARK(BM_gf16to3_matrix_add_gf16);
+BENCHMARK(BM_gf16to3_matrix_map_gf16);
+BENCHMARK(BM_gf16to3_mul);
+BENCHMARK(BM_gf16to3_matrix_mul_gf16);
+BENCHMARK(BM_gf16to3_matrix_add_scalar);
+BENCHMARK(BM_gf16to3_matrix_add_multiple_3);
 BENCHMARK_MAIN();
 

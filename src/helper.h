@@ -16,7 +16,7 @@ typedef union v256_t {
     uint8_t  v8[32];
     uint16_t v16[16];
     uint32_t v32[8];
-    uint64_t v64[3];
+    uint64_t v64[4];
 #ifdef USE_AVX2
     __m256i v256;
 #endif
@@ -65,20 +65,20 @@ uint16x8x2_t vdupq_n_u16_x2(uint16_t value) {
     return result;
 }
 
-/// TODO doc
+/// compare not equal to zero
 /// @param a
-/// @return
+/// @return per lane: 0xFFFF if a != 0, else 0
 static inline
 uint16x8_t vcnezq_u16(const uint16x8_t a) {
-    return vcgtzq_s16(a);
+    return vtstq_u16(a, a);
 }
 
-/// TODO doc
+/// two register version of `vcnezq_u16`
 static inline
 uint16x8x2_t vcnezq_u16_x2(const uint16x8x2_t a) {
     uint16x8x2_t r = {
-        vceqzq_u16(a.val[0]),
-        vceqzq_u16(a.val[1]),
+        vtstq_u16(a.val[0], a.val[0]),
+        vtstq_u16(a.val[1], a.val[1]),
     };
     return r;
 }

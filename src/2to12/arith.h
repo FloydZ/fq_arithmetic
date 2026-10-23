@@ -1,5 +1,5 @@
-#ifndef FQ_ARITHMETIC_ARITH_H
-#define FQ_ARITHMETIC_ARITH_H
+#ifndef FQ_ARITHMETIC_GF2TO12_ARITH_H
+#define FQ_ARITHMETIC_GF2TO12_ARITH_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -7,9 +7,21 @@
 typedef uint8_t gf2;
 typedef uint16_t gf2to12;
 
-gf2to12 gf2to12_add(const gf2to12 a,
-                 const gf2to12 b) {
+/// \return a+b
+static inline gf2to12 gf2to12_add(const gf2to12 a,
+                                  const gf2to12 b) {
     return a ^ b;
+}
+
+/// \return a-b (same as addition in characteristic 2)
+static inline gf2to12 gf2to12_sub(const gf2to12 a,
+                                  const gf2to12 b) {
+    return a ^ b;
+}
+
+/// \return -a (= a in characteristic 2)
+static inline gf2to12 gf2to12_neg(const gf2to12 a) {
+    return a;
 }
 
 // sage gave me this polynomial
@@ -17,8 +29,8 @@ gf2to12 gf2to12_add(const gf2to12 a,
 #define MODULUS 0b1000000001001
 
 /// \return a*b
-gf2to12 gf2to12_mul(const gf2to12 a,
-                    const gf2to12 b) {
+static inline gf2to12 gf2to12_mul(const gf2to12 a,
+                                  const gf2to12 b) {
     gf2to12 r;
     r = (-(b>>11u     ) & a);
     r = (-(b>>10u & 1u) & a) ^ (-(r>>11) & MODULUS) ^ (r+r);
@@ -47,13 +59,14 @@ static inline gf2to12 gf2to12_mul_v2(const gf2to12 a,
     return result;
 }
 
-gf2to12 gf2to12_mul_gf2(const gf2to12 a,
-                        const gf2 b) {
+static inline gf2to12 gf2to12_mul_gf2(const gf2to12 a,
+                                      const gf2 b) {
     gf2to12 c = b;
     return a & (-c);
 }
 
-/// \return a^-1
+/// constant time inversion: a^(2^12 - 2)
+/// \return a^-1, 0 if a == 0
 static inline gf2to12 gf2to12_inv(const gf2to12 a) {
     gf2to12 result = a;
     for(int i=0 ; i<10 ; i++) {
@@ -65,7 +78,7 @@ static inline gf2to12 gf2to12_inv(const gf2to12 a) {
 }
 
 /// \return needed for bitslicing
-void compute_lookup_table() {
+static inline void gf2to12_compute_lookup_table(void) {
     printf("[\n");
     for (uint32_t a = 0; a < (1u << 12u); a++) {
         for (uint32_t b = 0; b < (1u<<12u); b++) {
@@ -86,27 +99,63 @@ void compute_lookup_table() {
 /// \return
 static inline uint16_t gf2to12_hadd_u256(const __m256i in) {
     __m256i ret = _mm256_xor_si256(in, _mm256_srli_si256(in, 2));
-    ret = _mm256_xor_si256(ret, _mm256_srli_si256(in, 4));
+    ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 4));
     ret = _mm256_xor_si256(ret, _mm256_srli_si256(ret, 8));
     ret = _mm256_xor_si256(ret, _mm256_permute2x128_si256(ret, ret, 129)); // 0b10000001
     return _mm256_extract_epi16(ret, 0);
 }
 
-static inline __m128i gf2to12v_mul_u128(const __m128i a,
-                                        const __m128i b) {
-    const __m128i mod  = _mm_set1_epi16((short)MODULUS);
-    const __m128i one  = _mm_set1_epi8(-1);
-    const __m128i zero = _mm_set1_epi8(0);
-    const uint32_t mask = 0b1010101010101010;
-    __m128i mr, r;
-    uint32_t ma;
-    // TODO
-    // 11
-
-    return r;
+/// vectorized addition of 16 elements
+/// \return a + b
+static inline __m256i gf2to12v_add_u256(const __m256i a,
+                                        const __m256i b) {
+    return _mm256_xor_si256(a, b);
 }
 
+/// vectorized subtraction of 16 elements
+/// \return a - b
+static inline __m256i gf2to12v_sub_u256(const __m256i a,
+                                        const __m256i b) {
+    return _mm256_xor_si256(a, b);
+}
+
+// static inline __m128i gf2to12v_mul_u128(const __m128i a,
+//                                         const __m128i b) {
+//     const __m128i mod  = _mm_set1_epi16((short)MODULUS);
+//     const __m128i one  = _mm_set1_epi8(-1);
+//     const __m128i zero = _mm_set1_epi8(0);
+//     const uint32_t mask = 0b1010101010101010;
+//     __m128i mr, r;
+//     uint32_t ma;
+//     // TODO
+//     // 11
+// 
+//     return r;
+// }
+
 #ifdef USE_AVX512
+
+/// vectorized addition of 32 elements
+/// \return a + b
+static inline __m512i gf2to12v_add_u512(const __m512i a,
+                                        const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// vectorized subtraction of 32 elements
+/// \return a - b
+static inline __m512i gf2to12v_sub_u512(const __m512i a,
+                                        const __m512i b) {
+    return _mm512_xor_si512(a, b);
+}
+
+/// horizontal xor over the 32 16-bit limbs
+/// \return in[0] ^ ... ^ in[31]
+static inline uint16_t gf2to12_hadd_u512(const __m512i in) {
+    const __m256i t = _mm256_xor_si256(_mm512_castsi512_si256(in),
+                                       _mm512_extracti64x4_epi64(in, 1));
+    return gf2to12_hadd_u256(t);
+}
 
 /// NOTE: needs BW + VL
 static inline __m256i gf2to12v_mul_u256_avx512(const __m256i a,
@@ -479,32 +528,52 @@ static inline __m128i gf2to12v_mul_gf2_u128_v2(const __m128i a,
 /// \return
 static inline
 uint16x8_t gf2to12v_expand_gf2_x8_u128(const uint8_t *in) {
-    const uint8_t t = *in;
     const uint8x8_t m = vdup_n_u8(0x01);
-    const uint8x8_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
-    const uint8x8_t t1 = vdup_n_u8(t);
+    const int8x8_t shift = {0, -1, -2, -3, -4, -5, -6, -7};
+    const uint8x8_t t1 = vdup_n_u8(*in);
     const uint8x8_t t2 = vshl_u8(t1, shift);
-    const uint8x8_t t3 = t2 & m;
-    uint16x8_t result = vmovl_u8(t3);
-    return result;
+    const uint8x8_t t3 = vand_u8(t2, m);
+    return vmovl_u8(t3);
 }
 
-/// TODO doc
-/// \param in
+/// expands 2 bytes (16 bits) into 16 16-bit limbs (0 or 1)
+/// \param in: reads exactly 2 bytes
 /// \return
 static inline
 uint16x8x2_t gf2to12v_expand_gf2_x16_u256(const uint8_t *in) {
-    const uint16_t t = *((uint16_t *)in);
     const uint8x16_t m = vdupq_n_u8(0x01);
-    const uint8x16_t shift = {(uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7, (uint8_t)0, (uint8_t)-1, (uint8_t)-2, (uint8_t)-3, (uint8_t)-4, (uint8_t)-5, (uint8_t)-7};
-    const uint16x8_t t1 = vdupq_n_u16(t);
+    const int8x16_t shift = {0, -1, -2, -3, -4, -5, -6, -7, 0, -1, -2, -3, -4, -5, -6, -7};
+    const uint8x16_t t1 = vcombine_u8(vdup_n_u8(in[0]), vdup_n_u8(in[1]));
     const uint8x16_t t2 = vshlq_u8(t1, shift);
-    const uint8x16_t t3 = t2 & m;
+    const uint8x16_t t3 = vandq_u8(t2, m);
 
     const uint16x8_t l = vmovl_u8(vget_low_u8(t3));
     const uint16x8_t h = vmovl_u8(vget_high_u8(t3));
     const uint16x8x2_t r = { l, h };
     return r;
+}
+
+/// vectorized addition of 8 elements
+/// \return a + b
+static inline uint16x8_t gf2to12v_add_u128(const uint16x8_t a,
+                                           const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// vectorized subtraction of 8 elements
+/// \return a - b
+static inline uint16x8_t gf2to12v_sub_u128(const uint16x8_t a,
+                                           const uint16x8_t b) {
+    return veorq_u16(a, b);
+}
+
+/// horizontal xor over the 8 16-bit limbs
+/// \return in[0] ^ ... ^ in[7]
+static inline uint16_t gf2to12_hadd_u128(uint16x8_t in) {
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 4));
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 2));
+    in = veorq_u16(in, vextq_u16(in, vdupq_n_u16(0), 1));
+    return vgetq_lane_u16(in, 0);
 }
 
 /// TODO doc
@@ -578,4 +647,4 @@ static inline uint16_t gf2to12_hadd_u256(uint16x8x2_t in) {
 #else
 #endif
 
-#endif //FQ_ARITHMETIC_ARITH_H
+#endif //FQ_ARITHMETIC_GF2TO12_ARITH_H

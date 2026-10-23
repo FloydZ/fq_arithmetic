@@ -1,0 +1,66 @@
+// GF(31)
+
+u16[1] gf31v_q   = { 31 };
+u16[1] gf31v_m   = { 2115 };    // ceil(2^16 / 31)
+u16[1] gf31v_low = { 0x00FF };
+
+// NOTE: assumes reduced inputs
+// \return a*b mod 31
+export
+fn gf31_mul(reg u8 a, reg u8 b) -> reg u8 {
+    reg u64 x, y, q;
+    reg u8 r;
+
+    x = (64u) a;
+    y = (64u) b;
+    x *= y;
+
+    // x / 31 = (x * 67651) >> 21, for x <= 63487
+    q = x;
+    q *= 67651;
+    q >>= 21;
+    q *= 31;
+    x -= q;
+
+    r = (8u) x;
+    return r;
+}
+
+// \param c: [c_0, ..., c_15], c_i < 31^2
+// \return [c_0 mod 31, ..., c_15 mod 31]
+inline
+fn __gf31v_red_u256(reg u256 c) -> reg u256 {
+    reg u256 q, m, t;
+    q = #VPBROADCAST_16u16(gf31v_q[0]);
+    m = #VPBROADCAST_16u16(gf31v_m[0]);
+    t = #VPMULHU_16u16(c, m);
+    t = #VPMULL_16u16(t, q);
+    c = #VPSUB_16u16(c, t);
+    return c;
+}
+
+// NOTE: assumes that each gf31 element is in a single uint8_t, and reduced
+// NOTE: in contrast to `gf31v_mul_u256` the output is fully reduced
+// \param a: [a_0, ..., a_31]
+// \param b: [b_0, ..., b_31]
+// \return [a_0*b_0 mod 31, ..., a_31*b_31 mod 31]
+export
+fn gf31v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 low, al, ah, bl, bh, r;
+
+    low = #VPBROADCAST_16u16(gf31v_low[0]);
+    al = a & low;
+    bl = b & low;
+    ah = #VPSRL_16u16(a, 8);
+    bh = #VPSRL_16u16(b, 8);
+
+    al = #VPMULL_16u16(al, bl);
+    ah = #VPMULL_16u16(ah, bh);
+
+    al = __gf31v_red_u256(al);
+    ah = __gf31v_red_u256(ah);
+
+    ah = #VPSLL_16u16(ah, 8);
+    r  = al ^ ah;
+    return r;
+}

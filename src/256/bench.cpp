@@ -84,65 +84,65 @@ static void BM_gf256_matrix_add_gf16(benchmark::State& state) {
     }
 }
 
-static void BM_gf256_matrix_add_multiple_gf16(benchmark::State& state) {
+static void BM_gf256_matrix_add_scalar_gf16(benchmark::State& state) {
     for (auto _ : state) {
         const gf256 b = rand();
-        gf256_matrix_add_multiple_gf16(m1, b, m2, nrows, ncols);
-        gf256_matrix_add_multiple_gf16(m2, b, m1, nrows, ncols);
+        gf256_matrix_add_scalar_gf16(m1, b, m2, nrows, ncols);
+        gf256_matrix_add_scalar_gf16(m2, b, m1, nrows, ncols);
         benchmark::DoNotOptimize(m2[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_add_multiple_2(benchmark::State& state) {
+static void BM_gf256_matrix_add_scalar(benchmark::State& state) {
     for (auto _ : state) {
         const gf256 b = rand();
-        gf256_matrix_add_multiple_2(m1, b, m2, nrows, ncols);
-        gf256_matrix_add_multiple_2(m2, b, m1, nrows, ncols);
+        gf256_matrix_add_scalar(m1, b, m2, nrows, ncols);
+        gf256_matrix_add_scalar(m2, b, m1, nrows, ncols);
         benchmark::DoNotOptimize(m2[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product(benchmark::State& state) {
+static void BM_gf256_matrix_mul(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_8x8xC(benchmark::State& state) {
+static void BM_gf256_matrix_mul_8x8xC(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product(m1, m2, m3, 8, 8, ncols2);
-        gf256_matrix_product(m2, m3, m1, 8, 8, ncols2);
-        gf256_matrix_product(m3, m1, m2, 8, 8, ncols2);
+        gf256_matrix_mul(m1, m2, m3, 8, 8, ncols2);
+        gf256_matrix_mul(m2, m3, m1, 8, 8, ncols2);
+        gf256_matrix_mul(m3, m1, m2, 8, 8, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_16x16xC(benchmark::State& state) {
+static void BM_gf256_matrix_mul_16x16xC(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product(m1, m2, m3, 16, 16, ncols2);
-        gf256_matrix_product(m2, m3, m1, 16, 16, ncols2);
-        gf256_matrix_product(m3, m1, m2, 16, 16, ncols2);
+        gf256_matrix_mul(m1, m2, m3, 16, 16, ncols2);
+        gf256_matrix_mul(m2, m3, m1, 16, 16, ncols2);
+        gf256_matrix_mul(m3, m1, m2, 16, 16, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_gf16_1(benchmark::State& state) {
+static void BM_gf256_matrix_mul_gf16_1(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_gf16_1(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_1(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_1(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_gf16_2(benchmark::State& state) {
+static void BM_gf256_matrix_mul_gf16_2(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_gf16_2(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_2(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_2(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
@@ -249,15 +249,15 @@ static void BM_gf256v_vector_set_to_gf16_u256_v2(benchmark::State& state) {
 }
 
 static void BM_gf256v_vector_add_scalar_u256(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 
     for (auto _ : state) {
         gf256 s = rand();
-        gf256_vector_add_scalar_3_u256(A, B, s, C, sizeof(gf256) * state.range(0));
-        gf256_vector_add_scalar_3_u256(B, C, s, A, sizeof(gf256) * state.range(0));
-        gf256_vector_add_scalar_3_u256(C, A, s, B, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u256_v2(A, B, s, C, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u256_v2(B, C, s, A, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u256_v2(C, A, s, B, sizeof(gf256) * state.range(0));
         benchmark::ClobberMemory();
     }
 }
@@ -281,13 +281,13 @@ static void BM_gf256_matrix_add_gf16_u256(benchmark::State& state) {
     }
 }
 
-static void BM_gf256_matrix_add_multiple_gf16_u256(benchmark::State& state) {
+static void BM_gf256_matrix_add_scalar_gf16_u256(benchmark::State& state) {
     uint64_t c = 0;
     for (auto _ : state) {
         const gf256 b = rand();
         c -= cpucycles();
-        gf256_matrix_add_multiple_gf16_u256(m1, b, m2, nrows, ncols);
-        gf256_matrix_add_multiple_gf16_u256(m2, b, m1, nrows, ncols);
+        gf256_matrix_add_scalar_gf16_u256(m1, b, m2, nrows, ncols);
+        gf256_matrix_add_scalar_gf16_u256(m2, b, m1, nrows, ncols);
         c += cpucycles();
         benchmark::DoNotOptimize(m2[7] += 1);
     }
@@ -295,79 +295,79 @@ static void BM_gf256_matrix_add_multiple_gf16_u256(benchmark::State& state) {
     state.counters["cycles"] = (double)c/(double)state.iterations();
 }
 
-static void BM_gf256_matrix_add_multiple_2_u256(benchmark::State& state) {
+static void BM_gf256_matrix_add_scalar_u256(benchmark::State& state) {
     for (auto _ : state) {
         const gf256 b = rand();
-        gf256_matrix_add_multiple_2_u256(m1, b, m2, nrows, ncols);
-        gf256_matrix_add_multiple_2_u256(m2, b, m1, nrows, ncols);
+        gf256_matrix_add_scalar_u256(m1, b, m2, nrows, ncols);
+        gf256_matrix_add_scalar_u256(m2, b, m1, nrows, ncols);
         benchmark::DoNotOptimize(m2[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_gf16_1_u256(benchmark::State& state) {
+static void BM_gf256_matrix_mul_gf16_1_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_gf16_1_u256(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_1_u256(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_1_u256(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1_u256(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1_u256(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_1_u256(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_gf16_2_u256(benchmark::State& state) {
+static void BM_gf256_matrix_mul_gf16_2_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_gf16_2_u256(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_2_u256(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product_gf16_2_u256(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2_u256(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2_u256(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul_gf16_2_u256(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_8x8xC_u256(benchmark::State& state) {
+static void BM_gf256_matrix_mul_8x8xC_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_8x8xC_u256(m1, m2, m3, ncols2);
-        gf256_matrix_product_8x8xC_u256(m2, m3, m1, ncols2);
-        gf256_matrix_product_8x8xC_u256(m3, m1, m2, ncols2);
+        gf256_matrix_mul_8x8xC_u256(m1, m2, m3, ncols2);
+        gf256_matrix_mul_8x8xC_u256(m2, m3, m1, ncols2);
+        gf256_matrix_mul_8x8xC_u256(m3, m1, m2, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_16x16xC_u256(benchmark::State& state) {
+static void BM_gf256_matrix_mul_16x16xC_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_16x16xC_u256(m1, m2, m3, ncols2);
-        gf256_matrix_product_16x16xC_u256(m2, m3, m1, ncols2);
-        gf256_matrix_product_16x16xC_u256(m3, m1, m2, ncols2);
+        gf256_matrix_mul_16x16xC_u256(m1, m2, m3, ncols2);
+        gf256_matrix_mul_16x16xC_u256(m2, m3, m1, ncols2);
+        gf256_matrix_mul_16x16xC_u256(m3, m1, m2, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-static void BM_gf256_matrix_product_le32xBxle16_u256(benchmark::State& state) {
+static void BM_gf256_matrix_mul_le32xBxle16_u256(benchmark::State& state) {
     for (auto _ : state) {
-        gf256_matrix_product_le32xBxle16_u256(m1, m2, m3, nrows, ncols, ncols2);
-        gf256_matrix_product_le32xBxle16_u256(m2, m3, m1, nrows, ncols, ncols2);
-        gf256_matrix_product_le32xBxle16_u256(m3, m1, m2, nrows, ncols, ncols2);
+        gf256_matrix_mul_le32xBxle16_u256(m1, m2, m3, nrows, ncols, ncols2);
+        gf256_matrix_mul_le32xBxle16_u256(m2, m3, m1, nrows, ncols, ncols2);
+        gf256_matrix_mul_le32xBxle16_u256(m3, m1, m2, nrows, ncols, ncols2);
         benchmark::DoNotOptimize(m3[7] += 1);
     }
 }
 
-// BENCHMARK(BM_gf256_sqr_u256);
+BENCHMARK(BM_gf256_sqr_u256);
 BENCHMARK(BM_gf256_mul_u256_v3);
 BENCHMARK(BM_gf256_mul_u256);
 BENCHMARK(BM_gf256_mul_u256_v2);
-// BENCHMARK(BM_gf256v_mul_scalar_avx2);
+BENCHMARK(BM_gf256v_mul_scalar_avx2);
 
-// BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
-// BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
-// BENCHMARK(BM_gf256v_vector_set_to_gf16_u256   )->RangeMultiplier(2)->Range(15, LIST_SIZE);
-// BENCHMARK(BM_gf256v_vector_set_to_gf16_u256_v2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
-// BENCHMARK(BM_gf256_matrix_add_u256);
-// BENCHMARK(BM_gf256_matrix_add_gf16_u256);
-// BENCHMARK(BM_gf256_matrix_add_multiple_gf16_u256);
-// BENCHMARK(BM_gf256_matrix_add_multiple_2_u256);
-// BENCHMARK(BM_gf256_matrix_product_gf16_1_u256);
-// BENCHMARK(BM_gf256_matrix_product_gf16_2_u256);
-// BENCHMARK(BM_gf256_matrix_product_8x8xC_u256);
-// BENCHMARK(BM_gf256_matrix_product_16x16xC_u256);
-// BENCHMARK(BM_gf256_matrix_product_le32xBxle16_u256);
+BENCHMARK(BM_gf256v_vector_add_scalar_u256)->RangeMultiplier(2)->Range(32, LIST_SIZE);
+BENCHMARK(BM_gf256v_vector_set_to_gf2_u256)->RangeMultiplier(2)->Range(15, LIST_SIZE);
+BENCHMARK(BM_gf256v_vector_set_to_gf16_u256   )->RangeMultiplier(2)->Range(15, LIST_SIZE);
+BENCHMARK(BM_gf256v_vector_set_to_gf16_u256_v2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
+BENCHMARK(BM_gf256_matrix_add_u256);
+BENCHMARK(BM_gf256_matrix_add_gf16_u256);
+BENCHMARK(BM_gf256_matrix_add_scalar_gf16_u256);
+BENCHMARK(BM_gf256_matrix_add_scalar_u256);
+BENCHMARK(BM_gf256_matrix_mul_gf16_1_u256);
+BENCHMARK(BM_gf256_matrix_mul_gf16_2_u256);
+BENCHMARK(BM_gf256_matrix_mul_8x8xC_u256);
+BENCHMARK(BM_gf256_matrix_mul_16x16xC_u256);
+BENCHMARK(BM_gf256_matrix_mul_le32xBxle16_u256);
 #endif
 
 #ifdef USE_NEON
@@ -391,17 +391,17 @@ BENCHMARK(BM_gf256_matrix_transpose_32x32);
 BENCHMARK(BM_gf256_matrix_transpose_32x32_v2);
 #endif
 
-#ifdef __AVX512VL__
+#ifdef USE_AVX512
 static void BM_gf256v_vector_add_scalar_u512(benchmark::State& state) {
-    for (size_t i = 0; i < state.range(0); ++i) {
+    for (int64_t i = 0; i < state.range(0); ++i) {
         A[i] = rand(); B[i] = rand(); C[i] = rand();
     }
 
     for (auto _ : state) {
         gf256 s = rand();
-        gf256_vector_add_scalar_u256(A, B, s, C, sizeof(gf256) * state.range(0));
-        gf256_vector_add_scalar_u256(B, C, s, A, sizeof(gf256) * state.range(0));
-        gf256_vector_add_scalar_u256(C, A, s, B, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u512_v2(A, B, s, C, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u512_v2(B, C, s, A, sizeof(gf256) * state.range(0));
+        gf256_vector_scalar_add_u512_v2(C, A, s, B, sizeof(gf256) * state.range(0));
         benchmark::ClobberMemory();
     }
 }
@@ -409,20 +409,20 @@ static void BM_gf256v_vector_add_scalar_u512(benchmark::State& state) {
 BENCHMARK(BM_gf256v_vector_add_scalar_u512)->RangeMultiplier(2)->Range(32, LIST_SIZE);
 #endif
 
-//BENCHMARK(BM_gf256_mul_u64);
-//BENCHMARK(BM_gf256_scalar_u64);
-//BENCHMARK(BM_gf256_scalar_u64_v2);
-// BENCHMARK(BM_gf256v_vector_set_to_gf2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
+BENCHMARK(BM_gf256_mul_u64);
+BENCHMARK(BM_gf256_scalar_u64);
+BENCHMARK(BM_gf256_scalar_u64_v2);
+BENCHMARK(BM_gf256v_vector_set_to_gf2)->RangeMultiplier(2)->Range(15, LIST_SIZE);
 
-// BENCHMARK(BM_gf256_matrix_add);
-// BENCHMARK(BM_gf256_matrix_add_gf16);
-// BENCHMARK(BM_gf256_matrix_add_multiple_gf16);
-// BENCHMARK(BM_gf256_matrix_add_multiple_2);
-// BENCHMARK(BM_gf256_matrix_product_gf16_1);
-// BENCHMARK(BM_gf256_matrix_product_gf16_2);
-// BENCHMARK(BM_gf256_matrix_product);
-// BENCHMARK(BM_gf256_matrix_product_8x8xC);
-// BENCHMARK(BM_gf256_matrix_product_16x16xC);
+BENCHMARK(BM_gf256_matrix_add);
+BENCHMARK(BM_gf256_matrix_add_gf16);
+BENCHMARK(BM_gf256_matrix_add_scalar_gf16);
+BENCHMARK(BM_gf256_matrix_add_scalar);
+BENCHMARK(BM_gf256_matrix_mul_gf16_1);
+BENCHMARK(BM_gf256_matrix_mul_gf16_2);
+BENCHMARK(BM_gf256_matrix_mul);
+BENCHMARK(BM_gf256_matrix_mul_8x8xC);
+BENCHMARK(BM_gf256_matrix_mul_16x16xC);
 
 int main(int argc, char** argv) {
     A = (gf256 *)malloc(sizeof(gf256) * LIST_SIZE);

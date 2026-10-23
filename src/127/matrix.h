@@ -6,45 +6,72 @@
 #include <stdlib.h>
 
 #include "arith.h"
+#include "vector.h"
 
-/// NOTE: everything row major
+#ifdef __x86_64__
+#include <immintrin.h>
+#endif
 
+/// NOTE: the canonical API (alloc/get/set/print/zero/random/copy/id/add/
+///     add_scalar/mul/add_mul/transpose and their SIMD versions) stores
+///     matrices column-major: entry (i, j) is at m[j*nrows + i].
+/// NOTE: the specialized square/8xN transpose functions (`*_opt*`, `*8x8`,
+///     `*32x32*`, `*8xN`, `*Nx8`) work on row-major byte matrices; for square
+///     matrices both conventions coincide.
+/// NOTE: the output of `mul`/`add_mul` must not alias the inputs
+
+/// Allocate memory for a GF(127) matrix with specified dimensions
+/// \param nrows[in]: number of rows in the matrix
+/// \param ncols[in]: number of columns in the matrix
+/// \return pointer to zero initialized memory, must be freed with `free`
 static inline
 gf127* gf127_matrix_alloc(const uint32_t nrows,
                           const uint32_t ncols) {
+    const size_t size = (size_t)nrows * ncols * sizeof(gf127);
 #ifdef USE_AVX2
-    return (gf127 *)aligned_alloc(32, nrows * ncols * sizeof(gf127));
+    // NOTE: aligned_alloc requires the size to be a multiple of the alignment
+    const size_t asize = ((size + 31) / 32) * 32 + (size == 0 ? 32 : 0);
+    gf127 *ret = (gf127 *)aligned_alloc(32, asize);
+    if (ret) { memset(ret, 0, asize); }
+    return ret;
 #else
-    return (gf127 *)malloc(nrows * ncols * sizeof(gf127));
+    return (gf127 *)calloc(size ? size : 1, 1);
 #endif
 }
 
-///
+/// Get the value at position (i,j) in a GF(127) matrix
+/// \param m[in]: pointer to the matrix
+/// \param nrows[in]: number of rows in the matrix
+/// \param i[in]: row index
+/// \param j[in]: column index
+/// \return the value at position (i,j)
 static inline
 gf127 gf127_matrix_get(const gf127 *m,
                        const uint32_t nrows,
                        const uint32_t i,
                        const uint32_t j) {
-    return m[j*nrows + i];
+    return m[(size_t)j*nrows + i];
 }
 
-/// \param m
-/// \param nrows
-/// \param i
-/// \param j
-/// \param a
+/// Set the value at position (i,j) in a GF(127) matrix
+/// \param m[out]: pointer to the matrix to modify
+/// \param nrows[in]: number of rows in the matrix
+/// \param i[in]: row index
+/// \param j[in]: column index
+/// \param a[in]: value to set
 static inline
 void gf127_matrix_set(gf127 *m,
                       const uint32_t nrows,
                       const uint32_t i,
                       const uint32_t j,
                       const gf127 a) {
-    m[j*nrows + i] = a;
+    m[(size_t)j*nrows + i] = a;
 }
 
-/// \param m
-/// \param nrows
-/// \param ncols
+/// Initialize a GF(127) matrix with all zeros
+/// \param m[out]: pointer to the matrix to initialize
+/// \param nrows[in]: number of rows in the matrix
+/// \param ncols[in]: number of columns in the matrix
 static inline
 void gf127_matrix_zero(gf127 *m,
                        const uint32_t nrows,
@@ -52,70 +79,177 @@ void gf127_matrix_zero(gf127 *m,
     memset(m, 0, sizeof(gf127)*nrows*ncols);
 }
 
-/// \param m
-/// \param nrows
-/// \param ncols
+/// Fill a GF(127) matrix with random values
+/// \param m[out]: pointer to the matrix to fill
+/// \param nrows[in]: number of rows in the matrix
+/// \param ncols[in]: number of columns in the matrix
 static inline
-void gf127_matrix_rng(gf127 *m,
-                      const uint32_t nrows,
-                      const uint32_t ncols) {
+void gf127_matrix_random(gf127 *m,
+                         const uint32_t nrows,
+                         const uint32_t ncols) {
     for(uint32_t i = 0; i < nrows; i++) {
         for (uint32_t j = 0; j < ncols; j++) {
-            gf127_matrix_set(m, nrows, i, j, rand() & 0x7F);
+            gf127_matrix_set(m, nrows, i, j, rand() % PRIME);
         }
     }
 }
 
-/// \param m
-/// \param nrows
-/// \param ncols
+/// \param out[out]: = in
+/// \param in[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_copy(gf127 *out,
+                       const gf127 *in,
+                       const uint32_t nrows,
+                       const uint32_t ncols) {
+    memmove(out, in, (size_t)nrows * ncols * sizeof(gf127));
+}
+
+/// Initialize a GF(127) matrix as an identity matrix
+/// \param m[out]: pointer to the matrix to initialize
+/// \param nrows[in]: number of rows in the matrix
+/// \param ncols[in]: number of columns in the matrix
 static inline
 void gf127_matrix_id(gf127 *m,
-               const uint32_t nrows,
-               const uint32_t ncols) {
+                     const uint32_t nrows,
+                     const uint32_t ncols) {
     gf127_matrix_zero(m, nrows, ncols);
-    for (int i = 0; i < nrows; ++i) {
+    const uint32_t n = nrows < ncols ? nrows : ncols;
+    for (uint32_t i = 0; i < n; ++i) {
         gf127_matrix_set(m, nrows, i, i, 1);
     }
 }
 
-/// \param in
-/// \param nrows
-/// \param ncols
-static inline void gf127_matrix_print(const uint8_t *in,
+/// Print a GF(127) matrix to stdout
+/// \param m[in]: pointer to the matrix to print
+/// \param nrows[in]: number of rows in the matrix
+/// \param ncols[in]: number of columns in the matrix
+static inline void gf127_matrix_print(const gf127 *m,
                                       const uint32_t nrows,
                                       const uint32_t ncols) {
     for (uint32_t i = 0; i < nrows; i++) {
         for(uint32_t j = 0; j < ncols; j++) {
-            printf("%03d ", in[i*ncols + j]);
+            printf("%03d ", gf127_matrix_get(m, nrows, i, j));
         }
         printf("\n");
     }
     printf("\n");
 }
 
-/// simple transpose, needed for debugging
-static inline void gf127_matrix_transpose(uint8_t *out,
-                                          const uint8_t *in,
-                                          const uint32_t nrows,
-                                          const uint32_t ncols) {
-    for (uint32_t i = 0; i < nrows; i++) {
-        for(uint32_t j = 0; j < ncols; j++) {
-            out[j*nrows + i] = in[i*ncols + j];
+/// \param m1[out]: = m2 + m3
+/// \param m2[in]: input matrix
+/// \param m3[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_add(gf127 *m1,
+                      const gf127 *m2,
+                      const gf127 *m3,
+                      const uint32_t nrows,
+                      const uint32_t ncols) {
+    for (uint32_t i = 0; i < nrows * ncols; i++) {
+        m1[i] = gf127_add(m2[i], m3[i]);
+    }
+}
+
+/// \param m1[in/out]: += c*m2
+/// \param c[in]: scalar
+/// \param m2[in]: input matrix
+/// \param nrows[in]: number of rows
+/// \param ncols[in]: number of columns
+static inline
+void gf127_matrix_add_scalar(gf127 *m1,
+                             const gf127 c,
+                             const gf127 *m2,
+                             const uint32_t nrows,
+                             const uint32_t ncols) {
+    gf127_vector_scalar_add(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[out]: = A*B, nrows1 x ncols2
+/// \param A[in]: nrows1 x ncols1 matrix
+/// \param B[in]: ncols1 x ncols2 matrix
+/// \param nrows1[in]: number of rows of A
+/// \param ncols1[in]: number of columns of A, rows of B
+/// \param ncols2[in]: number of columns of B
+static inline
+void gf127_matrix_mul(gf127 *r,
+                      const gf127 *A,
+                      const gf127 *B,
+                      const uint32_t nrows1,
+                      const uint32_t ncols1,
+                      const uint32_t ncols2) {
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            gf127 t = 0;
+            for (uint32_t k = 0; k < ncols1; k++) {
+                const gf127 a = gf127_matrix_get(A, nrows1, i, k);
+                const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+                t = gf127_add(t, gf127_mul(a, b));
+            }
+            gf127_matrix_set(r, nrows1, i, j, t);
         }
     }
 }
 
-/// TODO: move cryptanalyslib
+/// \param r[in/out]: += A*B, nrows1 x ncols2
+/// \param A[in]: nrows1 x ncols1 matrix
+/// \param B[in]: ncols1 x ncols2 matrix
+/// \param nrows1[in]: number of rows of A
+/// \param ncols1[in]: number of columns of A, rows of B
+/// \param ncols2[in]: number of columns of B
+static inline
+void gf127_matrix_add_mul(gf127 *r,
+                          const gf127 *A,
+                          const gf127 *B,
+                          const uint32_t nrows1,
+                          const uint32_t ncols1,
+                          const uint32_t ncols2) {
+    for (uint32_t i = 0; i < nrows1; i++) {
+        for (uint32_t j = 0; j < ncols2; j++) {
+            gf127 t = gf127_matrix_get(r, nrows1, i, j);
+            for (uint32_t k = 0; k < ncols1; k++) {
+                const gf127 a = gf127_matrix_get(A, nrows1, i, k);
+                const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+                t = gf127_add(t, gf127_mul(a, b));
+            }
+            gf127_matrix_set(r, nrows1, i, j, t);
+        }
+    }
+}
+
+/// Matrix transpose (column-major convention)
+/// \param out[out]: = in^T, ncols x nrows matrix
+/// \param in[in]: nrows x ncols matrix
+/// \param nrows[in]: number of rows in the input matrix
+/// \param ncols[in]: number of columns in the input matrix
+static inline void gf127_matrix_transpose(gf127 *out,
+                                          const gf127 *in,
+                                          const uint32_t nrows,
+                                          const uint32_t ncols) {
+    for (uint32_t i = 0; i < nrows; i++) {
+        for(uint32_t j = 0; j < ncols; j++) {
+            gf127_matrix_set(out, ncols, j, i, gf127_matrix_get(in, nrows, i, j));
+        }
+    }
+}
+
+/// Optimized transpose of a 4x4 matrix of bytes
+/// \param dst[out]: pointer to the output transposed matrix
+/// \param src[in]: pointer to the input matrix
+/// \param stride[in]: distance between rows in bytes
+static inline
 void gf127_matrix_transpose4x4(uint8_t* dst,
                                const uint8_t* src,
                                const size_t stride) {
     // load rows of src matrix
-    uint32_t a0 = *((uint32_t*)(src+0*stride));
-    uint32_t a1 = *((uint32_t*)(src+1*stride));
-    uint32_t a2 = *((uint32_t*)(src+2*stride));
-    uint32_t a3 = *((uint32_t*)(src+3*stride));
-    
+    uint32_t a0, a1, a2, a3;
+    memcpy(&a0, src+0*stride, 4);
+    memcpy(&a1, src+1*stride, 4);
+    memcpy(&a2, src+2*stride, 4);
+    memcpy(&a3, src+3*stride, 4);
+
     // 2x2 block matrices
     uint32_t b0 = (a0 & 0x00ff00ffU) | ((a1 << 8) & 0xff00ff00U);
     uint32_t b1 = (a1 & 0xff00ff00U) | ((a0 >> 8) & 0x00ff00ffU);
@@ -129,27 +263,33 @@ void gf127_matrix_transpose4x4(uint8_t* dst,
     uint32_t c3 = (b3 & 0xffff0000U) | ((b1 >> 16) & 0x0000ffffU);
     
     // write to dst matrix
-    *(uint32_t*)(dst + 0*stride) = c0;
-    *(uint32_t*)(dst + 1*stride) = c1;
-    *(uint32_t*)(dst + 2*stride) = c2;
-    *(uint32_t*)(dst + 3*stride) = c3;
+    memcpy(dst + 0*stride, &c0, 4);
+    memcpy(dst + 1*stride, &c1, 4);
+    memcpy(dst + 2*stride, &c2, 4);
+    memcpy(dst + 3*stride, &c3, 4);
 }
 
-/// TODO: move cryptanalyslib
+/// Optimized transpose of an 8x8 matrix of bytes
+/// \param dst[out]: pointer to the output transposed matrix
+/// \param src[in]: pointer to the input matrix
+/// \param src_stride[in]: distance between rows in the source matrix
+/// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose8x8(uint8_t* dst,
                                const uint8_t* src,
                                const size_t src_stride,
                                const size_t dst_stride) {
-    // load rows of src matrix
-    const uint64_t a0 = *((uint64_t*)(src+0*src_stride));
-    const uint64_t a1 = *((uint64_t*)(src+1*src_stride));
-    const uint64_t a2 = *((uint64_t*)(src+2*src_stride));
-    const uint64_t a3 = *((uint64_t*)(src+3*src_stride));
-    const uint64_t a4 = *((uint64_t*)(src+4*src_stride));
-    const uint64_t a5 = *((uint64_t*)(src+5*src_stride));
-    const uint64_t a6 = *((uint64_t*)(src+6*src_stride));
-    const uint64_t a7 = *((uint64_t*)(src+7*src_stride));
-    
+    // load rows of src matrix (memcpy: the rows are not necessarily aligned)
+    uint64_t a0, a1, a2, a3, a4, a5, a6, a7;
+    memcpy(&a0, src+0*src_stride, 8);
+    memcpy(&a1, src+1*src_stride, 8);
+    memcpy(&a2, src+2*src_stride, 8);
+    memcpy(&a3, src+3*src_stride, 8);
+    memcpy(&a4, src+4*src_stride, 8);
+    memcpy(&a5, src+5*src_stride, 8);
+    memcpy(&a6, src+6*src_stride, 8);
+    memcpy(&a7, src+7*src_stride, 8);
+
     // 2x2 block matrices
     const uint64_t b0 = (a0 & 0x00ff00ff00ff00ffULL) | ((a1 << 8) & 0xff00ff00ff00ff00ULL);
     const uint64_t b1 = (a1 & 0xff00ff00ff00ff00ULL) | ((a0 >> 8) & 0x00ff00ff00ff00ffULL);
@@ -181,17 +321,22 @@ void gf127_matrix_transpose8x8(uint8_t* dst,
     const uint64_t d7 = (c7 & 0xffffffff00000000ULL) | ((c3 >> 32) & 0x00000000ffffffffULL);
     
     // write to dst matrix
-    *(uint64_t*)(dst + 0*dst_stride) = d0;
-    *(uint64_t*)(dst + 1*dst_stride) = d1;
-    *(uint64_t*)(dst + 2*dst_stride) = d2;
-    *(uint64_t*)(dst + 3*dst_stride) = d3;
-    *(uint64_t*)(dst + 4*dst_stride) = d4;
-    *(uint64_t*)(dst + 5*dst_stride) = d5;
-    *(uint64_t*)(dst + 6*dst_stride) = d6;
-    *(uint64_t*)(dst + 7*dst_stride) = d7;
+    memcpy(dst + 0*dst_stride, &d0, 8);
+    memcpy(dst + 1*dst_stride, &d1, 8);
+    memcpy(dst + 2*dst_stride, &d2, 8);
+    memcpy(dst + 3*dst_stride, &d3, 8);
+    memcpy(dst + 4*dst_stride, &d4, 8);
+    memcpy(dst + 5*dst_stride, &d5, 8);
+    memcpy(dst + 6*dst_stride, &d6, 8);
+    memcpy(dst + 7*dst_stride, &d7, 8);
 }
 
-/// Compute origin of the 64-block next to (rb, cb) in row-major order
+/// Compute origin of the next 64-byte block after position (rb, cb) in row-major order
+/// \param src[in]: pointer to the source matrix
+/// \param rb[in]: current row block index
+/// \param cb[in]: current column block index
+/// \param n[in]: matrix dimension
+/// \return pointer to the next block
 static inline
 const uint8_t* gf127_next_block(const uint8_t *src,
                           const uint64_t rb,
@@ -207,9 +352,10 @@ const uint8_t* gf127_next_block(const uint8_t *src,
     return src + (rb1*n + cb1) * 64;
 }
 
-/// \param dst
-/// \param src
-/// \param n
+/// Optimized matrix transpose for large matrices using block-based algorithm
+/// \param dst[out]: pointer to the output transposed matrix
+/// \param src[in]: pointer to the input matrix
+/// \param n[in]: matrix dimension (must be a multiple of block size)
 static inline
 void gf127_matrix_transpose_opt(uint8_t *dst,
                                 const uint8_t *src,
@@ -247,7 +393,8 @@ void gf127_matrix_transpose_opt(uint8_t *dst,
 #ifdef USE_AVX2 
 #include <immintrin.h>
 
-/// needed for gf127_matrix_transpose_64x64_avx2
+/// Blend masks needed for AVX2 matrix transpose operations
+/// Used in various transpose implementations to control data movement between registers
 static const uint8_t BLENDV_MASK[5][32] __attribute__((aligned(32)))= {
     { 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff },
     { 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff },
@@ -256,7 +403,8 @@ static const uint8_t BLENDV_MASK[5][32] __attribute__((aligned(32)))= {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
 };
 
-// needed for gf127_matrix_transpose_64x64_avx2
+/// Shuffle masks needed for AVX2 matrix transpose operations
+/// Used to rearrange bytes within registers during transpose operation
 static const uint8_t SHUFFLE_MASK[4][32] __attribute__((aligned(32))) = {
     { 1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22, 25, 24, 27, 26, 29, 28, 31, 30 },
     { 2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13, 18, 19, 16, 17, 22, 23, 20, 21, 26, 27, 24, 25, 30, 31, 28, 29 },
@@ -264,16 +412,12 @@ static const uint8_t SHUFFLE_MASK[4][32] __attribute__((aligned(32))) = {
     { 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 24, 25, 26, 27, 28, 29, 30, 31, 16, 17, 18, 19, 20, 21, 22, 23 },
 };
 
-/// TODO probably just make two functions, one for aligned access and one for unaligned
-typedef __m256i_u LOAD_TYPE;
-typedef __m256i_u STORE_TYPE;
-
-
-/// \param dst_origin[out]: output matrix
-/// \param src_origin[in]: input matrix
-/// \param prf_origin[in]: lookahead pointer to prefetch it
-/// \param src_stride[in]:
-/// \param dst_stride[in]:
+/// AVX2 optimized transpose of a 32x32 matrix of bytes
+/// \param dst_origin[out]: pointer to the output transposed matrix
+/// \param src_origin[in]: pointer to the input matrix
+/// \param src_stride[in]: distance between rows in the source matrix
+/// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const size_t src_stride,
@@ -287,7 +431,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i] = _mm256_loadu_si256((const __m256i *)(src_origin + i*src_stride));
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 32; i+=2) {
         const __m256i t0 = _mm256_unpacklo_epi8(t[i+0], t[i+1]);
         const __m256i t1 = _mm256_unpackhi_epi8(t[i+0], t[i+1]);
@@ -295,7 +439,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+1] = t1;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 32; i+=4) {
         const __m256i t0 = _mm256_unpacklo_epi16(t[i+0], t[i+2]);
         const __m256i t1 = _mm256_unpacklo_epi16(t[i+1], t[i+3]);
@@ -307,7 +451,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+3] = t3;
     }
 
-    #pragma unroll
+    //#pragma unroll
     for (uint32_t i = 0; i < 32; i+=8) {
         const __m256i t0 = _mm256_unpacklo_epi32(t[i+0], t[i+4]);
         const __m256i t1 = _mm256_unpacklo_epi32(t[i+1], t[i+5]);
@@ -327,7 +471,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+7] = t7;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 8; i++) {
         const __m256i t0 = _mm256_unpacklo_epi64(t[i+ 0], t[i+ 8]);
         const __m256i t1 = _mm256_unpackhi_epi64(t[i+ 0], t[i+ 8]);
@@ -339,7 +483,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+24] = t3;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 16; i++) {
         const __m256i t0 = _mm256_permute2x128_si256(t[i+0], t[i+16], 0b100000);
         const __m256i t1 = _mm256_permute2x128_si256(t[i+0], t[i+16], 0b110001);
@@ -347,7 +491,7 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
         t[i+16] = t1;
     }
 
-    #pragma unroll
+    // #pragma unroll
     for (uint32_t i = 0; i < 16; i++) {
         const uint32_t pos = matrix_transpose_table[i];
         _mm256_storeu_si256((__m256i *)(dst_origin + i*dst_stride), t[pos]);
@@ -359,16 +503,24 @@ void gf127_matrix_transpose_32x32_u256(uint8_t* dst_origin,
     }
 }
 
-/// \param dst_origin
-/// \param src_origin
-/// \param prf_origin
-/// \param src_stride
-/// \param dst_stride
+/// Alternative AVX2 optimized transpose of a 32x32 matrix of bytes with prefetching
+/// \param dst_origin[out]: pointer to the output transposed matrix
+/// \param src_origin[in]: pointer to the input matrix
+/// \param prf_origin[in]: lookahead pointer to prefetch for optimization
+/// \param src_stride[in]: distance between rows in the source matrix
+/// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_32x32_u256_v2(uint8_t* dst_origin,
                                           const uint8_t* src_origin,
                                           const uint8_t* prf_origin,
                                           const size_t src_stride,
                                           const size_t dst_stride) {
+
+/// Type definitions for AVX2 memory access operations
+/// TODO: probably just make two functions, one for aligned access and one for unaligned
+typedef __m256i_u LOAD_TYPE;
+typedef __m256i_u STORE_TYPE;
+
   const __m256i shm_1 = _mm256_load_si256((const __m256i *)SHUFFLE_MASK[0]);
   const __m256i blm_1 = _mm256_load_si256((const __m256i *)BLENDV_MASK[0]);
   __m256i rnd_0_0 = *(const LOAD_TYPE*)(src_origin + 0*src_stride);
@@ -778,13 +930,18 @@ void gf127_matrix_transpose_32x32_u256_v2(uint8_t* dst_origin,
   __m256i rnd_5_31 = _mm256_blendv_epi8(shf_5_15, rnd_4_31, blm_5);
   *(STORE_TYPE*)(dst_origin + 15*dst_stride) = rnd_5_15;
   *(STORE_TYPE*)(dst_origin + 31*dst_stride) = rnd_5_31;
+
+#undef LOAD_TYPE
+#undef STORE_TYPE
 }
 
 #ifdef USE_AVX512
-/// \param dst_origin[out]: output matrix
-/// \param src_origin[in]: input matrix
-/// \param src_stride[in]:
-/// \param dst_stride[in]:
+/// AVX512 optimized transpose of a 64x64 matrix of bytes
+/// \param dst_origin[out]: pointer to the output transposed matrix
+/// \param src_origin[in]: pointer to the input matrix
+/// \param src_stride[in]: distance between rows in the source matrix
+/// \param dst_stride[in]: distance between rows in the destination matrix
+static inline
 void gf127_matrix_transpose_64x64_u512(uint8_t* dst_origin,
                                        const uint8_t* src_origin,
                                        const size_t src_stride,
@@ -904,6 +1061,7 @@ void gf127_matrix_transpose_64x64_u512(uint8_t* dst_origin,
 /// \param dst
 /// \param src
 /// \param n must be divisable by 64
+static inline
 void gf127_matrix_transpose_opt_avx2(uint8_t *dst,
                                      const uint8_t *src,
                                      const size_t n) {
@@ -1051,221 +1209,179 @@ static inline void gf127_matrix_transposeNx8(uint8_t *dst,
     }
 }
 
-/// 
-void gf127_matrix_vector_mul(uint8_t *c, 
-                             const uint8_t *a, 
-                             const uint8_t *b, 
+/// scales every row i of the row-major matrix `a` (row stride m) with b[i]:
+///     c[i*m + j] = b[i] * a[i*m + j], for i < m, j < n
+static inline
+void gf127_matrix_vector_mul(uint8_t *c,
+                             const uint8_t *a,
+                             const uint8_t *b,
                              const size_t n,
                              const size_t m) {
     for (uint32_t i = 0; i < m; i++) {
         const uint8_t v = b[i];
         for (uint32_t j = 0; j < n; j++) {
             const uint8_t w = a[i*m + j];
-            const uint8_t a = gf127_mul(v, w);
-            c[i*m + j] = a;
+            const uint8_t t = gf127_mul(v, w);
+            c[i*m + j] = t;
         }
     }
 }
 
+
 #ifdef USE_AVX2
-/// this is a test for the auto generated code
-/// \param c[out]:
-void gf127_matrix_vector_mul_32x32x1_u256(uint8_t *c, 
-                                          const uint8_t *a, 
-                                          const uint8_t *b) {
-    __m256i t0;
-    __m256i t1;
-    t1 = _mm256_set1_epi8(b[0]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[1]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[2]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[3]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[4]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[5]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[6]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[7]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[8]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[9]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[10]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[11]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[12]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[13]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[14]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[15]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[16]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[17]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[18]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[19]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[20]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[21]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[22]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[23]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[24]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[25]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[26]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[27]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[28]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[29]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[30]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
-    t1 = _mm256_set1_epi8(b[31]);
-    t0 = _mm256_loadu_si256((__m256i *)(a + 0*32));
-    t0 = gf127v_mul_u256(t0, t1);
-    _mm256_storeu_si256((__m256i *)(c + 0*32), t0);
-    a += 32;
-    c += 32;
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u256(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u256_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u256(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u256(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u256(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u256(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u256(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u256(r, A, B, nrows1, ncols1, ncols2);
+}
+#endif
+
+
+#ifdef USE_AVX512
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u512(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u512_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u512(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u512(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u512(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u512(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u512(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u512(r, A, B, nrows1, ncols1, ncols2);
+}
+#endif
+
+
+#ifdef USE_NEON
+
+/// \param m1[out]: = m2 + m3
+static inline
+void gf127_matrix_add_u128(gf127 *m1,
+                           const gf127 *m2,
+                           const gf127 *m3,
+                           const uint32_t nrows,
+                           const uint32_t ncols) {
+    gf127_vector_add_u128_v2(m1, m2, m3, nrows * ncols);
+}
+
+/// \param m1[in/out]: += c*m2
+static inline
+void gf127_matrix_add_scalar_u128(gf127 *m1,
+                                  const gf127 c,
+                                  const gf127 *m2,
+                                  const uint32_t nrows,
+                                  const uint32_t ncols) {
+    gf127_vector_scalar_add_u128(m1, c, m2, nrows * ncols);
+}
+
+/// \param r[in/out]: += A*B, computed column wise: r[:,j] += B[k,j] * A[:,k]
+static inline
+void gf127_matrix_add_mul_u128(gf127 *r,
+                               const gf127 *A,
+                               const gf127 *B,
+                               const uint32_t nrows1,
+                               const uint32_t ncols1,
+                               const uint32_t ncols2) {
+    for (uint32_t j = 0; j < ncols2; j++) {
+        gf127 *rj = r + (size_t)j*nrows1;
+        for (uint32_t k = 0; k < ncols1; k++) {
+            const gf127 b = gf127_matrix_get(B, ncols1, k, j);
+            gf127_vector_scalar_add_u128(rj, b, A + (size_t)k*nrows1, nrows1);
+        }
+    }
+}
+
+/// \param r[out]: = A*B
+static inline
+void gf127_matrix_mul_u128(gf127 *r,
+                           const gf127 *A,
+                           const gf127 *B,
+                           const uint32_t nrows1,
+                           const uint32_t ncols1,
+                           const uint32_t ncols2) {
+    gf127_matrix_zero(r, nrows1, ncols2);
+    gf127_matrix_add_mul_u128(r, A, B, nrows1, ncols1, ncols2);
 }
 #endif

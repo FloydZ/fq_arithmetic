@@ -1,0 +1,20 @@
+require "arith.jinc"
+
+// NOTE: a, b < 2^16
+export
+fn gf256to2_mul(reg u16 a, reg u16 b) -> reg u16 {
+    reg u64 x, y, z;
+    reg u16 r;
+    x = (64u) a;
+    y = (64u) b;
+    z = __gf256to2_mul(x, y);
+    r = (16u) z;
+    return r;
+}
+
+export
+fn gf256to2v_mul_u256(reg u256 a, reg u256 b) -> reg u256 {
+    reg u256 r;
+    r = __gf256to2v_mul_u256(a, b);
+    return r;
+}

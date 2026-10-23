@@ -10,8 +10,8 @@ let
     myPythonPackages.ipython
     myPythonPackages.pip
     myPythonPackages.wheel
-    # ruff
-    jetbrains.pycharm-community
+    ruff
+    # jetbrains.pycharm-community
 
     # needed for running the C code
     cmake
